@@ -6,6 +6,16 @@ BINARY="wede"
 echo "Installing wede..."
 echo ""
 
+# Check dependencies
+if ! command -v curl &> /dev/null; then
+  echo "Error: curl is required but not installed."
+  echo "  Install it with your package manager:"
+  echo "    Ubuntu/Debian: sudo apt install curl"
+  echo "    macOS:         brew install curl"
+  echo "    Fedora:        sudo dnf install curl"
+  exit 1
+fi
+
 # Detect OS and set install directory
 OS="$(uname -s)"
 case "$OS" in
@@ -13,6 +23,7 @@ case "$OS" in
     OS="linux"
     INSTALL_DIR="${HOME}/.local/bin"
     ;;
+
   Darwin*)
     OS="darwin"
     INSTALL_DIR="${HOME}/.local/bin"
@@ -91,10 +102,18 @@ if ! echo "$PATH" | tr ':' '\n' | grep -q "^${INSTALL_DIR}$"; then
   esac
 fi
 
-# Create default config if none exists
-CONFIG_FILE="wede.config.json"
-if [ ! -f "$CONFIG_FILE" ]; then
-  DEFAULT_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16 || true)
+# Create default config
+CONFIG_DIR="${HOME}/.config/wede"
+CONFIG_FILE="${CONFIG_DIR}/wede.config.json"
+mkdir -p "$CONFIG_DIR"
+
+DEFAULT_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16 || true)
+
+if [ -f "$CONFIG_FILE" ]; then
+  echo ""
+  echo "  Config already exists at ${CONFIG_FILE}"
+  echo "  Skipping config creation."
+else
   cat > "$CONFIG_FILE" <<CONF
 {
   "password": "${DEFAULT_PASSWORD}",
@@ -102,8 +121,14 @@ if [ ! -f "$CONFIG_FILE" ]; then
 }
 CONF
   echo ""
-  echo "  Created ${CONFIG_FILE} with a random password."
-  echo "  Password: ${DEFAULT_PASSWORD}"
+  echo "  Config created at: ${CONFIG_FILE}"
+  echo ""
+  echo "  ┌─────────────────────────────────────────────┐"
+  echo "  │  Admin password: ${DEFAULT_PASSWORD}         │"
+  echo "  │  Port:           9090                        │"
+  echo "  │                                              │"
+  echo "  │  To change, edit: ${CONFIG_FILE}  │"
+  echo "  └─────────────────────────────────────────────┘"
 fi
 
 echo ""

@@ -36,7 +36,18 @@ func Load() *Config {
 		}
 	}
 
-	// 2. Next to executable
+	// 2. ~/.config/wede/
+	if data == nil {
+		if home, err := os.UserHomeDir(); err == nil {
+			p := filepath.Join(home, ".config", "wede", configName)
+			if d, err := os.ReadFile(p); err == nil {
+				data = d
+				found = p
+			}
+		}
+	}
+
+	// 3. Next to executable
 	if data == nil {
 		if exe, err := os.Executable(); err == nil {
 			p := filepath.Join(filepath.Dir(exe), configName)
@@ -48,7 +59,7 @@ func Load() *Config {
 	}
 
 	if data == nil {
-		log.Fatal("wede.config.json not found (searched cwd, parent dirs, and next to executable)")
+		log.Fatal("wede.config.json not found (searched cwd, parent dirs, ~/.config/wede/, and next to executable)")
 	}
 
 	log.Printf("loaded config from %s", found)

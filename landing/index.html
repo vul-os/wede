@@ -1,1025 +1,466 @@
 <!doctype html>
 <html lang="en" class="scroll-smooth">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>
-            wede — Self-Hosted Web IDE | Code Editor, Terminal & Git in Your
-            Browser
-        </title>
-        <meta
-            name="description"
-            content="wede is a free, open-source, self-hosted web IDE. A single Go binary gives you a code editor, terminal, file explorer, and git client in your browser. No cloud, no subscriptions. Run it on your server, NAS, or Raspberry Pi."
-        />
-        <meta
-            name="keywords"
-            content="web IDE, self-hosted IDE, online code editor, browser IDE, self-hosted code editor, remote development, terminal in browser, git client, VS Code alternative, open source IDE, Go web IDE, lightweight IDE, code server alternative, developer tools, self-hosted development environment, web terminal, PTY terminal, code editor dark mode, mobile code editor, single binary IDE"
-        />
-        <meta name="author" content="wede" />
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>wede — Self-Hosted Web IDE</title>
+<meta name="description" content="wede is a free, open-source, self-hosted web IDE. A single Go binary gives you a code editor, terminal, file explorer, and git client in your browser.">
+<meta name="keywords" content="web IDE, self-hosted IDE, online code editor, browser IDE, remote development, terminal in browser, git client, VS Code alternative, open source IDE, Go web IDE, code server alternative">
+<meta name="author" content="wede">
 
-        <!-- Open Graph -->
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="wede — Self-Hosted Web IDE" />
-        <meta
-            property="og:description"
-            content="A lightweight, open-source, self-hosted web IDE. Single binary. Code editor, terminal, git, and file explorer in your browser."
-        />
-        <meta
-            property="og:image"
-            content="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/w8h2jdxnt7f8_full_light.png"
-        />
-        <meta property="og:url" content="https://wede.pty.it.com/" />
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="wede — Self-Hosted Web IDE">
+<meta property="og:description" content="A lightweight, open-source, self-hosted web IDE. Single binary. Code editor, terminal, git, and file explorer in your browser.">
+<meta property="og:image" content="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/w8h2jdxnt7f8_full_light.png">
+<meta property="og:url" content="https://wede.pty.it.com/">
 
-        <!-- Favicon -->
-        <link
-            rel="icon"
-            type="image/svg+xml"
-            href="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg"
-        />
-        <link
-            rel="apple-touch-icon"
-            href="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg"
-        />
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg">
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-            rel="stylesheet"
-        />
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-        <!-- Scripts -->
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script
-            defer
-            src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-        ></script>
-        <script src="https://unpkg.com/lucide@latest"></script>
-        <script defer src="https://webcrft.io/crft.js"></script>
+<script defer src="https://webcrft.io/crft.js"></script>
 
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            brand: {
-                                50: "#eff6ff",
-                                100: "#dbeafe",
-                                200: "#bfdbfe",
-                                300: "#93c5fd",
-                                400: "#60a5fa",
-                                500: "#3b82f6",
-                                600: "#2563eb",
-                                700: "#1d4ed8",
-                                800: "#1e40af",
-                                900: "#1e3a8a",
-                                950: "#172554",
-                            },
-                            dark: {
-                                bg: "#0a0f1a",
-                                surface: "#111827",
-                                elevated: "#1a2236",
-                                border: "#1e2d4a",
-                            },
-                        },
-                        fontFamily: {
-                            sans: ["Inter", "sans-serif"],
-                            heading: ["Space Grotesk", "sans-serif"],
-                            mono: ["JetBrains Mono", "monospace"],
-                        },
-                    },
-                },
-            };
-        </script>
-        <style>
-            [x-cloak] {
-                display: none !important;
-            }
-            .token-keyword {
-                color: #c678dd;
-                font-weight: 500;
-            }
-            .token-string {
-                color: #98c379;
-            }
-            .token-function {
-                color: #61afef;
-            }
-            .token-comment {
-                color: #5c6370;
-                font-style: italic;
-            }
-            .token-number {
-                color: #d19a66;
-            }
-            .token-property {
-                color: #e06c75;
-            }
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-            @keyframes float {
-                0%,
-                100% {
-                    transform: translateY(0);
-                }
-                50% {
-                    transform: translateY(-10px);
-                }
-            }
-            .animate-float {
-                animation: float 6s ease-in-out infinite;
-            }
-        </style>
-    </head>
-    <body class="bg-dark-bg text-gray-200 font-sans antialiased pt-1">
-        <!-- Navigation -->
-        <nav
-            class="sticky top-1 z-50 mx-4 lg:mx-auto max-w-7xl bg-dark-bg/80 backdrop-blur-lg border border-dark-border rounded-2xl shadow-lg"
-        >
-            <div class="px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center gap-3">
-                        <a href="#" class="flex items-center gap-2 group">
-                            <img
-                                src="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg"
-                                alt="wede"
-                                class="w-8 h-8 group-hover:scale-110 transition-transform"
-                            />
-                            <span
-                                class="font-heading font-bold text-xl text-white"
-                                >wede</span
-                            >
-                        </a>
-                    </div>
+:root {
+  --bg: #0a0f1a;
+  --surface: #111827;
+  --elevated: #0f172a;
+  --border: #1e293b;
+  --text: #f1f5f9;
+  --text-2: #94a3b8;
+  --text-3: #64748b;
+  --text-4: #334155;
+  --accent: #60a5fa;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', -apple-system, sans-serif;
+}
 
-                    <!-- Desktop Nav -->
-                    <div class="hidden md:flex items-center space-x-8">
-                        <a
-                            href="#features"
-                            class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-                            >Features</a
-                        >
-                        <a
-                            href="#install"
-                            class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-                            >Install</a
-                        >
-                        <a
-                            href="#development"
-                            class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-                            >Dev</a
-                        >
-                        <a
-                            href="https://github.com/webcrft/wede"
-                            target="_blank"
-                            class="text-sm font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"
-                        >
-                            <i data-lucide="github" class="w-4 h-4"></i>
-                            GitHub
-                        </a>
-                        <a
-                            href="#install"
-                            class="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 transition-colors"
-                        >
-                            Get Started
-                        </a>
-                    </div>
+html { scroll-behavior: smooth; }
 
-                    <!-- Mobile menu button -->
-                    <div
-                        class="md:hidden flex items-center"
-                        x-data="{ open: false }"
-                    >
-                        <button
-                            @click="open = !open"
-                            class="text-gray-400 hover:text-white"
-                        >
-                            <i
-                                data-lucide="menu"
-                                class="w-6 h-6"
-                                x-show="!open"
-                            ></i>
-                            <i
-                                data-lucide="x"
-                                class="w-6 h-6"
-                                x-show="open"
-                                x-cloak
-                            ></i>
-                        </button>
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-2);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
 
-                        <div
-                            x-show="open"
-                            x-transition:enter="transition ease-out duration-200"
-                            x-transition:enter-start="opacity-0 scale-95"
-                            x-transition:enter-end="opacity-100 scale-100"
-                            x-transition:leave="transition ease-in duration-75"
-                            x-transition:leave-start="opacity-100 scale-100"
-                            x-transition:leave-end="opacity-0 scale-95"
-                            class="absolute top-16 right-4 w-48 bg-dark-surface border border-dark-border rounded-xl shadow-2xl p-2 flex flex-col gap-1"
-                            x-cloak
-                        >
-                            <a
-                                href="#features"
-                                @click="open = false"
-                                class="px-3 py-2 text-sm rounded-lg hover:bg-dark-elevated"
-                                >Features</a
-                            >
-                            <a
-                                href="#install"
-                                @click="open = false"
-                                class="px-3 py-2 text-sm rounded-lg hover:bg-dark-elevated"
-                                >Install</a
-                            >
-                            <a
-                                href="#development"
-                                @click="open = false"
-                                class="px-3 py-2 text-sm rounded-lg hover:bg-dark-elevated"
-                                >Dev</a
-                            >
-                            <a
-                                href="https://github.com/webcrft/wede"
-                                target="_blank"
-                                class="px-3 py-2 text-sm rounded-lg hover:bg-dark-elevated flex items-center gap-2"
-                            >
-                                <i data-lucide="github" class="w-4 h-4"></i>
-                                GitHub
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
+a { color: var(--text-2); text-decoration: none; transition: color .15s; }
+a:hover { color: var(--text); }
 
-        <!-- Hero Section -->
-        <header class="relative overflow-hidden pt-16 pb-24 lg:pt-32 lg:pb-40">
-            <!-- Background Glow -->
-            <div
-                class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none"
-            >
-                <div
-                    class="absolute top-[-10%] left-1/4 w-[50%] h-[50%] bg-brand-600/10 blur-[120px] rounded-full"
-                ></div>
-                <div
-                    class="absolute bottom-1/4 right-1/4 w-[40%] h-[40%] bg-purple-600/5 blur-[100px] rounded-full"
-                ></div>
-            </div>
+.mono { font-family: var(--mono); }
+.container { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
 
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <div class="text-center max-w-4xl mx-auto">
-                    <div
-                        class="inline-flex items-center rounded-full bg-orange-500/10 px-3 py-1 text-sm font-medium text-orange-400 ring-1 ring-inset ring-orange-400/20 mb-8"
-                    >
-                        <span class="flex items-center gap-1.5">
-                            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-                            Beta v0.1.0 is here
-                        </span>
-                    </div>
-                    <h1
-                        class="text-4xl sm:text-6xl lg:text-7xl font-heading font-bold tracking-tight text-white mb-8"
-                    >
-                        Your own <span class="text-brand-500">web IDE</span>.<br
-                            class="hidden sm:block"
-                        />
-                        Self-hosted. Single binary.
-                    </h1>
-                    <p
-                        class="text-lg sm:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed"
-                    >
-                        A lightweight, open-source code editor, terminal, and
-                        git client that runs in your browser. No cloud, no
-                        subscriptions. Run it on your server, NAS, or Raspberry
-                        Pi.
-                    </p>
-                    <div
-                        class="flex flex-col sm:flex-row items-center justify-center gap-4"
-                    >
-                        <a
-                            href="#install"
-                            class="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-brand-600 px-8 py-4 text-base font-semibold text-white shadow-lg hover:bg-brand-500 hover:-translate-y-0.5 transition-all duration-200"
-                        >
-                            Get Started Free
-                            <i
-                                data-lucide="arrow-right"
-                                class="ml-2 w-5 h-5"
-                            ></i>
-                        </a>
-                        <a
-                            href="https://github.com/webcrft/wede"
-                            target="_blank"
-                            class="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-dark-surface px-8 py-4 text-base font-semibold text-white shadow-sm ring-1 ring-inset ring-dark-border hover:bg-dark-elevated hover:-translate-y-0.5 transition-all duration-200"
-                        >
-                            <i data-lucide="github" class="mr-2 w-5 h-5"></i>
-                            Star on GitHub
-                        </a>
-                    </div>
-                </div>
+/* ── Nav ── */
+.nav {
+  position: fixed; top: 10px; left: 1rem; right: 1rem; z-index: 100;
+  max-width: 1080px; margin: 0 auto;
+  background: rgba(10, 15, 26, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 1.25rem;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: .5rem;
+  font-family: var(--mono); font-weight: 700; font-size: .95rem; color: var(--text);
+}
+.nav-logo img { width: 22px; height: 22px; }
+.nav-links { display: flex; align-items: center; gap: 1.75rem; }
+.nav-links a { font-family: var(--mono); font-size: .8rem; color: var(--text-3); letter-spacing: -.01em; }
+.nav-links a:hover { color: var(--text); }
+.nav-links .gh { display: flex; align-items: center; gap: .4rem; }
+.nav-links .gh svg { width: 14px; height: 14px; }
 
-                <!-- Hero Image -->
-                <div class="mt-20 relative group">
-                    <div
-                        class="absolute -inset-1 bg-gradient-to-r from-brand-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-1000"
-                    ></div>
-                    <div
-                        class="relative rounded-2xl border border-dark-border bg-dark-surface overflow-hidden shadow-2xl"
-                    >
-                        <img
-                            src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/w8h2jdxnt7f8_full_light.png"
-                            alt="wede IDE Interface"
-                            class="w-full h-auto"
-                        />
-                    </div>
-                </div>
-            </div>
-        </header>
+/* ── Hero ── */
+.hero {
+  padding: 10rem 0 5rem;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-block;
+  font-family: var(--mono); font-size: .7rem; font-weight: 500;
+  color: var(--text-3); letter-spacing: .08em; text-transform: uppercase;
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: .35rem 1rem; margin-bottom: 2rem;
+}
+.hero h1 {
+  font-family: var(--mono); font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  color: var(--text); line-height: 1.2;
+  margin-bottom: 1.25rem; letter-spacing: -.03em;
+}
+.hero h1 span { color: var(--accent); }
+.hero p {
+  font-size: 1.05rem; color: var(--text-3);
+  max-width: 520px; margin: 0 auto 2.5rem;
+  line-height: 1.7;
+}
+.hero-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-family: var(--mono); font-size: .82rem; font-weight: 500;
+  padding: .65rem 1.5rem; border-radius: 8px;
+  border: 1px solid var(--border); cursor: pointer;
+  transition: all .15s;
+}
+.btn-primary {
+  background: var(--text); color: var(--bg); border-color: var(--text);
+}
+.btn-primary:hover { opacity: .85; }
+.btn-secondary { background: transparent; color: var(--text-2); }
+.btn-secondary:hover { border-color: var(--text-3); color: var(--text); }
+.btn svg { width: 15px; height: 15px; }
 
-        <!-- Quick Install Section -->
-        <section
-            id="install"
-            class="py-24 bg-dark-surface/50 border-y border-dark-border"
-        >
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-                >
-                    <div>
-                        <h2
-                            class="text-3xl sm:text-4xl font-heading font-bold text-white mb-6"
-                        >
-                            Install in seconds
-                        </h2>
-                        <p class="text-lg text-gray-400 mb-8">
-                            Wede is a single binary written in Go. No
-                            dependencies, no complex setup. Just run the install
-                            script and you're ready to code.
-                        </p>
-                        <ul class="space-y-4 mb-10">
-                            <li class="flex items-start gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check-circle-2"
-                                    class="w-6 h-6 text-brand-500 shrink-0"
-                                ></i>
-                                <span
-                                    >Zero dependencies (no Node, no
-                                    Docker)</span
-                                >
-                            </li>
-                            <li class="flex items-start gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check-circle-2"
-                                    class="w-6 h-6 text-brand-500 shrink-0"
-                                ></i>
-                                <span>Lightweight (~10MB binary)</span>
-                            </li>
-                            <li class="flex items-start gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check-circle-2"
-                                    class="w-6 h-6 text-brand-500 shrink-0"
-                                ></i>
-                                <span
-                                    >Works on Linux, macOS, and ARM (Raspberry
-                                    Pi)</span
-                                >
-                            </li>
-                        </ul>
-                    </div>
+/* ── Screenshot ── */
+.hero-img {
+  margin: 4rem auto 0; max-width: 960px;
+  border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden;
+}
+.hero-img img { width: 100%; display: block; }
 
-                    <div class="space-y-6" x-data="{ copied: false }">
-                        <div
-                            class="rounded-2xl bg-dark-bg border border-dark-border p-6 shadow-xl"
-                        >
-                            <div class="flex items-center justify-between mb-4">
-                                <span
-                                    class="text-xs font-mono text-gray-500 uppercase tracking-widest"
-                                    >Install Script</span
-                                >
-                                <button
-                                    @click="
-                                navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/webcrft/wede/main/install.sh | bash');
-                                copied = true;
-                                setTimeout(() => copied = false, 2000);
-                            "
-                                    class="text-xs font-medium text-brand-400 hover:text-brand-300 flex items-center gap-1.5 transition-colors"
-                                >
-                                    <i
-                                        :data-lucide="copied ? 'check' : 'copy'"
-                                        class="w-3.5 h-3.5"
-                                    ></i>
-                                    <span
-                                        x-text="copied ? 'Copied!' : 'Copy command'"
-                                    ></span>
-                                </button>
-                            </div>
-                            <div
-                                class="font-mono text-sm sm:text-base overflow-x-auto whitespace-nowrap py-2"
-                            >
-                                <span class="text-gray-500 mr-2">$</span>
-                                <span class="token-keyword">curl</span> -fsSL
-                                <span class="token-string"
-                                    >"https://raw.githubusercontent.com/webcrft/wede/main/install.sh"</span
-                                >
-                                | <span class="token-keyword">bash</span>
-                            </div>
-                        </div>
+/* ── Install ── */
+.install { padding: 6rem 0; }
+.install-box {
+  border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden;
+}
+.install-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .75rem 1.25rem;
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+}
+.install-header span { font-family: var(--mono); font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+.install-header button {
+  font-family: var(--mono); font-size: .7rem; color: var(--text-3);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: .25rem .6rem; cursor: pointer; transition: all .15s;
+}
+.install-header button:hover { color: var(--text); border-color: var(--text-3); }
+.install-code {
+  padding: 1.25rem 1.5rem;
+  font-family: var(--mono); font-size: .85rem;
+  color: var(--text-2); background: var(--bg);
+  overflow-x: auto; white-space: nowrap;
+}
+.install-code .p { color: var(--text-4); user-select: none; }
+.install-code .cmd { color: var(--text); }
+.install-code .str { color: var(--accent); }
 
-                        <div
-                            class="rounded-2xl bg-dark-bg border border-dark-border p-6 shadow-xl"
-                        >
-                            <div class="flex items-center justify-between mb-4">
-                                <span
-                                    class="text-xs font-mono text-gray-500 uppercase tracking-widest"
-                                    >Quick Start</span
-                                >
-                            </div>
-                            <div class="space-y-4 font-mono text-sm">
-                                <div>
-                                    <div class="text-gray-500 mb-1">
-                                        # 1. Start wede
-                                    </div>
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-function">wede</span>
-                                        .
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500 mb-1">
-                                        # 2. Open in browser
-                                    </div>
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-function">open</span>
-                                        http://localhost:9090
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+.install-steps {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border); border-top: 1px solid var(--border);
+}
+.install-step {
+  padding: 1.25rem 1.5rem; background: var(--bg);
+  font-family: var(--mono); font-size: .82rem;
+}
+.install-step .label { font-size: .65rem; color: var(--text-4); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .5rem; }
+.install-step .line { color: var(--text-2); }
+.install-step .line .p { color: var(--text-4); user-select: none; }
 
-        <!-- Main Features (Alternating) -->
-        <section id="features" class="py-24 space-y-32">
-            <!-- Feature 1: The Editor -->
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-                >
-                    <div class="order-2 lg:order-1">
-                        <div
-                            class="relative rounded-2xl border border-dark-border bg-dark-surface overflow-hidden shadow-2xl group"
-                        >
-                            <div
-                                class="absolute inset-0 bg-brand-600/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                            ></div>
-                            <img
-                                src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/w8h2jdxnt7f8_full_light.png"
-                                alt="Code Editor"
-                                class="w-full h-auto"
-                            />
-                        </div>
-                    </div>
-                    <div class="order-1 lg:order-2">
-                        <div
-                            class="w-12 h-12 rounded-xl bg-brand-600/10 flex items-center justify-center text-brand-500 mb-6"
-                        >
-                            <i data-lucide="code-2" class="w-6 h-6"></i>
-                        </div>
-                        <h2
-                            class="text-3xl sm:text-4xl font-heading font-bold text-white mb-6"
-                        >
-                            Pro-grade Code Editor
-                        </h2>
-                        <p class="text-lg text-gray-400 mb-8 leading-relaxed">
-                            wede provides a fast, responsive editing experience
-                            with syntax highlighting for 20+ languages including
-                            Go, Rust, Python, and TypeScript.
-                        </p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div class="space-y-2">
-                                <h4 class="text-white font-semibold">
-                                    Multiple Themes
-                                </h4>
-                                <p class="text-sm text-gray-500">
-                                    Midnight and Daylight themes to suit your
-                                    environment.
-                                </p>
-                            </div>
-                            <div class="space-y-2">
-                                <h4 class="text-white font-semibold">
-                                    File Explorer
-                                </h4>
-                                <p class="text-sm text-gray-500">
-                                    Full project tree with git status and file
-                                    management.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+/* ── Features ── */
+.features { padding: 6rem 0; }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.feature {
+  padding: 2rem; background: var(--bg);
+  transition: background .15s;
+}
+.feature:hover { background: var(--elevated); }
+.feature h3 {
+  font-family: var(--mono); font-size: .85rem; font-weight: 600;
+  color: var(--text); margin-bottom: .5rem;
+}
+.feature p { font-size: .82rem; color: var(--text-3); line-height: 1.6; }
 
-            <!-- Feature 2: Git Integration -->
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-                >
-                    <div>
-                        <div
-                            class="w-12 h-12 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-500 mb-6"
-                        >
-                            <i data-lucide="git-branch" class="w-6 h-6"></i>
-                        </div>
-                        <h2
-                            class="text-3xl sm:text-4xl font-heading font-bold text-white mb-6"
-                        >
-                            Visual Git Control
-                        </h2>
-                        <p class="text-lg text-gray-400 mb-8 leading-relaxed">
-                            Manage your source control without leaving the
-                            browser. Stage changes, commit, and visualize your
-                            branch history with a built-in commit graph.
-                        </p>
-                        <ul class="space-y-4">
-                            <li class="flex items-center gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check"
-                                    class="w-5 h-5 text-purple-500"
-                                ></i>
-                                <span>Interactive commit graph</span>
-                            </li>
-                            <li class="flex items-center gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check"
-                                    class="w-5 h-5 text-purple-500"
-                                ></i>
-                                <span>Staging and Diff views</span>
-                            </li>
-                            <li class="flex items-center gap-3 text-gray-300">
-                                <i
-                                    data-lucide="check"
-                                    class="w-5 h-5 text-purple-500"
-                                ></i>
-                                <span>Branch management</span>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="relative">
-                        <div
-                            class="absolute -inset-4 bg-purple-600/10 blur-3xl rounded-full"
-                        ></div>
-                        <div
-                            class="relative rounded-2xl border border-dark-border bg-dark-surface overflow-hidden shadow-2xl"
-                        >
-                            <img
-                                src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/v71b51uuy3c6_git.png"
-                                alt="Git Integration"
-                                class="w-full h-auto"
-                            />
-                        </div>
-                        <div
-                            class="absolute -bottom-10 -left-10 w-2/3 hidden lg:block"
-                        >
-                            <div
-                                class="rounded-xl border border-dark-border bg-dark-elevated shadow-2xl overflow-hidden"
-                            >
-                                <img
-                                    src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/wjuvw5nzq7n9_git_graph.png"
-                                    alt="Git Graph"
-                                    class="w-full h-auto"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+/* ── Showcase ── */
+.showcase { padding: 6rem 0; }
+.showcase-section { margin-bottom: 6rem; }
+.showcase-section:last-child { margin-bottom: 0; }
+.showcase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.showcase-text h2 {
+  font-family: var(--mono); font-size: 1.5rem; font-weight: 700;
+  color: var(--text); margin-bottom: .75rem; letter-spacing: -.02em;
+}
+.showcase-text p { font-size: .92rem; color: var(--text-3); line-height: 1.7; margin-bottom: 1.25rem; }
+.showcase-list { list-style: none; }
+.showcase-list li {
+  font-family: var(--mono); font-size: .8rem; color: var(--text-2);
+  padding: .35rem 0;
+}
+.showcase-list li::before { content: '→ '; color: var(--text-4); }
+.showcase-img {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.showcase-img img { width: 100%; display: block; }
+.showcase-img-stack { position: relative; }
+.showcase-img-stack .overlay {
+  position: absolute; bottom: -1.5rem; left: -1.5rem; width: 65%;
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0,0,0,.4);
+}
 
-            <!-- Feature 3: Terminal & Preview -->
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-                >
-                    <div class="order-2 lg:order-1 relative">
-                        <div
-                            class="absolute -inset-4 bg-brand-600/10 blur-3xl rounded-full"
-                        ></div>
-                        <div
-                            class="relative rounded-2xl border border-dark-border bg-dark-surface overflow-hidden shadow-2xl"
-                        >
-                            <img
-                                src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/gs00284oir90_preview.png"
-                                alt="Terminal and Preview"
-                                class="w-full h-auto"
-                            />
-                        </div>
-                    </div>
-                    <div class="order-1 lg:order-2">
-                        <div
-                            class="w-12 h-12 rounded-xl bg-emerald-600/10 flex items-center justify-center text-emerald-500 mb-6"
-                        >
-                            <i data-lucide="terminal" class="w-6 h-6"></i>
-                        </div>
-                        <h2
-                            class="text-3xl sm:text-4xl font-heading font-bold text-white mb-6"
-                        >
-                            Terminal & Browser
-                        </h2>
-                        <p class="text-lg text-gray-400 mb-8 leading-relaxed">
-                            A full PTY terminal emulator and an embedded browser
-                            preview let you run commands and see results
-                            side-by-side. No more context switching.
-                        </p>
-                        <div class="space-y-6">
-                            <div class="flex gap-4">
-                                <div
-                                    class="mt-1 w-8 h-8 rounded-lg bg-dark-elevated flex items-center justify-center shrink-0"
-                                >
-                                    <i
-                                        data-lucide="command"
-                                        class="w-4 h-4 text-emerald-500"
-                                    ></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-white font-semibold">
-                                        WebSocket Powered
-                                    </h4>
-                                    <p class="text-sm text-gray-500">
-                                        Real-time terminal response with full
-                                        support for interactive CLI tools.
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex gap-4">
-                                <div
-                                    class="mt-1 w-8 h-8 rounded-lg bg-dark-elevated flex items-center justify-center shrink-0"
-                                >
-                                    <i
-                                        data-lucide="layout"
-                                        class="w-4 h-4 text-emerald-500"
-                                    ></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-white font-semibold">
-                                        Live Preview
-                                    </h4>
-                                    <p class="text-sm text-gray-500">
-                                        Embedded browser tab for instant
-                                        feedback on your web applications.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+/* ── Dev ── */
+.dev { padding: 6rem 0; }
+.dev-box {
+  border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden;
+}
+.dev-header {
+  padding: 2rem 2rem 1rem;
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+}
+.dev-header h2 {
+  font-family: var(--mono); font-size: 1.1rem; font-weight: 600;
+  color: var(--text); margin-bottom: .35rem;
+}
+.dev-header p { font-size: .85rem; color: var(--text-3); }
+.dev-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border);
+}
+.dev-cell { padding: 1.5rem 2rem; background: var(--bg); }
+.dev-cell h4 { font-family: var(--mono); font-size: .7rem; color: var(--text-4); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .75rem; }
+.dev-cell code { display: block; font-family: var(--mono); font-size: .82rem; color: var(--text-2); line-height: 1.8; }
+.dev-cell code .p { color: var(--text-4); }
 
-        <!-- Secondary Features Grid -->
-        <section class="py-24 bg-dark-surface/30">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center max-w-3xl mx-auto mb-16">
-                    <h2 class="text-3xl font-heading font-bold text-white mb-4">
-                        Everything you need, nothing you don't
-                    </h2>
-                    <p class="text-gray-400">
-                        Designed for speed, security, and simplicity.
-                    </p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <!-- Mobile -->
-                    <div
-                        class="p-8 rounded-2xl border border-dark-border bg-dark-surface hover:border-brand-500/50 transition-colors group"
-                    >
-                        <div
-                            class="w-10 h-10 rounded-lg bg-brand-600/10 flex items-center justify-center text-brand-500 mb-6 group-hover:scale-110 transition-transform"
-                        >
-                            <i data-lucide="smartphone" class="w-5 h-5"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold text-white mb-3">
-                            Mobile Ready
-                        </h3>
-                        <p class="text-gray-500 text-sm leading-relaxed">
-                            Fully responsive UI that works beautifully on iPads
-                            and tablets. Code from the couch or on the go.
-                        </p>
-                        <img
-                            src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/c4x1i1rblwcc_mobile.png"
-                            alt="Mobile UI"
-                            class="mt-6 rounded-lg border border-dark-border opacity-60 group-hover:opacity-100 transition-opacity"
-                        />
-                    </div>
-                    <!-- Security -->
-                    <div
-                        class="p-8 rounded-2xl border border-dark-border bg-dark-surface hover:border-brand-500/50 transition-colors group"
-                    >
-                        <div
-                            class="w-10 h-10 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform"
-                        >
-                            <i data-lucide="shield-check" class="w-5 h-5"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold text-white mb-3">
-                            Secure by Design
-                        </h3>
-                        <p class="text-gray-500 text-sm leading-relaxed">
-                            Password protection with brute-force lockout. Deploy
-                            behind your own VPN or reverse proxy for maximum
-                            privacy.
-                        </p>
-                        <div
-                            class="mt-6 p-4 rounded-lg bg-dark-bg border border-dark-border font-mono text-[10px] text-emerald-500/70"
-                        >
-                            { "auth": "password", "lockout": true }
-                        </div>
-                    </div>
-                    <!-- Hackable -->
-                    <div
-                        class="p-8 rounded-2xl border border-dark-border bg-dark-surface hover:border-brand-500/50 transition-colors group"
-                    >
-                        <div
-                            class="w-10 h-10 rounded-lg bg-purple-600/10 flex items-center justify-center text-purple-500 mb-6 group-hover:scale-110 transition-transform"
-                        >
-                            <i data-lucide="settings-2" class="w-5 h-5"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold text-white mb-3">
-                            Highly Configurable
-                        </h3>
-                        <p class="text-gray-500 text-sm leading-relaxed">
-                            Customizable ports, working directories, and themes
-                            via a simple JSON configuration file.
-                        </p>
-                        <img
-                            src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/jbtp22ho2ogf_settings.png"
-                            alt="Settings"
-                            class="mt-6 rounded-lg border border-dark-border opacity-60 group-hover:opacity-100 transition-opacity"
-                        />
-                    </div>
-                </div>
-            </div>
-        </section>
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 3rem 0;
+}
+.footer-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 1rem;
+}
+.footer-left {
+  display: flex; align-items: center; gap: .5rem;
+  font-family: var(--mono); font-size: .8rem; color: var(--text-4);
+}
+.footer-left img { width: 18px; height: 18px; opacity: .4; }
+.footer-links { display: flex; gap: 1.5rem; }
+.footer-links a { font-family: var(--mono); font-size: .75rem; color: var(--text-4); }
+.footer-links a:hover { color: var(--text-2); }
+.footer-right { font-family: var(--mono); font-size: .75rem; color: var(--text-4); }
 
-        <!-- Development Section -->
-        <section id="development" class="py-24">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="rounded-3xl bg-dark-surface border border-dark-border p-8 md:p-16 overflow-hidden relative"
-                >
-                    <div
-                        class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none hidden lg:block"
-                    >
-                        <i data-lucide="cpu" class="w-64 h-64"></i>
-                    </div>
-                    <div class="relative z-10">
-                        <h2
-                            class="text-3xl font-heading font-bold text-white mb-8"
-                        >
-                            Hack on wede
-                        </h2>
-                        <p class="text-gray-400 max-w-2xl mb-12">
-                            Wede is open-source and built for developers. The
-                            frontend is React + Vite, and the backend is pure
-                            Go.
-                        </p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div class="space-y-4">
-                                <h4
-                                    class="text-sm font-mono text-gray-500 uppercase tracking-widest"
-                                >
-                                    Frontend Dev
-                                </h4>
-                                <div
-                                    class="p-4 rounded-xl bg-dark-bg border border-dark-border font-mono text-sm"
-                                >
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-function">npm</span>
-                                        install
-                                    </div>
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-function">npm</span>
-                                        run dev
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="space-y-4">
-                                <h4
-                                    class="text-sm font-mono text-gray-500 uppercase tracking-widest"
-                                >
-                                    Backend Dev
-                                </h4>
-                                <div
-                                    class="p-4 rounded-xl bg-dark-bg border border-dark-border font-mono text-sm"
-                                >
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-keyword">cd</span>
-                                        backend
-                                    </div>
-                                    <div class="text-gray-300">
-                                        <span class="text-gray-500">$</span>
-                                        <span class="token-keyword">go</span>
-                                        run ./cmd/wede .
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-12 flex flex-wrap gap-4">
-                            <a
-                                href="https://github.com/webcrft/wede"
-                                target="_blank"
-                                class="inline-flex items-center gap-2 text-brand-400 hover:text-brand-300 transition-colors"
-                            >
-                                <i data-lucide="github" class="w-5 h-5"></i>
-                                View documentation on GitHub
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .features-grid { grid-template-columns: 1fr; }
+  .showcase-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .showcase-section .showcase-grid > :first-child { order: 2; }
+  .install-steps { grid-template-columns: 1fr; }
+  .dev-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.75rem; }
+  .footer-inner { flex-direction: column; text-align: center; }
+}
+</style>
+</head>
+<body>
 
-        <!-- Why wede? -->
-        <section class="py-24 bg-dark-bg border-t border-dark-border">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center max-w-3xl mx-auto mb-16">
-                    <h2 class="text-3xl font-heading font-bold text-white mb-4">
-                        Why choose wede?
-                    </h2>
-                    <p class="text-gray-400">
-                        A self-hosted alternative to cloud IDEs.
-                    </p>
-                </div>
-                <div
-                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"
-                >
-                    <div class="flex gap-4">
-                        <div
-                            class="shrink-0 w-10 h-10 rounded-full bg-brand-600/10 flex items-center justify-center text-brand-500"
-                        >
-                            <i data-lucide="server" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-white font-semibold mb-2">
-                                Zero Dependencies
-                            </h4>
-                            <p class="text-sm text-gray-500 leading-relaxed">
-                                No Docker, no Node.js runtime, no database. Just
-                                one binary. Works everywhere.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <div
-                            class="shrink-0 w-10 h-10 rounded-full bg-emerald-600/10 flex items-center justify-center text-emerald-500"
-                        >
-                            <i data-lucide="lock" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-white font-semibold mb-2">
-                                Data Sovereignty
-                            </h4>
-                            <p class="text-sm text-gray-500 leading-relaxed">
-                                Your code never leaves your server. No cloud
-                                accounts, no telemetry, no tracking.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <div
-                            class="shrink-0 w-10 h-10 rounded-full bg-purple-600/10 flex items-center justify-center text-purple-500"
-                        >
-                            <i data-lucide="cloud-off" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-white font-semibold mb-2">
-                                Air-Gapped Ready
-                            </h4>
-                            <p class="text-sm text-gray-500 leading-relaxed">
-                                Perfect for private networks and offline
-                                development environments.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+<!-- Nav -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <img src="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg" alt="wede">
+    wede
+  </a>
+  <div class="nav-links">
+    <a href="#features">features</a>
+    <a href="#install">install</a>
+    <a href="#dev">dev</a>
+    <a href="https://github.com/webcrft/wede" target="_blank" class="gh">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      github
+    </a>
+  </div>
+</nav>
 
-        <!-- CTA Section -->
-        <section class="py-24 relative overflow-hidden">
-            <div class="absolute inset-0 bg-brand-600/5 -z-10"></div>
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h2 class="text-4xl font-heading font-bold text-white mb-8">
-                    Ready to take your IDE anywhere?
-                </h2>
-                <div
-                    class="flex flex-col sm:flex-row items-center justify-center gap-4"
-                >
-                    <a
-                        href="#install"
-                        class="inline-flex items-center justify-center rounded-xl bg-brand-600 px-8 py-4 text-base font-semibold text-white shadow-lg hover:bg-brand-500 transition-all"
-                    >
-                        Get Started Now
-                    </a>
-                    <a
-                        href="https://github.com/webcrft/wede"
-                        target="_blank"
-                        class="inline-flex items-center justify-center rounded-xl bg-dark-surface px-8 py-4 text-base font-semibold text-white shadow-sm ring-1 ring-inset ring-dark-border hover:bg-dark-elevated transition-all"
-                    >
-                        View GitHub
-                    </a>
-                </div>
-            </div>
-        </section>
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">v0.1.1 · open source</div>
+    <h1>self-hosted <span>web IDE</span>.<br>single binary. no cloud.</h1>
+    <p>Code editor, terminal, git client, and file explorer — all in your browser. One Go binary on your server, NAS, or Raspberry Pi.</p>
+    <div class="hero-actions">
+      <a href="#install" class="btn btn-primary">get started</a>
+      <a href="https://github.com/webcrft/wede" target="_blank" class="btn btn-secondary">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        star on github
+      </a>
+    </div>
+    <div class="hero-img">
+      <img src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/w8h2jdxnt7f8_full_light.png" alt="wede IDE">
+    </div>
+  </div>
+</section>
 
-        <!-- Footer -->
-        <footer class="py-12 bg-dark-bg border-t border-dark-border">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div
-                    class="flex flex-col md:flex-row justify-between items-center gap-8"
-                >
-                    <div class="flex items-center gap-3">
-                        <img
-                            src="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg"
-                            alt="wede"
-                            class="w-6 h-6 opacity-60"
-                        />
-                        <span
-                            class="font-heading font-bold text-lg text-gray-500"
-                            >wede</span
-                        >
-                        <span
-                            class="px-2 py-0.5 rounded-full bg-orange-500/10 text-[10px] font-bold text-orange-400 ring-1 ring-inset ring-orange-400/20 uppercase tracking-wider"
-                            >Beta v0.1.0</span
-                        >
-                    </div>
-                    <div class="flex flex-wrap justify-center gap-8">
-                        <a
-                            href="https://github.com/webcrft/wede"
-                            class="text-sm text-gray-500 hover:text-white transition-colors"
-                            >GitHub</a
-                        >
-                        <a
-                            href="https://github.com/webcrft/wede/releases"
-                            class="text-sm text-gray-500 hover:text-white transition-colors"
-                            >Releases</a
-                        >
-                        <a
-                            href="https://github.com/webcrft/wede/issues"
-                            class="text-sm text-gray-500 hover:text-white transition-colors"
-                            >Issues</a
-                        >
-                        <a
-                            href="https://github.com/webcrft/wede/blob/main/LICENSE"
-                            class="text-sm text-gray-500 hover:text-white transition-colors"
-                            >License</a
-                        >
-                    </div>
-                    <p class="text-sm text-gray-600 text-center">
-                        &copy; 2024 wede. Built with Go & React.
-                    </p>
-                </div>
-            </div>
-        </footer>
+<!-- Install -->
+<section id="install" class="install">
+  <div class="container">
+    <div class="install-box">
+      <div class="install-header">
+        <span>install</span>
+        <button onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/webcrft/wede/main/install.sh | bash');this.textContent='copied';setTimeout(()=>this.textContent='copy',2000)">copy</button>
+      </div>
+      <div class="install-code">
+        <span class="p">$ </span><span class="cmd">curl</span> -fsSL <span class="str">https://raw.githubusercontent.com/webcrft/wede/main/install.sh</span> | <span class="cmd">bash</span>
+      </div>
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="label">1 · start</div>
+          <div class="line"><span class="p">$ </span>wede .</div>
+        </div>
+        <div class="install-step">
+          <div class="label">2 · open</div>
+          <div class="line"><span class="p">$ </span>open http://localhost:9090</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        <script>
-            // Initialize Lucide icons
-            lucide.createIcons();
+<!-- Features -->
+<section id="features" class="features">
+  <div class="container">
+    <div class="features-grid">
+      <div class="feature">
+        <h3>code editor</h3>
+        <p>CodeMirror 6 with syntax highlighting for 20+ languages. Dark and light themes.</p>
+      </div>
+      <div class="feature">
+        <h3>web terminal</h3>
+        <p>Full PTY via xterm.js and WebSocket. Multiple tabs. Run anything — SSH, Docker, npm.</p>
+      </div>
+      <div class="feature">
+        <h3>git client</h3>
+        <p>Visual commit graph, staging, branching, checkout. No CLI needed for common operations.</p>
+      </div>
+      <div class="feature">
+        <h3>file explorer</h3>
+        <p>Project tree with git status colors. Create, rename, copy, paste, delete via context menu.</p>
+      </div>
+      <div class="feature">
+        <h3>live preview</h3>
+        <p>Embedded browser tab to preview your running web app without switching windows.</p>
+      </div>
+      <div class="feature">
+        <h3>mobile ready</h3>
+        <p>Fully responsive UI for tablets and phones. Edit code and run commands from any device.</p>
+      </div>
+      <div class="feature">
+        <h3>zero dependencies</h3>
+        <p>One ~10MB Go binary. No Docker, no Node runtime, no database. Download and run.</p>
+      </div>
+      <div class="feature">
+        <h3>secure access</h3>
+        <p>Password auth with brute-force lockout. Deploy behind your reverse proxy with HTTPS.</p>
+      </div>
+      <div class="feature">
+        <h3>dark &amp; light</h3>
+        <p>Midnight and Daylight themes. Terminal and editor adapt to your choice.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-            // Reveal animations on scroll
-            const observerOptions = {
-                threshold: 0.1,
-                rootMargin: "0px 0px -50px 0px",
-            };
+<!-- Showcase -->
+<section class="showcase">
+  <div class="container">
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add(
-                            "opacity-100",
-                            "translate-y-0",
-                        );
-                        entry.target.classList.remove(
-                            "opacity-0",
-                            "translate-y-8",
-                        );
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, observerOptions);
+    <div class="showcase-section">
+      <div class="showcase-grid">
+        <div class="showcase-text">
+          <h2>visual git control</h2>
+          <p>Stage changes, commit, switch branches, and explore history with a built-in commit graph. Everything you need without touching the terminal.</p>
+          <ul class="showcase-list">
+            <li>interactive commit graph</li>
+            <li>staging and diff views</li>
+            <li>branch management</li>
+          </ul>
+        </div>
+        <div class="showcase-img-stack">
+          <div class="showcase-img">
+            <img src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/v71b51uuy3c6_git.png" alt="Git integration">
+          </div>
+          <div class="overlay">
+            <img src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/wjuvw5nzq7n9_git_graph.png" alt="Git graph">
+          </div>
+        </div>
+      </div>
+    </div>
 
-            // Apply reveal classes to sections and key elements
-            document
-                .querySelectorAll("section, header, .grid > div")
-                .forEach((el) => {
-                    el.classList.add(
-                        "transition-all",
-                        "duration-700",
-                        "ease-out",
-                        "opacity-0",
-                        "translate-y-8",
-                    );
-                    observer.observe(el);
-                });
-        </script>
-    </body>
+    <div class="showcase-section">
+      <div class="showcase-grid">
+        <div class="showcase-img">
+          <img src="https://cdn.webcrft.io/0676d7ec-ad5c-4e56-86e2-3f43db51133b/gs00284oir90_preview.png" alt="Terminal and preview">
+        </div>
+        <div class="showcase-text">
+          <h2>terminal &amp; preview</h2>
+          <p>Full PTY terminal emulator and embedded browser preview. Run commands and see results side-by-side. No context switching.</p>
+          <ul class="showcase-list">
+            <li>websocket-powered real-time terminal</li>
+            <li>multiple terminal tabs</li>
+            <li>live preview for web apps</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Dev -->
+<section id="dev" class="dev">
+  <div class="container">
+    <div class="dev-box">
+      <div class="dev-header">
+        <h2>hack on wede</h2>
+        <p>Open source. React + Vite frontend, pure Go backend.</p>
+      </div>
+      <div class="dev-grid">
+        <div class="dev-cell">
+          <h4>frontend</h4>
+          <code><span class="p">$ </span>npm install<br><span class="p">$ </span>npm run dev</code>
+        </div>
+        <div class="dev-cell">
+          <h4>backend</h4>
+          <code><span class="p">$ </span>cd backend<br><span class="p">$ </span>go run ./cmd/wede .</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <img src="https://cdn.webcrft.io/chat-uploads/1774576674/fl8imfh9.svg" alt="wede">
+        wede
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/webcrft/wede" target="_blank">github</a>
+        <a href="https://github.com/webcrft/wede/releases" target="_blank">releases</a>
+        <a href="https://github.com/webcrft/wede/issues" target="_blank">issues</a>
+        <a href="https://github.com/webcrft/wede/blob/main/LICENSE" target="_blank">license</a>
+      </div>
+      <div class="footer-right">made in south africa 🇿🇦</div>
+    </div>
+  </div>
+</footer>
+
+</body>
 </html>

@@ -80,6 +80,7 @@ func main() {
 
 	addr := ":" + cfg.Port
 	log.Printf("wede IDE running on http://localhost%s", addr)
+	log.Printf("password: %s", cfg.Password)
 	if ws.HasWorkspace() {
 		log.Printf("workspace: %s", ws.Current())
 	} else {
