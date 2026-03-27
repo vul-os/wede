@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="user/wede"
+REPO="webcrft/wede"
 BINARY="wede"
-INSTALL_DIR="/usr/local/bin"
-
 echo "Installing wede..."
 echo ""
 
-# Detect OS
+# Detect OS and set install directory
 OS="$(uname -s)"
 case "$OS" in
-  Linux*)  OS="linux" ;;
-  Darwin*) OS="darwin" ;;
+  Linux*)
+    OS="linux"
+    INSTALL_DIR="${HOME}/.local/bin"
+    ;;
+  Darwin*)
+    OS="darwin"
+    INSTALL_DIR="/usr/local/bin"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    OS="windows"
+    INSTALL_DIR="${LOCALAPPDATA:-$HOME/AppData/Local}/wede"
+    ;;
   *)
     echo "Error: Unsupported operating system: $OS"
     exit 1
@@ -60,28 +68,31 @@ curl -fsSL -o "$TMP_FILE" "$DOWNLOAD_URL"
 chmod +x "$TMP_FILE"
 
 # Install binary
+mkdir -p "$INSTALL_DIR"
 if [ -w "$INSTALL_DIR" ]; then
   mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
-  echo "  Installed to ${INSTALL_DIR}/${BINARY}"
-elif command -v sudo &> /dev/null; then
-  echo "  Installing to ${INSTALL_DIR} (requires sudo)..."
-  sudo mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
-  echo "  Installed to ${INSTALL_DIR}/${BINARY}"
 else
-  # Fall back to ~/.local/bin
-  INSTALL_DIR="${HOME}/.local/bin"
-  mkdir -p "$INSTALL_DIR"
-  mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
-  echo "  Installed to ${INSTALL_DIR}/${BINARY}"
+  sudo mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
+fi
+echo "  Installed to ${INSTALL_DIR}/${BINARY}"
 
-  # Check if ~/.local/bin is in PATH
-  if ! echo "$PATH" | tr ':' '\n' | grep -q "^${INSTALL_DIR}$"; then
-    echo ""
-    echo "  Warning: ${INSTALL_DIR} is not in your PATH."
-    echo "  Add this to your shell profile:"
-    echo ""
-    echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
-  fi
+# Check if install dir is in PATH
+if ! echo "$PATH" | tr ':' '\n' | grep -q "^${INSTALL_DIR}$"; then
+  echo ""
+  echo "  Warning: ${INSTALL_DIR} is not in your PATH."
+  echo "  Run this to add it:"
+  echo ""
+  case "$OS" in
+    darwin)
+      echo "    echo 'export PATH=\"/usr/local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+      ;;
+    linux)
+      echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+      ;;
+    windows)
+      echo "    setx PATH \"%PATH%;${INSTALL_DIR}\""
+      ;;
+  esac
 fi
 
 # Create default config if none exists

@@ -394,7 +394,7 @@
                                 >
                                 <button
                                     @click="
-                                navigator.clipboard.writeText('curl -fsSL http://wede.pty.it.com/install.sh | bash');
+                                navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/webcrft/wede/main/install.sh | bash');
                                 copied = true;
                                 setTimeout(() => copied = false, 2000);
                             "
@@ -415,7 +415,7 @@
                                 <span class="text-gray-500 mr-2">$</span>
                                 <span class="token-keyword">curl</span> -fsSL
                                 <span class="token-string"
-                                    >"http://wede.pty.it.com/install.sh"</span
+                                    >"https://raw.githubusercontent.com/webcrft/wede/main/install.sh"</span
                                 >
                                 | <span class="token-keyword">bash</span>
                             </div>
