@@ -9,5 +9,5 @@ tmp/
 *.test
 *.out
 .DS_Store
-wede
-wede-*
+/wede
+/wede-*
