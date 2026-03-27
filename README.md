@@ -10,7 +10,7 @@
 One ~10MB binary. No cloud, no Docker, no subscriptions.<br>
 Deploy on your server, NAS, Raspberry Pi, or run locally.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/webcrft/wede/build.yml?branch=main&style=flat-square)](https://github.com/webcrft/wede/actions)
+[![Build](https://img.shields.io/github/actions/workflow/status/webcrft/wede/ci.yml?branch=main&style=flat-square)](https://github.com/webcrft/wede/actions)
 [![Release](https://img.shields.io/github/v/release/webcrft/wede?style=flat-square)](https://github.com/webcrft/wede/releases)
 [![License](https://img.shields.io/github/license/webcrft/wede?style=flat-square)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.22+-00ADD8?style=flat-square&logo=go)](https://go.dev)
