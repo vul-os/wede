@@ -15,7 +15,7 @@ case "$OS" in
     ;;
   Darwin*)
     OS="darwin"
-    INSTALL_DIR="/usr/local/bin"
+    INSTALL_DIR="${HOME}/.local/bin"
     ;;
   MINGW*|MSYS*|CYGWIN*)
     OS="windows"
@@ -69,11 +69,7 @@ chmod +x "$TMP_FILE"
 
 # Install binary
 mkdir -p "$INSTALL_DIR"
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
-else
-  sudo mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
-fi
+mv "$TMP_FILE" "${INSTALL_DIR}/${BINARY}"
 echo "  Installed to ${INSTALL_DIR}/${BINARY}"
 
 # Check if install dir is in PATH
@@ -84,7 +80,7 @@ if ! echo "$PATH" | tr ':' '\n' | grep -q "^${INSTALL_DIR}$"; then
   echo ""
   case "$OS" in
     darwin)
-      echo "    echo 'export PATH=\"/usr/local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+      echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
       ;;
     linux)
       echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
