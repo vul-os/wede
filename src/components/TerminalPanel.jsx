@@ -41,7 +41,7 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
   const reconciledRef = useRef(false)
   const termRefs = useRef({})
 
-  // On mount, check which sessions are still alive on the server and reconcile
+  // Reconcile with server sessions on mount
   useEffect(() => {
     if (reconciledRef.current || !authFetch) return
     reconciledRef.current = true
@@ -62,20 +62,14 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
               if (id > nextId) nextId = id + 1
               return { id, name: `Terminal ${id}` }
             })
-
-          if (alive.length > 0 || orphans.length > 0) {
-            return [...alive, ...orphans]
-          }
+          if (alive.length > 0 || orphans.length > 0) return [...alive, ...orphans]
           return prev
         })
       })
       .catch(() => {})
   }, [authFetch])
 
-  // Persist on change
-  useEffect(() => {
-    saveTerminals(terminals, activeId)
-  }, [terminals, activeId])
+  useEffect(() => { saveTerminals(terminals, activeId) }, [terminals, activeId])
 
   const addTerminal = useCallback(() => {
     const id = nextId++
@@ -107,44 +101,51 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
   return (
     <div className="h-full flex flex-col bg-bg-tertiary">
       {/* Terminal tab bar */}
-      <div className="flex items-center border-b border-border compact-touch">
-        <div className="flex items-center flex-1 overflow-x-auto">
-          <div className="flex items-center px-2 py-1 gap-0.5">
-            <TerminalSquare className="w-3.5 h-3.5 text-text-muted mr-1.5 shrink-0" />
-          </div>
-          {terminals.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveId(t.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-r border-border shrink-0 transition-colors ${
-                activeId === t.id
-                  ? 'text-text-primary bg-bg-primary'
-                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover'
-              }`}
-            >
-              <span>{t.name}</span>
-              {terminals.length > 1 && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); closeTerminal(t.id) }}
-                  className="p-0.5 rounded hover:bg-bg-active text-text-muted hover:text-text-primary"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </span>
-              )}
-            </button>
-          ))}
+      <div className="flex items-center border-b border-border compact-touch shrink-0" style={{ height: 34 }}>
+        <div className="flex items-center shrink-0 px-2.5 border-r border-border h-full">
+          <TerminalSquare className="w-3.5 h-3.5 text-text-muted" />
+        </div>
+
+        <div className="flex items-center flex-1 overflow-x-auto h-full" style={{ scrollbarWidth: 'none' }}>
+          {terminals.map((t) => {
+            const isActive = activeId === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveId(t.id)}
+                className={`relative flex items-center gap-1.5 px-3 h-full text-[12px] font-medium border-r border-border shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-bg-primary text-text-primary'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover'
+                }`}
+              >
+                {isActive && <span className="absolute top-0 left-0 right-0 h-[1.5px] bg-accent" />}
+                <span>{t.name}</span>
+                {terminals.length > 1 && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); closeTerminal(t.id) }}
+                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-active transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </span>
+                )}
+              </button>
+            )
+          })}
+
           <button
             onClick={addTerminal}
-            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded mx-1 shrink-0"
+            className="flex items-center justify-center w-7 h-7 mx-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors shrink-0"
             title="New Terminal"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
+
         {onToggleFullscreen && (
           <button
             onClick={onToggleFullscreen}
-            className="p-1.5 mr-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded shrink-0"
+            className="p-1.5 mx-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors shrink-0"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -166,7 +167,6 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
         ))}
       </div>
 
-      {/* Mobile special keys toolbar */}
       {isMobile && <TerminalToolbar onSend={handleToolbarSend} />}
     </div>
   )

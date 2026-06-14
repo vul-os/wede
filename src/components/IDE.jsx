@@ -59,7 +59,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // Persist open tabs to localStorage
   useEffect(() => {
     try {
-      // Save tab metadata (path, name, type) but not content — content is re-fetched
       const toSave = tabs.map(t => ({ path: t.path, name: t.name, type: t.type, url: t.url }))
       localStorage.setItem('wede_tabs', JSON.stringify(toSave))
     } catch {}
@@ -90,7 +89,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch git branch + change count
+  // Fetch git branch + change count for status bar
   useEffect(() => {
     let active = true
     const fetchGit = async () => {
@@ -110,7 +109,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // ── Open a browser tab ──
   const openBrowser = useCallback((url = 'https://wede.vulos.org') => {
-    // If there's already a browser tab, navigate it
     const existing = tabs.find((t) => t.type === 'browser')
     if (existing) {
       setTabs((prev) => prev.map((t) =>
@@ -129,7 +127,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (isMobile) setMobilePanel('code')
   }, [tabs, isMobile])
 
-  // Capture link clicks and open in preview browser
+  // Capture link clicks → open in preview browser
   useEffect(() => {
     const handler = (e) => {
       const a = e.target.closest('a[href]')
@@ -142,9 +140,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         openBrowser(href)
       }
     }
-    // Use capture phase to intercept before browser handles ctrl+click
     document.addEventListener('click', handler, true)
-    // Also intercept auxclick (middle-click)
     document.addEventListener('auxclick', handler, true)
     return () => {
       document.removeEventListener('click', handler, true)
@@ -247,7 +243,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
 
-  // ── Render the active tab content ──
   const renderTabContent = () => {
     if (!currentTab) {
       return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} />
@@ -275,18 +270,18 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     )
   }
 
-  // ── Mobile Menu ──
+  // ── Mobile menu overlay ──
   const MobileMenuOverlay = () => (
-    <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setMobileMenu(false)}>
-      <div className="absolute bottom-16 left-0 right-0 bg-bg-primary border-t border-border rounded-t-2xl p-4 animate-slide-up"
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenu(false)}>
+      <div className="absolute bottom-16 left-0 right-0 bg-bg-elevated border-t border-border rounded-t-2xl p-4 animate-slide-up"
         onClick={(e) => e.stopPropagation()}>
         <div className="w-8 h-1 bg-bg-active rounded-full mx-auto mb-4" />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2.5">
           {[
             { icon: Globe, label: 'Browser', action: () => { openBrowser(); setMobileMenu(false) } },
             { icon: SettingsIcon, label: 'Settings', action: () => { setMobilePanel('settings'); setMobileMenu(false) } },
             { icon: FolderOpen, label: 'Open Folder', action: () => { setShowFolderPicker(true); setMobileMenu(false) } },
-            { icon: isDark ? Sun : Moon, label: isDark ? 'Light Mode' : 'Dark Mode', action: () => { toggleTheme(); setMobileMenu(false) } },
+            { icon: isDark ? Sun : Moon, label: isDark ? 'Light' : 'Dark', action: () => { toggleTheme(); setMobileMenu(false) } },
             { icon: LogOut, label: 'Logout', action: () => { onLogout(); setMobileMenu(false) } },
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
@@ -303,15 +298,15 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   if (showFolderPicker) {
     return (
       <div className="h-screen flex flex-col bg-bg-primary">
-        <div className="flex items-center px-3 py-2 bg-bg-tertiary border-b border-border">
+        <div className="flex items-center px-4 py-2.5 bg-bg-tertiary border-b border-border">
           <button onClick={() => setShowFolderPicker(false)}
-            className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors">
             <ChevronLeft className="w-4 h-4" /> Back
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto flex items-start justify-center p-4">
-          <div className="w-full max-w-xl bg-bg-primary border border-border rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">Open Folder</h2>
+        <div className="flex-1 overflow-y-auto flex items-start justify-center p-6">
+          <div className="w-full max-w-xl bg-bg-primary border border-border rounded-xl p-6 shadow-xl shadow-shadow">
+            <h2 className="text-base font-semibold text-text-primary mb-4">Open Folder</h2>
             <FolderPicker authFetch={authFetch} recents={recents} onOpen={handleWorkspaceOpen} inline />
           </div>
         </div>
@@ -325,11 +320,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   if (isMobile) {
     return (
       <div className="h-[100dvh] flex flex-col bg-bg-primary">
+        {/* Mobile top bar */}
         <div className="flex items-center justify-between px-3 py-2 bg-bg-tertiary border-b border-border shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <Logo size={18} showName nameClass="text-sm text-text-primary" />
+            <Logo size={18} showName nameClass="text-sm font-semibold text-text-primary" />
             <button onClick={() => setShowFolderPicker(true)}
-              className="flex items-center gap-1 text-xs text-text-secondary truncate max-w-32">
+              className="flex items-center gap-1 text-xs text-text-secondary truncate max-w-32 hover:text-text-primary transition-colors">
               <FolderOpen className="w-3 h-3 text-yellow shrink-0" />
               <span className="truncate">{folderName}</span>
             </button>
@@ -337,7 +333,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <div className="flex items-center gap-1">
             {currentTab?.modified && currentTab.type !== 'browser' && (
               <button onClick={saveFile} disabled={saving}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-accent/20 text-accent rounded-lg">
+                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-accent/15 text-accent rounded-lg font-medium hover:bg-accent/25 transition-colors">
                 <Save className="w-3 h-3" />{saving ? '...' : 'Save'}
               </button>
             )}
@@ -382,86 +378,104 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // ── DESKTOP ──
   // ══════════════════════════
   return (
-    <div className="h-screen flex flex-col bg-bg-primary">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border shrink-0">
-        <div className="flex items-center gap-1">
-          <Logo size={20} showName nameClass="text-sm text-text-primary mr-1" />
+    <div className="h-screen flex flex-col bg-bg-base">
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-2 h-10 bg-bg-tertiary border-b border-border shrink-0 select-none">
+        {/* Left: logo + workspace */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 pr-2 mr-0.5 border-r border-border h-6">
+            <Logo size={18} showName nameClass="text-[13px] font-semibold text-text-primary tracking-tight" />
+          </div>
+
           <button onClick={() => setShowFolderPicker(true)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors border border-border"
-            title="Open Folder">
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            title="Open Folder (change workspace)">
             <FolderOpen className="w-3.5 h-3.5 text-yellow" />
-            <span className="max-w-32 truncate">{folderName}</span>
+            <span className="max-w-36 truncate font-medium">{folderName}</span>
           </button>
 
-          <div className="w-px h-5 bg-border mx-1" />
+          <div className="w-px h-4 bg-border mx-0.5" />
 
+          {/* Panel toggles */}
           <button onClick={() => setShowTerminal(!showTerminal)}
-            className={`p-1.5 rounded-md transition-colors ${showTerminal ? 'bg-bg-hover text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
-            title="Terminal">
-            <TerminalSquare className="w-4 h-4" />
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors ${
+              showTerminal
+                ? 'bg-accent/10 text-accent'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
+            title="Toggle Terminal">
+            <TerminalSquare className="w-3.5 h-3.5" />
           </button>
           <button onClick={() => openBrowser()}
-            className="p-1.5 rounded-md transition-colors text-text-muted hover:text-text-primary hover:bg-bg-hover"
-            title="Open Browser Tab">
-            <Globe className="w-4 h-4" />
+            className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+            title="Open Browser Preview">
+            <Globe className="w-3.5 h-3.5" />
           </button>
           <button onClick={() => setShowSettings(!showSettings)}
-            className={`p-1.5 rounded-md transition-colors ${showSettings ? 'bg-bg-hover text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
+            className={`flex items-center px-2 py-1 rounded-md text-[12px] transition-colors ${
+              showSettings
+                ? 'bg-accent/10 text-accent'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
             title="Settings">
-            <SettingsIcon className="w-4 h-4" />
+            <SettingsIcon className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right: save + theme + logout */}
+        <div className="flex items-center gap-1">
           {currentTab?.modified && currentTab.type !== 'browser' && (
             <button onClick={saveFile} disabled={saving}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-accent/15 text-accent rounded-md hover:bg-accent/25 transition-colors font-medium">
-              <Save className="w-3 h-3" />{saving ? 'Saving...' : 'Save'}
+              className="flex items-center gap-1.5 px-3 py-1 text-[12px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium shadow-sm shadow-accent/20">
+              <Save className="w-3 h-3" />
+              {saving ? 'Saving…' : 'Save'}
             </button>
           )}
           <button onClick={toggleTheme}
             className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title={isDark ? 'Light mode' : 'Dark mode'}>
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
           <button onClick={onLogout}
             className="p-1.5 rounded-md text-text-muted hover:text-red hover:bg-bg-hover transition-colors" title="Logout">
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Main area */}
+      {/* ── Main area ── */}
       <div className="flex flex-1 min-h-0">
-        {/* Activity bar */}
-        <div className="flex flex-col items-center py-1.5 gap-1 bg-bg-tertiary border-r border-border w-10 shrink-0">
-          <button onClick={() => toggleSidebarTab('files')}
-            className={`p-1.5 rounded-md transition-colors ${sidebarTab === 'files' && showSidebar ? 'text-accent' : 'text-text-muted hover:text-text-primary'}`}
-            title="Explorer">
-            <Files className="w-5 h-5" />
-          </button>
-          <button onClick={() => toggleSidebarTab('git')}
-            className={`p-1.5 rounded-md transition-colors ${sidebarTab === 'git' && showSidebar ? 'text-accent' : 'text-text-muted hover:text-text-primary'}`}
-            title="Source Control">
-            <GitBranch className="w-5 h-5" />
-          </button>
+        {/* Activity bar — narrow icon rail */}
+        <div className="flex flex-col items-center pt-2 pb-2 gap-0.5 bg-bg-tertiary border-r border-border w-10 shrink-0">
+          <ActivityBtn
+            icon={Files}
+            title="Explorer"
+            active={sidebarTab === 'files' && showSidebar}
+            onClick={() => toggleSidebarTab('files')}
+          />
+          <ActivityBtn
+            icon={GitBranch}
+            title="Source Control"
+            active={sidebarTab === 'git' && showSidebar}
+            badge={gitChanges > 0 ? gitChanges : 0}
+            onClick={() => toggleSidebarTab('git')}
+          />
         </div>
 
         {/* Sidebar */}
         {showSidebar && (
           <>
-            <div style={{ width: sidebarWidth }} className="shrink-0 border-r border-border">
+            <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} />}
               {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible />}
             </div>
-            <div className="w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
-              onMouseDown={handleMouseDown('sidebar')} />
+            {/* Drag handle */}
+            <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('sidebar')} />
           </>
         )}
 
-        {/* Center: tabs + editor/browser + terminal */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Center: editor + terminal */}
+        <div className="flex-1 flex flex-col min-w-0 bg-bg-primary">
           <div className="flex-1 flex flex-col min-h-0">
             <EditorTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onClose={closeTab} />
             <div className="flex-1 min-h-0">{renderTabContent()}</div>
@@ -469,8 +483,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
           {showTerminal && (
             <>
-              <div className="h-1 cursor-row-resize hover:bg-accent/30 active:bg-accent/50 transition-colors border-t border-border"
-                onMouseDown={handleMouseDown('terminal')} />
+              <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
               <div style={{ height: terminalHeight }} className="shrink-0">
                 <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} visible={showTerminal} />
               </div>
@@ -478,47 +491,75 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           )}
         </div>
 
-        {/* Right panel: settings only */}
+        {/* Right panel: settings */}
         {showSettings && (
           <>
-            <div className="w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
-              onMouseDown={handleMouseDown('settings')} />
-            <div style={{ width: settingsWidth }} className="shrink-0 border-l border-border">
+            <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('settings')} />
+            <div style={{ width: settingsWidth }} className="shrink-0 border-l border-border bg-bg-secondary">
               <Settings visible onOpenFolder={() => setShowFolderPicker(true)} workspace={workspace} />
             </div>
           </>
         )}
       </div>
 
-      {/* Status bar */}
-      <div className="flex items-center justify-between px-2 py-0.5 bg-status-bar text-status-text text-[11px] font-medium shrink-0">
-        <div className="flex items-center gap-0.5">
+      {/* ── Status bar ── */}
+      <div className="flex items-center justify-between px-1 h-6 bg-status-bar border-t border-border text-status-text text-[11px] font-medium shrink-0 select-none">
+        <div className="flex items-center">
           {gitBranch && (
-            <button onClick={() => { toggleSidebarTab('git') }}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors">
+            <button onClick={() => toggleSidebarTab('git')}
+              className="flex items-center gap-1 px-2 h-full hover:bg-bg-hover transition-colors rounded-sm">
               <GitBranch className="w-3 h-3" />
-              <span>{gitBranch}</span>
-              {gitChanges > 0 && <span className="opacity-75">*{gitChanges}</span>}
+              <span className="font-mono">{gitBranch}</span>
+              {gitChanges > 0 && (
+                <span className="ml-0.5 px-1 py-px rounded text-[10px] bg-yellow/15 text-yellow font-semibold">
+                  {gitChanges}
+                </span>
+              )}
             </button>
           )}
           {currentTab?.modified && currentTab.type !== 'browser' && (
-            <span className="px-1.5 opacity-75">Modified</span>
+            <span className="px-2 text-yellow/80 font-medium">●</span>
           )}
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center">
           {currentTab && currentTab.type !== 'browser' && (
             <>
-              <span className="px-1.5 py-0.5">Ln {cursor.line}, Col {cursor.col}</span>
-              <span className="px-1.5 py-0.5 opacity-75">{extToLang(currentTab.name)}</span>
+              <span className="px-2 hover:bg-bg-hover rounded-sm cursor-default">Ln {cursor.line}, Col {cursor.col}</span>
+              <span className="px-2 hover:bg-bg-hover rounded-sm cursor-default opacity-80">{extToLang(currentTab.name)}</span>
             </>
           )}
           {currentTab?.type === 'browser' && (
-            <span className="px-1.5 py-0.5 opacity-75">Browser</span>
+            <span className="px-2 opacity-70">Browser Preview</span>
           )}
-          <span className="px-1.5 py-0.5 opacity-60">UTF-8</span>
+          <span className="px-2 opacity-50">UTF-8</span>
         </div>
       </div>
     </div>
+  )
+}
+
+/* Activity bar button */
+function ActivityBtn({ icon: Icon, title, active, badge, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`relative w-8 h-8 flex items-center justify-center rounded-md transition-colors ${
+        active
+          ? 'text-accent bg-accent/10'
+          : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover'
+      }`}
+    >
+      {active && (
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-accent" />
+      )}
+      <Icon className="w-4 h-4" />
+      {badge > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 flex items-center justify-center rounded-full text-[9px] font-bold bg-accent text-white px-0.5 leading-none">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </button>
   )
 }
 

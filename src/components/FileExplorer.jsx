@@ -4,28 +4,41 @@ import {
   FilePlus, FolderPlus, RefreshCw, Copy, Clipboard, Trash2, Pencil
 } from 'lucide-react'
 
-/* ── File type icon colors (VS Code style) ── */
+/* ── File type icon colours (VS Code style) ── */
 const EXT_ICON = {
-  js: { color: '#f7df1e', label: 'JS' }, jsx: { color: '#61dafb', label: 'JSX' },
-  ts: { color: '#3178c6', label: 'TS' }, tsx: { color: '#3178c6', label: 'TSX' },
-  go: { color: '#00add8', label: 'GO' }, py: { color: '#3776ab', label: 'PY' },
-  rs: { color: '#dea584', label: 'RS' }, rb: { color: '#cc342d', label: 'RB' },
-  java: { color: '#ed8b00', label: 'JA' }, php: { color: '#777bb4', label: 'PHP' },
-  c: { color: '#a8b9cc', label: 'C' }, cpp: { color: '#00599c', label: 'C++' },
-  h: { color: '#a8b9cc', label: 'H' },
-  html: { color: '#e34f26', label: '<>' }, htm: { color: '#e34f26', label: '<>' },
-  css: { color: '#1572b6', label: '#' }, scss: { color: '#cf649a', label: 'SC' },
-  json: { color: '#f7df1e', label: '{}' }, xml: { color: '#e37933', label: 'XML' },
-  md: { color: '#519aba', label: 'MD' }, txt: { color: '#94a3b8', label: 'TXT' },
-  svg: { color: '#f7a41d', label: 'SVG' },
-  yml: { color: '#cb171e', label: 'YML' }, yaml: { color: '#cb171e', label: 'YML' },
-  toml: { color: '#9c4121', label: 'TM' },
-  sql: { color: '#e38c00', label: 'SQL' },
-  sh: { color: '#4eaa25', label: 'SH' }, bash: { color: '#4eaa25', label: 'SH' },
-  mod: { color: '#00add8', label: 'MOD' }, sum: { color: '#00add8', label: 'SUM' },
-  lock: { color: '#94a3b8', label: 'LK' },
-  env: { color: '#ecd53f', label: 'ENV' },
-  gitignore: { color: '#f05032', label: 'GI' },
+  js:         { color: '#f7df1e', label: 'JS' },
+  jsx:        { color: '#61dafb', label: 'JSX' },
+  ts:         { color: '#3178c6', label: 'TS' },
+  tsx:        { color: '#3178c6', label: 'TSX' },
+  go:         { color: '#00add8', label: 'GO' },
+  py:         { color: '#3776ab', label: 'PY' },
+  rs:         { color: '#dea584', label: 'RS' },
+  rb:         { color: '#cc342d', label: 'RB' },
+  java:       { color: '#ed8b00', label: 'JA' },
+  php:        { color: '#777bb4', label: 'PHP' },
+  c:          { color: '#a8b9cc', label: 'C' },
+  cpp:        { color: '#00599c', label: 'C++' },
+  h:          { color: '#a8b9cc', label: 'H' },
+  html:       { color: '#e34f26', label: '<>' },
+  htm:        { color: '#e34f26', label: '<>' },
+  css:        { color: '#1572b6', label: '#' },
+  scss:       { color: '#cf649a', label: 'SC' },
+  json:       { color: '#f7df1e', label: '{}' },
+  xml:        { color: '#e37933', label: 'XML' },
+  md:         { color: '#519aba', label: 'MD' },
+  txt:        { color: '#8b91ab', label: 'TXT' },
+  svg:        { color: '#f7a41d', label: 'SVG' },
+  yml:        { color: '#cb171e', label: 'YML' },
+  yaml:       { color: '#cb171e', label: 'YML' },
+  toml:       { color: '#9c4121', label: 'TM' },
+  sql:        { color: '#e38c00', label: 'SQL' },
+  sh:         { color: '#4eaa25', label: 'SH' },
+  bash:       { color: '#4eaa25', label: 'SH' },
+  mod:        { color: '#00add8', label: 'MOD' },
+  sum:        { color: '#00add8', label: 'SUM' },
+  lock:       { color: '#8b91ab', label: 'LK' },
+  env:        { color: '#ecd53f', label: 'ENV' },
+  gitignore:  { color: '#f05032', label: 'GI' },
 }
 
 function FileIcon({ name }) {
@@ -33,33 +46,35 @@ function FileIcon({ name }) {
   const info = EXT_ICON[ext]
   if (info) {
     return (
-      <span className="w-4 h-4 flex items-center justify-center rounded-sm text-[7px] font-bold shrink-0 leading-none"
-        style={{ backgroundColor: info.color + '20', color: info.color }}>
+      <span
+        className="w-[18px] h-[18px] flex items-center justify-center rounded-[3px] text-[7px] font-bold shrink-0 leading-none select-none"
+        style={{ backgroundColor: info.color + '22', color: info.color }}
+      >
         {info.label}
       </span>
     )
   }
-  return <File className="w-4 h-4 shrink-0 text-text-muted" />
+  return <File className="w-[14px] h-[14px] shrink-0 text-text-muted" />
 }
 
-/* ── Git status color for file names ── */
-const GIT_NAME_COLOR = {
-  modified: 'text-yellow',
-  added: 'text-green',
-  deleted: 'text-red',
+/* ── Git status styling ── */
+const GIT_COLOR = {
+  modified:  'text-yellow',
+  added:     'text-green',
+  deleted:   'text-red line-through',
   untracked: 'text-green',
-  renamed: 'text-accent',
+  renamed:   'text-accent',
 }
 
-const GIT_INDICATOR = {
-  modified: { label: 'M', color: 'text-yellow' },
-  added: { label: 'A', color: 'text-green' },
-  deleted: { label: 'D', color: 'text-red' },
-  untracked: { label: 'U', color: 'text-green' },
-  renamed: { label: 'R', color: 'text-accent' },
+const GIT_BADGE = {
+  modified:  { label: 'M', cls: 'text-yellow' },
+  added:     { label: 'A', cls: 'text-green' },
+  deleted:   { label: 'D', cls: 'text-red' },
+  untracked: { label: 'U', cls: 'text-green' },
+  renamed:   { label: 'R', cls: 'text-accent' },
 }
 
-/* ── Context Menu ── */
+/* ── Context menu ── */
 function ContextMenu({ x, y, items, onClose }) {
   const ref = useRef(null)
 
@@ -69,31 +84,55 @@ function ContextMenu({ x, y, items, onClose }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
+  const clamped = { left: Math.min(x, window.innerWidth - 180), top: Math.min(y, window.innerHeight - 200) }
+
   return (
-    <div ref={ref} className="fixed z-50 bg-bg-primary border border-border rounded-lg shadow-xl shadow-shadow py-1 min-w-[160px] animate-fade-in"
-      style={{ left: x, top: y }}>
-      {items.map((item, i) => item.separator ? (
-        <div key={i} className="border-t border-border my-1" />
-      ) : (
-        <button key={i} onClick={() => { item.action(); onClose() }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors text-left">
-          {item.icon && <item.icon className="w-3.5 h-3.5 text-text-muted" />}
-          <span>{item.label}</span>
-        </button>
-      ))}
+    <div ref={ref} className="fixed z-50 animate-fade-in" style={clamped}>
+      <div className="bg-bg-elevated border border-border rounded-lg shadow-xl shadow-shadow-lg py-1.5 min-w-[160px]">
+        {items.map((item, i) => item.separator ? (
+          <div key={i} className="border-t border-border/60 my-1" />
+        ) : (
+          <button key={i} onClick={() => { item.action(); onClose() }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors text-left">
+            {item.icon && <item.icon className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
-/* ── Tree Node ── */
-function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRefresh, selectedPath, gitMap, clipboard, setClipboard, onPaste, onDelete, onRename }) {
+/* ── Inline input for new file / rename ── */
+function InlineInput({ placeholder, value, onChange, onSubmit, onBlur }) {
+  return (
+    <form onSubmit={onSubmit} className="px-2 py-1.5 border-b border-border bg-bg-primary">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-bg-input border border-accent/50 rounded-md px-2.5 py-1 text-[12px] text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors"
+        autoFocus
+        onBlur={onBlur}
+      />
+    </form>
+  )
+}
+
+/* ── Tree node ── */
+function TreeNode({
+  entry, depth, onSelect, onToggle, expanded, authFetch,
+  onRefresh, selectedPath, gitMap, clipboard, setClipboard,
+  onPaste, onDelete, onRename,
+}) {
   const [children, setChildren] = useState(null)
   const [ctx, setCtx] = useState(null)
-  const isOpen = expanded.has(entry.path)
+  const isOpen     = expanded.has(entry.path)
   const isSelected = selectedPath === entry.path
-  const gitStatus = gitMap?.[entry.path]
-  const nameColor = gitStatus ? GIT_NAME_COLOR[gitStatus] : 'text-text-primary'
-  const indicator = gitStatus ? GIT_INDICATOR[gitStatus] : null
+  const gitStatus  = gitMap?.[entry.path]
+  const nameColor  = gitStatus ? GIT_COLOR[gitStatus] : 'text-text-primary'
+  const badge      = gitStatus ? GIT_BADGE[gitStatus] : null
 
   const loadChildren = useCallback(async () => {
     if (!entry.isDir) return
@@ -101,7 +140,7 @@ function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRef
       const res = await authFetch(`/api/files?path=${encodeURIComponent(entry.path)}`)
       const data = await res.json()
       setChildren(Array.isArray(data) ? data : [])
-    } catch { if (!entry.isDir) return; setChildren([]) }
+    } catch { setChildren([]) }
   }, [entry.path, entry.isDir, authFetch])
 
   useEffect(() => {
@@ -113,11 +152,6 @@ function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRef
     else onSelect(entry)
   }
 
-  const handleContext = (e) => {
-    e.preventDefault()
-    setCtx({ x: e.clientX, y: e.clientY })
-  }
-
   const contextItems = [
     ...(entry.isDir ? [] : [{ label: 'Open', icon: File, action: () => onSelect(entry) }]),
     { label: 'Copy', icon: Copy, action: () => setClipboard({ path: entry.path, op: 'copy' }) },
@@ -127,30 +161,41 @@ function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRef
     { label: 'Delete', icon: Trash2, action: () => onDelete(entry.path) },
   ]
 
+  const indentPx = depth * 12 + 4
+
   return (
     <div>
       <div
         onClick={handleClick}
-        onContextMenu={handleContext}
-        className={`flex items-center h-[26px] cursor-pointer text-[13px] hover:bg-bg-hover/70 transition-colors group ${
-          isSelected ? 'bg-accent/10' : ''
+        onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }) }}
+        className={`relative flex items-center h-[26px] cursor-pointer text-[12px] transition-colors select-none group ${
+          isSelected
+            ? 'bg-accent/10 text-text-primary'
+            : 'hover:bg-bg-hover/80'
         }`}
-        style={{ paddingLeft: `${depth * 12 + 4}px` }}
+        style={{ paddingLeft: `${indentPx}px` }}
       >
-        {/* Indent guides */}
+        {/* Indent guide lines */}
         {depth > 0 && Array.from({ length: depth }).map((_, i) => (
-          <span key={i} className="absolute border-l border-border/40"
-            style={{ left: `${i * 12 + 10}px`, top: 0, bottom: 0 }} />
+          <span
+            key={i}
+            className="absolute top-0 bottom-0 border-l border-border-subtle/60 pointer-events-none"
+            style={{ left: `${i * 12 + 10}px` }}
+          />
         ))}
 
+        {/* Arrow + folder icon */}
         {entry.isDir ? (
           <>
             <span className="w-4 h-4 flex items-center justify-center shrink-0">
-              {isOpen ? <ChevronDown className="w-3 h-3 text-text-muted" /> : <ChevronRight className="w-3 h-3 text-text-muted" />}
+              {isOpen
+                ? <ChevronDown className="w-3 h-3 text-text-muted" />
+                : <ChevronRight className="w-3 h-3 text-text-muted" />
+              }
             </span>
             {isOpen
-              ? <FolderOpen className="w-4 h-4 mr-1.5 shrink-0 text-yellow" />
-              : <Folder className="w-4 h-4 mr-1.5 shrink-0 text-yellow/80" />
+              ? <FolderOpen className="w-[14px] h-[14px] mr-1.5 shrink-0 text-yellow" />
+              : <Folder    className="w-[14px] h-[14px] mr-1.5 shrink-0 text-yellow/70" />
             }
           </>
         ) : (
@@ -159,11 +204,13 @@ function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRef
             <span className="mr-1.5"><FileIcon name={entry.name} /></span>
           </>
         )}
-        <span className={`truncate flex-1 ${nameColor}`}>{entry.name}</span>
-        {indicator && (
-          <span className={`text-[10px] font-bold mr-2 shrink-0 ${indicator.color}`}>
-            {indicator.label}
-          </span>
+
+        {/* Filename */}
+        <span className={`truncate flex-1 leading-tight ${nameColor}`}>{entry.name}</span>
+
+        {/* Git badge */}
+        {badge && (
+          <span className={`text-[10px] font-bold mr-2.5 shrink-0 ${badge.cls}`}>{badge.label}</span>
         )}
       </div>
 
@@ -186,7 +233,7 @@ function TreeNode({ entry, depth, onSelect, onToggle, expanded, authFetch, onRef
   )
 }
 
-/* ── Main Explorer ── */
+/* ── Main explorer ── */
 export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace }) {
   const [files, _setFiles] = useState([])
   const setFiles = (v) => _setFiles(Array.isArray(v) ? v : [])
@@ -247,7 +294,6 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     if (!clipboard) return
     const name = clipboard.path.split('/').pop()
     const dest = targetDir ? `${targetDir}/${name}` : name
-    // Copy via read + write
     try {
       const res = await authFetch(`/api/files/read?path=${encodeURIComponent(clipboard.path)}`)
       const data = await res.json()
@@ -281,7 +327,6 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     setRenaming(null); setRenameName(''); loadRoot()
   }
 
-  // Keyboard paste
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
@@ -290,45 +335,44 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [clipboard])
+  }, [clipboard]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const folderLabel = workspace ? workspace.split('/').pop() : 'Explorer'
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border shrink-0">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted truncate">
-          {workspace ? workspace.split('/').pop() : 'Explorer'}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted truncate">
+          {folderLabel}
         </span>
-        <div className="flex gap-0.5">
-          <button onClick={() => setShowNew('file')} className="p-1 hover:bg-bg-hover rounded text-text-muted hover:text-text-primary" title="New File">
-            <FilePlus className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => setShowNew('folder')} className="p-1 hover:bg-bg-hover rounded text-text-muted hover:text-text-primary" title="New Folder">
-            <FolderPlus className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => { loadRoot(); loadGitStatus() }} className="p-1 hover:bg-bg-hover rounded text-text-muted hover:text-text-primary" title="Refresh">
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center gap-0.5">
+          <IconBtn icon={FilePlus} title="New File"   onClick={() => setShowNew('file')} />
+          <IconBtn icon={FolderPlus} title="New Folder" onClick={() => setShowNew('folder')} />
+          <IconBtn icon={RefreshCw}  title="Refresh"    onClick={() => { loadRoot(); loadGitStatus() }} />
         </div>
       </div>
 
-      {/* New file/folder input */}
+      {/* New file/folder */}
       {showNew && (
-        <form onSubmit={handleCreate} className="px-2 py-1 border-b border-border">
-          <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-            placeholder={showNew === 'file' ? 'filename.ext' : 'folder-name'}
-            className="w-full bg-bg-input border border-accent rounded px-2 py-1 text-xs text-text-primary focus:outline-none"
-            autoFocus onBlur={() => { setShowNew(null); setNewName('') }} />
-        </form>
+        <InlineInput
+          placeholder={showNew === 'file' ? 'filename.ext' : 'folder-name'}
+          value={newName}
+          onChange={setNewName}
+          onSubmit={handleCreate}
+          onBlur={() => { setShowNew(null); setNewName('') }}
+        />
       )}
 
-      {/* Rename input */}
+      {/* Rename */}
       {renaming && (
-        <form onSubmit={submitRename} className="px-2 py-1 border-b border-border">
-          <input type="text" value={renameName} onChange={(e) => setRenameName(e.target.value)}
-            className="w-full bg-bg-input border border-accent rounded px-2 py-1 text-xs text-text-primary focus:outline-none"
-            autoFocus onBlur={() => setRenaming(null)} />
-        </form>
+        <InlineInput
+          placeholder="new name"
+          value={renameName}
+          onChange={setRenameName}
+          onSubmit={submitRename}
+          onBlur={() => setRenaming(null)}
+        />
       )}
 
       {/* File tree */}
@@ -346,3 +390,16 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     </div>
   )
 }
+
+function IconBtn({ icon: Icon, title, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="w-6 h-6 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+    >
+      <Icon className="w-3.5 h-3.5" />
+    </button>
+  )
+}
+
