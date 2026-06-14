@@ -10,6 +10,12 @@ import (
 type Config struct {
 	Password       string `json:"password"`
 	Port           string `json:"port"`
+	// Host is the interface address wede binds to.  Defaults to "127.0.0.1"
+	// (localhost only).  Set to "0.0.0.0" or "" to listen on all interfaces,
+	// which is required when wede is accessed from another machine or a
+	// Docker host.  Keeping the default protects users running wede on a
+	// shared or internet-connected machine.
+	Host           string `json:"host,omitempty"`
 	// FrameAncestors controls which origins may embed wede in an iframe.
 	// Emitted as: Content-Security-Policy: frame-ancestors <value>
 	// Leave empty (default) for 'self' — blocks all cross-origin framing.
@@ -71,7 +77,7 @@ func Load() *Config {
 
 	log.Printf("loaded config from %s", found)
 
-	cfg := &Config{Port: "9090"}
+	cfg := &Config{Port: "9090", Host: "127.0.0.1"}
 	if err := json.Unmarshal(data, cfg); err != nil {
 		log.Fatal("invalid wede.config.json:", err)
 	}

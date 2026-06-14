@@ -8,16 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 
 type WorkspaceProvider interface {
 	Current() string
@@ -86,14 +83,76 @@ func (rb *ringBuffer) Bytes() []byte {
 	return out
 }
 
+// parseOrigins splits a space-separated frame_ancestors value into a set of
+// allowed origin strings.  Each entry should be an origin like
+// "https://vulos.org" (no trailing slash, no path).
+func parseOrigins(frameAncestors string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, o := range strings.Fields(frameAncestors) {
+		set[o] = struct{}{}
+	}
+	return set
+}
+
+// checkOrigin enforces WebSocket origin validation.
+//
+//   - No Origin header (e.g. a native tool or curl) → allowed (non-browser client).
+//   - Origin matches the Host header → same-origin → allowed.
+//   - Origin is in the allowedOrigins set (from frame_ancestors config) → allowed
+//     so that the Vulos OS shell, which legitimately embeds wede in an iframe,
+//     can also open the terminal WebSocket.
+//   - Anything else → rejected.
+func checkOrigin(r *http.Request, allowedOrigins map[string]struct{}) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		// No Origin header: non-browser client (e.g. curl, native app). Allow.
+		return true
+	}
+
+	// Derive the expected same-origin value from the Host header.
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	// X-Forwarded-Proto from a trusted reverse proxy takes precedence.
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" || proto == "http" {
+		scheme = proto
+	}
+	selfOrigin := scheme + "://" + r.Host
+	if origin == selfOrigin {
+		return true
+	}
+
+	// Allowed cross-origin embedding (e.g. Vulos shell).
+	if _, ok := allowedOrigins[origin]; ok {
+		return true
+	}
+
+	log.Printf("[terminal] rejected WebSocket upgrade from origin %q (host=%s)", origin, r.Host)
+	return false
+}
+
 type Handler struct {
 	ws       WorkspaceProvider
 	mu       sync.Mutex
 	sessions map[string]*session
+	upgrader websocket.Upgrader
 }
 
-func New(ws WorkspaceProvider) *Handler {
-	h := &Handler{ws: ws, sessions: make(map[string]*session)}
+// New creates a terminal handler.  allowedOrigins is the space-separated list
+// from the frame_ancestors config (e.g. "https://vulos.org").  When empty,
+// only same-origin WebSocket upgrades are allowed.
+func New(ws WorkspaceProvider, allowedOrigins string) *Handler {
+	allowed := parseOrigins(allowedOrigins)
+	h := &Handler{
+		ws:       ws,
+		sessions: make(map[string]*session),
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return checkOrigin(r, allowed)
+			},
+		},
+	}
 	// Kill all terminal sessions when workspace changes so new ones open in the new directory
 	ws.OnChange(func(string) {
 		h.mu.Lock()
@@ -197,7 +256,7 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("websocket upgrade error:", err)
 		return

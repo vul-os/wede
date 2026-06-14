@@ -64,7 +64,7 @@ func main() {
 	authHandler := auth.New(cfg.Password)
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
-	termHandler := terminal.New(ws)
+	termHandler := terminal.New(ws, cfg.FrameAncestors)
 
 	mux := http.NewServeMux()
 
@@ -104,8 +104,12 @@ func main() {
 	frontendHandler := newFrontendHandler()
 	mux.HandleFunc("/", frontendHandler)
 
-	addr := ":" + cfg.Port
-	log.Printf("wede IDE running on http://localhost%s", addr)
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1" // safe default: loopback only
+	}
+	addr := host + ":" + cfg.Port
+	log.Printf("wede IDE running on http://%s", addr)
 	log.Printf("password: %s", cfg.Password)
 	if ws.HasWorkspace() {
 		log.Printf("workspace: %s", ws.Current())

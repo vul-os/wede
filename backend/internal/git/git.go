@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -140,6 +141,12 @@ func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
 	if count == "" {
 		count = "50"
 	}
+	// Validate count is a positive integer to prevent flag injection via -n.
+	// exec.Command is not a shell so "50; rm -rf /" won't execute, but a value
+	// like "--all" would be misinterpreted by git as a flag argument.
+	if n, err := strconv.Atoi(count); err != nil || n < 1 || n > 10000 {
+		count = "50"
+	}
 
 	out, err := h.run("log", "--format=%H|%h|%s|%an|%ar|%D|%P", "-n", count, "--all")
 	if err != nil {
@@ -209,7 +216,8 @@ func (h *Handler) Stage(w http.ResponseWriter, r *http.Request) {
 		path = "."
 	}
 
-	out, err := h.run("add", path)
+	// Use "--" to prevent a path starting with "-" from being treated as a flag.
+	out, err := h.run("add", "--", path)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": out})
@@ -301,6 +309,15 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		Branch string `json:"branch"`
 	}
 	json.NewDecoder(r.Body).Decode(&body)
+
+	// Reject branch names that look like flags (start with "-").  This prevents
+	// injecting options like "--detach", "--orphan=evil", or "-b" into git checkout.
+	// Legitimate branch/ref names never begin with a hyphen (git itself enforces this).
+	if body.Branch == "" || strings.HasPrefix(body.Branch, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+		return
+	}
 
 	out, err := h.run("checkout", body.Branch)
 	if err != nil {

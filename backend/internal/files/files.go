@@ -50,9 +50,17 @@ func (h *Handler) safePath(reqPath string) (string, bool) {
 	if reqPath == "" || reqPath == "/" || reqPath == "." {
 		return ws, true
 	}
-	cleaned := filepath.Clean(reqPath)
-	full := filepath.Join(ws, cleaned)
-	if !strings.HasPrefix(full, ws) {
+	// filepath.Join calls filepath.Clean internally, which resolves all ".."
+	// sequences. We must NOT call Clean separately before Join because
+	// Clean("../../etc/passwd") == "../../etc/passwd" (still has ".."), and
+	// Join correctly collapses it: Join("/ws", "../../etc/passwd") == "/etc/passwd".
+	full := filepath.Join(ws, reqPath)
+	// Guard against prefix-collision attacks: if the workspace is "/tmp/ws",
+	// a plain HasPrefix check would permit "/tmp/ws2/evil" because "/tmp/ws2"
+	// starts with "/tmp/ws". Enforce the separator so we only allow exact
+	// workspace root or files strictly inside it.
+	wsWithSep := ws + string(filepath.Separator)
+	if full != ws && !strings.HasPrefix(full, wsWithSep) {
 		return "", false
 	}
 	return full, true
