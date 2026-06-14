@@ -109,7 +109,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   }, [authFetch, workspace])
 
   // ── Open a browser tab ──
-  const openBrowser = useCallback((url = 'https://webcrft.io') => {
+  const openBrowser = useCallback((url = 'https://wede.vulos.org') => {
     // If there's already a browser tab, navigate it
     const existing = tabs.find((t) => t.type === 'browser')
     if (existing) {

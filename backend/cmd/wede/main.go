@@ -14,6 +14,32 @@ import (
 	"wede/backend/internal/workspace"
 )
 
+// securityHeaders wraps a handler and injects security headers on every
+// response.  Frame-embedding behaviour is controlled by cfg.FrameAncestors:
+//
+//   - Empty (default): emit X-Frame-Options: DENY and
+//     Content-Security-Policy: frame-ancestors 'self'  — blocks all
+//     cross-origin embedding (safe standalone default).
+//   - Non-empty: emit Content-Security-Policy: frame-ancestors <value>
+//     and omit X-Frame-Options so the CSP directive takes sole effect.
+//     This allows the Vulos OS shell (or any other trusted origin) to
+//     embed wede in an iframe.  Example value: "https://vulos.org".
+func securityHeaders(cfg *config.Config, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cfg.FrameAncestors != "" {
+			// Cross-origin embedding allowed for the listed origins.
+			w.Header().Set("Content-Security-Policy", "frame-ancestors "+cfg.FrameAncestors)
+		} else {
+			// Default: deny all cross-origin framing.
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
+		}
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	portFlag := flag.String("port", "", "Override port (default: from config or 9090)")
 	pFlag := flag.String("p", "", "Override port (shorthand)")
@@ -86,11 +112,14 @@ func main() {
 	} else {
 		log.Printf("no default workspace - open a folder from the UI")
 	}
+	if cfg.FrameAncestors != "" {
+		log.Printf("embed mode: frame-ancestors %s", cfg.FrameAncestors)
+	}
 	if len(os.Args) == 1 {
 		log.Printf("tip: run with a path to open directly: ./wede /path/to/project")
 	}
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, securityHeaders(cfg, mux)); err != nil {
 		log.Fatal(err)
 	}
 }

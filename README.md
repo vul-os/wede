@@ -10,12 +10,12 @@
 One ~10MB binary. No cloud, no Docker, no subscriptions.<br>
 Deploy on your server, NAS, Raspberry Pi, or run locally.
 
-[![Build](https://img.shields.io/github/actions/workflow/status/webcrft/wede/ci.yml?branch=main&style=flat-square)](https://github.com/webcrft/wede/actions)
-[![Release](https://img.shields.io/github/v/release/webcrft/wede?style=flat-square)](https://github.com/webcrft/wede/releases)
-[![License](https://img.shields.io/github/license/webcrft/wede?style=flat-square)](LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
+[![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
+[![License](https://img.shields.io/github/license/vul-os/wede?style=flat-square)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.22+-00ADD8?style=flat-square&logo=go)](https://go.dev)
 
-[Website](https://wede.pty.it.com/) · [Install](#quick-install) · [Screenshots](#screenshots) · [Docs](#getting-started)
+[Website](https://wede.vulos.org/) · [Install](#quick-install) · [Screenshots](#screenshots) · [Docs](#getting-started)
 
 </div>
 
@@ -62,10 +62,10 @@ Deploy on your server, NAS, Raspberry Pi, or run locally.
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/webcrft/wede/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vul-os/wede/main/install.sh | bash
 ```
 
-Or download the binary directly from [GitHub Releases](https://github.com/webcrft/wede/releases).
+Or download the binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
 
 ## Getting Started
 
@@ -108,7 +108,8 @@ wede is configured via a `wede.config.json` file:
 ```json
 {
   "password": "your-password",
-  "port": "9090"
+  "port": "9090",
+  "frame_ancestors": ""
 }
 ```
 
@@ -116,6 +117,23 @@ wede is configured via a `wede.config.json` file:
 |-------|------|-------------|
 | `password` | `string` | Password for browser login. Required. |
 | `port` | `string` | Port to listen on. Default: `9090`. |
+| `frame_ancestors` | `string` | Space-separated list of origins allowed to embed wede in an `<iframe>`. Empty (default) = block all cross-origin framing (`'self'` only). |
+
+### Embedding wede in an iframe (Vulos OS / custom shell)
+
+By default wede sets `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'self'`, so it cannot be framed by any external origin.
+
+To allow a parent shell (e.g. the Vulos OS app registry) to embed wede as an iframe app, set `frame_ancestors` in your config:
+
+```json
+{
+  "password": "your-password",
+  "port": "9090",
+  "frame_ancestors": "https://vulos.org https://app.vulos.org"
+}
+```
+
+When `frame_ancestors` is non-empty, the server emits `Content-Security-Policy: frame-ancestors <value>` and omits `X-Frame-Options`, which is the correct behaviour for modern browsers. The standalone experience is unaffected — the field defaults to empty.
 
 ## Development
 
@@ -179,7 +197,7 @@ Vibe coded by <a href="https://github.com/imranparuk"><img src="https://github.g
 
 <div align="center">
 
-<a href="https://wede.pty.it.com">Website</a> · <a href="https://github.com/webcrft/wede/issues">Issues</a> · <a href="https://github.com/webcrft/wede/releases">Releases</a>
+<a href="https://wede.vulos.org">Website</a> · <a href="https://github.com/vul-os/wede/issues">Issues</a> · <a href="https://github.com/vul-os/wede/releases">Releases</a>
 
 <br>
 

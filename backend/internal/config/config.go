@@ -8,8 +8,15 @@ import (
 )
 
 type Config struct {
-	Password string `json:"password"`
-	Port     string `json:"port"`
+	Password       string `json:"password"`
+	Port           string `json:"port"`
+	// FrameAncestors controls which origins may embed wede in an iframe.
+	// Emitted as: Content-Security-Policy: frame-ancestors <value>
+	// Leave empty (default) for 'self' — blocks all cross-origin framing.
+	// Set to a space-separated list of origins to allow embedding, e.g.:
+	//   "https://vulos.org https://app.vulos.org"
+	// When non-empty, X-Frame-Options is omitted so the CSP takes effect.
+	FrameAncestors string `json:"frame_ancestors,omitempty"`
 }
 
 const configName = "wede.config.json"

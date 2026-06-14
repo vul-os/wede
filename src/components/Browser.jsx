@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Globe, ExternalLink, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react'
 
 export default function Browser({ url: initialUrl, onUrlChange }) {
-  const [url, setUrl] = useState(initialUrl || 'https://webcrft.io')
-  const [loadedUrl, setLoadedUrl] = useState(initialUrl || 'https://webcrft.io')
+  const [url, setUrl] = useState(initialUrl || 'https://wede.vulos.org')
+  const [loadedUrl, setLoadedUrl] = useState(initialUrl || 'https://wede.vulos.org')
   const iframeRef = useRef(null)
 
   useEffect(() => {

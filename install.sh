@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="webcrft/wede"
+REPO="vul-os/wede"
 BINARY="wede"
 echo "Installing wede..."
 echo ""
