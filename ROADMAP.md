@@ -45,17 +45,18 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 - [ ] **File creation/deletion** keyboard shortcuts in file explorer
 - [x] **Editor settings panel** — font size (10–24 px), tab width (2/4/8), word wrap,
   auto-save toggle; all settings live-applied via CodeMirror Compartments.
-- [ ] **Minimap** toggle — *deferred*: no standard CodeMirror 6 minimap package exists
-  in the official `@codemirror/*` set. Third-party options are outside the dependency
-  policy for this milestone. Revisit for v0.4.x.
+- [x] **Minimap** toggle — `@replit/codemirror-minimap` (MIT) wired via a CodeMirror
+  `Compartment`; toggled in Settings; scroll-synced viewport overlay; live enable/disable
+  without editor rebuild.
 - [x] **Auto-save** — 1.5 s debounce; status indicator in top bar; toggleable in settings.
-- [ ] **Language Server Protocol (LSP) proxy** — *deferred to v0.4.x*: correct
-  implementation requires a persistent JSON-RPC WebSocket proxy, per-workspace language-
-  server lifecycle management (start/stop/restart), capability negotiation, and LSP
-  initialize/shutdown sequences. The client side (`@codemirror/lang-*` adapters or
-  `codemirror-languageclient`) also needs wiring. Planned approach: Go side runs
-  `gopls`/`pyright`/etc. as a child process per workspace; proxies `stdio` ↔ WS;
-  frontend uses a thin LSP adapter extension.
+- [x] **Language Server Protocol (LSP) proxy** — Go backend (`backend/internal/lsp`)
+  spawns one language server process per (workspace, language) pair and bridges
+  JSON-RPC `Content-Length` frames ↔ WebSocket. Supported: `gopls` (Go),
+  `typescript-language-server` (JS/TS), `pylsp` (Python), `rust-analyzer` (Rust).
+  Client uses `codemirror-languageserver` (BSD-3) for diagnostics, hover, completion,
+  and go-to-definition. Degrades gracefully when binary not installed — no errors,
+  Settings panel shows which servers are active or missing. LSP toggled per-user in
+  Settings. `GET /api/lsp/available` lists installed servers.
 - [x] **Git push / pull / fetch / create-branch** — Remote tab in git panel; backend
   endpoints with injection-safe arg validation.
 - [x] **File-watching SSE** — `GET /api/watch` (fsnotify + 250 ms debounce); explorer

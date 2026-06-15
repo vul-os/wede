@@ -10,6 +10,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Minimap** — real code minimap rendered by `@replit/codemirror-minimap` (MIT).
+  Toggled via Settings → Editor → Minimap. Viewport overlay scroll-syncs with the
+  editor; enable/disable is live (no editor rebuild via `Compartment`).
+- **LSP proxy (diagnostics, hover, completion)** — Go backend package
+  `backend/internal/lsp` spawns one language server process per (workspace, language)
+  and bridges LSP JSON-RPC `Content-Length` frames to/from a WebSocket. Supported
+  out of the box: `gopls` (Go), `typescript-language-server` (JS/TS), `pylsp`
+  (Python), `rust-analyzer` (Rust). Binary discovery via `exec.LookPath` — no
+  hard-coded paths. Frontend uses `codemirror-languageserver` (BSD-3-Clause) for
+  diagnostics (squiggles), hover tooltips, completions, and go-to-definition.
+  Degrades gracefully: if a binary is not installed, the WebSocket accepts and sends
+  a single JSON-RPC notification then closes — no error UI, LSP features simply
+  inactive. Settings panel shows which servers are active or hints to install them.
+  LSP toggled per-user in Settings (persisted to `localStorage`). New endpoints:
+  `GET /api/lsp` (WS), `GET /api/lsp/available`. Backend tests cover message
+  framing, origin checks, and the availability table.
 - **Command palette (Ctrl/Cmd+Shift+P)** — fully functional fuzzy-search command palette
   wired to all major IDE actions: New File, Save, Save All, Toggle Terminal, Open Settings,
   Focus Explorer, Focus Git, Open Browser Preview, Close Tab, Refresh Explorer, Git Stage
@@ -43,14 +59,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Multi-cursor / column select** — CodeMirror's `rectangularSelection` +
   `crosshairCursor` extensions wired in. Alt+Click adds a cursor; Alt+Drag selects a
   rectangular region. Shortcut listed in the Settings shortcuts section.
-
-### Deferred (scope-limited, documented)
-- **Minimap** — no first-party CodeMirror 6 minimap extension exists in the standard
-  package set. Deferred to a future milestone; see ROADMAP for notes.
-- **LSP proxy** — implementing a correct JSON-RPC WebSocket proxy to gopls / pyright
-  requires significant additional scope (lifecycle management, per-workspace server
-  instances, capability negotiation). Deferred to v0.4.x; see ROADMAP for the planned
-  approach.
 
 ### Fixed
 - **Old brand references removed** — all remaining mentions of the previous brand name

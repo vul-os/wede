@@ -2,7 +2,7 @@ import { Moon, Sun, FolderOpen, Info, Minus, Plus } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 
-export default function Settings({ visible, onOpenFolder, workspace, editorSettings, onEditorSettingsChange }) {
+export default function Settings({ visible, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable }) {
   const { setTheme, isDark } = useTheme()
 
   if (!visible) return null
@@ -12,6 +12,17 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
   const tabWidth  = s.tabWidth  ?? 2
   const wordWrap  = s.wordWrap  ?? false
   const autoSave  = s.autoSave  ?? true
+  const minimap   = s.minimap   ?? false
+  const lspOn     = s.lsp       ?? true
+
+  // Derive LSP status hint for the user.
+  // lspAvailable: null = not yet fetched, {} = fetched (possibly empty), { go: '...' } = servers found
+  const lspHint = (() => {
+    if (lspAvailable === null) return null
+    const names = Object.keys(lspAvailable)
+    if (names.length === 0) return 'No language servers found on PATH. Install gopls, typescript-language-server, or pylsp to enable diagnostics and hover.'
+    return `Active for: ${names.join(', ')}`
+  })()
 
   const update = (patch) => onEditorSettingsChange?.({ ...s, ...patch })
 
@@ -138,6 +149,29 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
               </div>
               <Toggle checked={autoSave} onChange={(v) => update({ autoSave: v })} />
             </label>
+
+            {/* Minimap */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Minimap</span>
+              <Toggle checked={minimap} onChange={(v) => update({ minimap: v })} />
+            </label>
+
+            {/* LSP */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <div>
+                <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Language server (LSP)</span>
+                <span className="block text-[10px] text-text-muted">Diagnostics &amp; hover</span>
+              </div>
+              <Toggle checked={lspOn} onChange={(v) => update({ lsp: v })} />
+            </label>
+
+            {/* LSP availability hint */}
+            {lspHint && (
+              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-bg-primary border border-border">
+                <Info className="w-3.5 h-3.5 text-text-muted shrink-0 mt-px" />
+                <span className="text-[10px] text-text-muted leading-relaxed">{lspHint}</span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import Settings from './Settings'
 import SearchPanel from './SearchPanel'
 import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
+import { useLSP } from '../hooks/useLSP'
 
 let browserIdCounter = 0
 
@@ -50,11 +51,15 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // Editor settings — persisted to localStorage
   const [editorSettings, setEditorSettings] = useState(() => {
     const saved = localStorage.getItem('wede_editor_settings')
-    if (!saved) return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true }
+    if (!saved) return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true }
     try {
-      return JSON.parse(saved)
+      const s = JSON.parse(saved)
+      // Back-fill new keys for users upgrading from older localStorage state.
+      if (s.minimap === undefined) s.minimap = false
+      if (s.lsp === undefined) s.lsp = true
+      return s
     } catch {
-      return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true }
+      return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true }
     }
   })
 
@@ -62,6 +67,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     setEditorSettings(s)
     try { localStorage.setItem('wede_editor_settings', JSON.stringify(s)) } catch (_ignored) { void _ignored }
   }, [])
+
 
   // Expose FileExplorer's refresh + new-file/folder triggers for the command palette and SSE watcher.
   const explorerActionsRef = useRef(null)
@@ -405,6 +411,15 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
 
+  // LSP — provides diagnostics + hover for supported languages.
+  // Degrades gracefully when language server binaries are not installed.
+  const { extension: lspExtension, available: lspAvailable } = useLSP({
+    file: currentTab,
+    token,
+    authFetch,
+    lspEnabled: editorSettings.lsp ?? true,
+  })
+
   const renderTabContent = () => {
     if (!currentTab) {
       return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} settings={editorSettings} />
@@ -429,6 +444,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onSave={saveFile}
         onCursorChange={setCursor}
         settings={editorSettings}
+        lspExtension={lspExtension}
       />
     )
   }
@@ -531,6 +547,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 workspace={workspace}
                 editorSettings={editorSettings}
                 onEditorSettingsChange={handleEditorSettingsChange}
+                lspAvailable={lspAvailable}
               />
             </div>
           )}
@@ -721,6 +738,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 workspace={workspace}
                 editorSettings={editorSettings}
                 onEditorSettingsChange={handleEditorSettingsChange}
+                lspAvailable={lspAvailable}
               />
             </div>
           </>

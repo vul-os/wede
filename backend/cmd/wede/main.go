@@ -12,6 +12,7 @@ import (
 	"wede/backend/internal/files"
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/git"
+	"wede/backend/internal/lsp"
 	"wede/backend/internal/search"
 	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
@@ -80,6 +81,7 @@ func main() {
 	termHandler := terminal.New(ws, cfg.FrameAncestors)
 	searchHandler := search.New(ws)
 	watchHandler := filewatcher.New(ws)
+	lspHandler := lsp.New(ws, cfg.FrameAncestors)
 
 	mux := http.NewServeMux()
 
@@ -123,6 +125,9 @@ func main() {
 
 	protected.HandleFunc("GET /api/terminal/sessions", termHandler.ListSessions)
 	protected.HandleFunc("GET /api/terminal", termHandler.HandleWS)
+
+	protected.HandleFunc("GET /api/lsp/available", lspHandler.HandleAvailable)
+	protected.HandleFunc("GET /api/lsp", lspHandler.HandleWS)
 
 	mux.Handle("/api/", authHandler.Middleware(protected))
 

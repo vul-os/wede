@@ -13,6 +13,7 @@ import {
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { showMinimap } from '@replit/codemirror-minimap'
 import { useTheme } from '../hooks/useTheme'
 import { Code } from 'lucide-react'
 
@@ -74,8 +75,20 @@ function makeEditorTheme(settings, isDark) {
   return base
 }
 
+// Build the minimap facet value.  Returns null when disabled (minimap hidden).
+function makeMinimapConfig(enabled) {
+  if (!enabled) return null
+  return {
+    create() {
+      const dom = document.createElement('div')
+      return { dom }
+    },
+    displayText: 'blocks',
+    showOverlay: 'always',
+  }
+}
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {} }) {
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
@@ -83,9 +96,11 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
   const onCursorRef = useRef(onCursorChange)
 
   // Compartments for live reconfiguration without destroying the editor.
-  const themeCompRef = useRef(new Compartment())
-  const wrapCompRef  = useRef(new Compartment())
-  const tabCompRef   = useRef(new Compartment())
+  const themeCompRef   = useRef(new Compartment())
+  const wrapCompRef    = useRef(new Compartment())
+  const tabCompRef     = useRef(new Compartment())
+  const minimapCompRef = useRef(new Compartment())
+  const lspCompRef     = useRef(new Compartment())
 
   const { isDark } = useTheme()
 
@@ -101,9 +116,13 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
   useEffect(() => {
     if (!containerRef.current) return
 
-    const themeComp = themeCompRef.current
-    const wrapComp  = wrapCompRef.current
-    const tabComp   = tabCompRef.current
+    const themeComp   = themeCompRef.current
+    const wrapComp    = wrapCompRef.current
+    const tabComp     = tabCompRef.current
+    const minimapComp = minimapCompRef.current
+    const lspComp     = lspCompRef.current
+
+    const minimapEnabled = settings.minimap ?? false
 
     const state = EditorState.create({
       doc: content || '',
@@ -127,6 +146,10 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
         themeComp.of([isDark ? oneDark : [], makeEditorTheme(settings, isDark)]),
         wrapComp.of(settings.wordWrap ? EditorView.lineWrapping : []),
         tabComp.of(EditorState.tabSize.of(settings.tabWidth || 2)),
+        // Minimap compartment — reconfigured live when settings.minimap changes.
+        minimapComp.of(showMinimap.of(makeMinimapConfig(minimapEnabled))),
+        // LSP compartment — reconfigured when the file or lsp setting changes.
+        lspComp.of(lspExtension ? lspExtension : []),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         getLang(file?.name || ''),
         keymap.of([
@@ -185,6 +208,23 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
       effects: themeCompRef.current.reconfigure([isDark ? oneDark : [], makeEditorTheme(settings, isDark)]),
     })
   }, [settings.fontSize]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live settings: minimap toggle.
+  useEffect(() => {
+    if (!viewRef.current) return
+    const minimapEnabled = settings.minimap ?? false
+    viewRef.current.dispatch({
+      effects: minimapCompRef.current.reconfigure(showMinimap.of(makeMinimapConfig(minimapEnabled))),
+    })
+  }, [settings.minimap])
+
+  // Live LSP extension swap — fires when file changes or lsp toggle changes.
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: lspCompRef.current.reconfigure(lspExtension ? lspExtension : []),
+    })
+  }, [lspExtension])
 
   // Sync external content changes (e.g. auto-save feedback or file reload).
   useEffect(() => {
