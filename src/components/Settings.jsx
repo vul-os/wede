@@ -1,11 +1,19 @@
-import { Moon, Sun, FolderOpen, Info, Monitor } from 'lucide-react'
+import { Moon, Sun, FolderOpen, Info, Minus, Plus } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 
-export default function Settings({ visible, onOpenFolder, workspace }) {
+export default function Settings({ visible, onOpenFolder, workspace, editorSettings, onEditorSettingsChange }) {
   const { setTheme, isDark } = useTheme()
 
   if (!visible) return null
+
+  const s = editorSettings || {}
+  const fontSize  = s.fontSize  ?? 13
+  const tabWidth  = s.tabWidth  ?? 2
+  const wordWrap  = s.wordWrap  ?? false
+  const autoSave  = s.autoSave  ?? true
+
+  const update = (patch) => onEditorSettingsChange?.({ ...s, ...patch })
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-y-auto">
@@ -72,6 +80,67 @@ export default function Settings({ visible, onOpenFolder, workspace }) {
           </div>
         </div>
 
+        {/* Editor settings */}
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Editor</h3>
+          <div className="space-y-2">
+            {/* Font size */}
+            <div className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5">
+              <span className="text-xs text-text-secondary">Font size</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => update({ fontSize: Math.max(10, fontSize - 1) })}
+                  className="w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="text-xs font-mono text-text-primary w-6 text-center">{fontSize}</span>
+                <button
+                  onClick={() => update({ fontSize: Math.min(24, fontSize + 1) })}
+                  className="w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tab width */}
+            <div className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5">
+              <span className="text-xs text-text-secondary">Tab width</span>
+              <div className="flex items-center gap-1">
+                {[2, 4, 8].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => update({ tabWidth: n })}
+                    className={`text-[11px] font-mono px-2 py-0.5 rounded transition-colors ${
+                      tabWidth === n
+                        ? 'bg-accent/15 text-accent border border-accent/30'
+                        : 'text-text-muted hover:text-text-primary hover:bg-bg-hover border border-transparent'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Word wrap */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Word wrap</span>
+              <Toggle checked={wordWrap} onChange={(v) => update({ wordWrap: v })} />
+            </label>
+
+            {/* Auto-save */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <div>
+                <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Auto-save</span>
+                <span className="block text-[10px] text-text-muted">1.5 s after last edit</span>
+              </div>
+              <Toggle checked={autoSave} onChange={(v) => update({ autoSave: v })} />
+            </label>
+          </div>
+        </div>
+
         {/* Workspace */}
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Workspace</h3>
@@ -127,7 +196,10 @@ export default function Settings({ visible, onOpenFolder, workspace }) {
               ['Command palette', 'Ctrl/Cmd + Shift + P'],
               ['Save file', 'Ctrl/Cmd + S'],
               ['Search in file', 'Ctrl/Cmd + F'],
+              ['Project search', 'Ctrl/Cmd + Shift + F'],
               ['Close tab', 'Ctrl/Cmd + W'],
+              ['Multi-cursor', 'Alt + Click'],
+              ['Column select', 'Alt + Drag'],
             ].map(([action, keys]) => (
               <div key={action} className="flex items-center justify-between py-1.5 px-3 bg-bg-primary rounded-lg border border-border">
                 <span className="text-text-secondary">{action}</span>
@@ -140,5 +212,22 @@ export default function Settings({ visible, onOpenFolder, workspace }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function Toggle({ checked, onChange }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative w-8 h-4.5 rounded-full transition-colors shrink-0 ${checked ? 'bg-accent' : 'bg-bg-active border border-border'}`}
+      style={{ height: '18px', width: '32px' }}
+    >
+      <span
+        className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+        style={{ height: '14px', width: '14px' }}
+      />
+    </button>
   )
 }

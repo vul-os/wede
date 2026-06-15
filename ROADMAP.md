@@ -39,15 +39,29 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 
 ## v0.3.0 — Editor polish
 
-- [ ] **Multi-cursor** and column-select (CodeMirror extension)
-- [ ] **Search across files** (ripgrep subprocess or pure-Go walker, results panel)
+- [x] **Multi-cursor** and column-select — `rectangularSelection` + `crosshairCursor`
+  CodeMirror extensions; Alt+Click / Alt+Drag.
+- [x] **Search across files** — ripgrep subprocess (Go walker fallback); Search sidebar
+  panel; results grouped by file with highlighted matches; click to open at line.
 - [ ] **File creation/deletion** keyboard shortcuts in file explorer
-- [ ] **Editor settings panel** — font size, tab width, word wrap, ligatures
-- [ ] **Minimap** toggle (CodeMirror extension)
-- [ ] **Auto-save** with configurable debounce delay
-- [ ] **Language Server Protocol (LSP) proxy** — forward LSP JSON-RPC over the Go backend
-  to a user-installed language server (gopls, pyright, etc.). Client side via
-  `@codemirror/lang-*` LSP adapters.
+- [x] **Editor settings panel** — font size (10–24 px), tab width (2/4/8), word wrap,
+  auto-save toggle; all settings live-applied via CodeMirror Compartments.
+- [ ] **Minimap** toggle — *deferred*: no standard CodeMirror 6 minimap package exists
+  in the official `@codemirror/*` set. Third-party options are outside the dependency
+  policy for this milestone. Revisit for v0.4.x.
+- [x] **Auto-save** — 1.5 s debounce; status indicator in top bar; toggleable in settings.
+- [ ] **Language Server Protocol (LSP) proxy** — *deferred to v0.4.x*: correct
+  implementation requires a persistent JSON-RPC WebSocket proxy, per-workspace language-
+  server lifecycle management (start/stop/restart), capability negotiation, and LSP
+  initialize/shutdown sequences. The client side (`@codemirror/lang-*` adapters or
+  `codemirror-languageclient`) also needs wiring. Planned approach: Go side runs
+  `gopls`/`pyright`/etc. as a child process per workspace; proxies `stdio` ↔ WS;
+  frontend uses a thin LSP adapter extension.
+- [x] **Git push / pull / fetch / create-branch** — Remote tab in git panel; backend
+  endpoints with injection-safe arg validation.
+- [x] **File-watching SSE** — `GET /api/watch` (fsnotify + 250 ms debounce); explorer
+  and git status refresh automatically on file-system changes; git-status poll relaxed
+  from 10 s to 30 s.
 
 ---
 

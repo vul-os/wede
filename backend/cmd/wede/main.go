@@ -10,7 +10,9 @@ import (
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
 	"wede/backend/internal/files"
+	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/git"
+	"wede/backend/internal/search"
 	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
 )
@@ -76,6 +78,8 @@ func main() {
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
 	termHandler := terminal.New(ws, cfg.FrameAncestors)
+	searchHandler := search.New(ws)
+	watchHandler := filewatcher.New(ws)
 
 	mux := http.NewServeMux()
 
@@ -107,6 +111,15 @@ func main() {
 	protected.HandleFunc("POST /api/git/commit", gitHandler.Commit)
 	protected.HandleFunc("GET /api/git/branches", gitHandler.Branches)
 	protected.HandleFunc("POST /api/git/checkout", gitHandler.Checkout)
+	protected.HandleFunc("POST /api/git/branch", gitHandler.CreateBranch)
+	protected.HandleFunc("POST /api/git/fetch", gitHandler.Fetch)
+	protected.HandleFunc("POST /api/git/pull", gitHandler.Pull)
+	protected.HandleFunc("POST /api/git/push", gitHandler.Push)
+	protected.HandleFunc("GET /api/git/remotes", gitHandler.Remotes)
+
+	protected.HandleFunc("GET /api/search", searchHandler.Search)
+
+	protected.HandleFunc("GET /api/watch", watchHandler.HandleSSE)
 
 	protected.HandleFunc("GET /api/terminal/sessions", termHandler.ListSessions)
 	protected.HandleFunc("GET /api/terminal", termHandler.HandleWS)

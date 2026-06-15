@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   GitBranch, Plus, Minus, RefreshCw, Check,
   ChevronDown, ChevronRight, RotateCcw, Copy, GitCommit,
-  GitMerge, Clock, User, Hash
+  GitMerge, Clock, User, Hash, Upload, Download, CloudDownload,
+  AlertCircle, X
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════
@@ -372,33 +373,43 @@ function SectionHeader({ label, count, colorClass, defaultOpen = true, children,
 ═══════════════════════════════════════════════════ */
 
 const TABS = [
-  { key: 'changes', label: 'Changes' },
-  { key: 'graph',   label: 'History' },
+  { key: 'changes',  label: 'Changes' },
+  { key: 'graph',    label: 'History' },
   { key: 'branches', label: 'Branches' },
+  { key: 'remotes',  label: 'Remote' },
 ]
 
-export default function GitPanel({ authFetch, visible, isMobile }) {
-  const [status, setStatus]   = useState({ branch: '', files: [], isRepo: true })
-  const [log, setLog]         = useState([])
+export default function GitPanel({ authFetch, visible }) {
+  const [status, setStatus]     = useState({ branch: '', files: [], isRepo: true })
+  const [log, setLog]           = useState([])
   const [branches, setBranches] = useState([])
+  const [remotes, setRemotes]   = useState([])
   const [commitMsg, setCommitMsg] = useState('')
-  const [section, setSection] = useState('changes')
-  const [loading, setLoading] = useState(false)
+  const [section, setSection]   = useState('changes')
+  const [loading, setLoading]   = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [remoteOp, setRemoteOp] = useState('') // 'push'|'pull'|'fetch'|''
+  const [remoteMsg, setRemoteMsg] = useState('') // success/error message from remote op
+  const [newBranch, setNewBranch] = useState('') // value for create-branch input
+  const [showNewBranch, setShowNewBranch] = useState(false)
 
   const refresh = useCallback(async (quiet = false) => {
     if (!visible) return
     if (!quiet) setRefreshing(true)
     try {
-      const [sRes, lRes, bRes] = await Promise.all([
+      const [sRes, lRes, bRes, rRes] = await Promise.all([
         authFetch('/api/git/status'),
         authFetch('/api/git/log'),
         authFetch('/api/git/branches'),
+        authFetch('/api/git/remotes'),
       ])
-      const [sData, lData, bData] = await Promise.all([sRes.json(), lRes.json(), bRes.json()])
+      const [sData, lData, bData, rData] = await Promise.all([
+        sRes.json(), lRes.json(), bRes.json(), rRes.json(),
+      ])
       setStatus(sData)
       setLog(lData.entries || [])
       setBranches(bData.branches || [])
+      setRemotes(rData.remotes || [])
     } catch {}
     setRefreshing(false)
   }, [authFetch, visible])
@@ -448,6 +459,47 @@ export default function GitPanel({ authFetch, visible, isMobile }) {
       })
       refresh(true)
     }
+  }
+
+  const runRemoteOp = async (op) => {
+    setRemoteOp(op)
+    setRemoteMsg('')
+    try {
+      const remote = remotes[0]?.name || 'origin'
+      const res = await authFetch(`/api/git/${op}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remote, branch: status.branch }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setRemoteMsg('Error: ' + data.error)
+      } else {
+        setRemoteMsg(data.output || op + ' successful')
+        refresh(true)
+      }
+    } catch (e) {
+      setRemoteMsg('Error: ' + e.message)
+    }
+    setRemoteOp('')
+  }
+
+  const handleCreateBranch = async (e) => {
+    e.preventDefault()
+    if (!newBranch.trim()) return
+    setLoading(true)
+    try {
+      const res = await authFetch('/api/git/branch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newBranch.trim(), checkout: true }),
+      })
+      const data = await res.json()
+      if (!data.error) {
+        setNewBranch('')
+        setShowNewBranch(false)
+        refresh(true)
+      }
+    } catch (err) { void err }
+    setLoading(false)
   }
 
   if (!visible) return null
@@ -581,6 +633,36 @@ export default function GitPanel({ authFetch, visible, isMobile }) {
         {/* ── Branches ── */}
         {section === 'branches' && (
           <div className="py-1">
+            {/* Create branch */}
+            <div className="px-3 pb-2 border-b border-border/40">
+              {showNewBranch ? (
+                <form onSubmit={handleCreateBranch} className="flex gap-1.5 mt-1.5">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newBranch}
+                    onChange={(e) => setNewBranch(e.target.value)}
+                    placeholder="new-branch-name"
+                    className="flex-1 min-w-0 bg-bg-input border border-border rounded-md px-2.5 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+                  />
+                  <button type="submit" disabled={loading || !newBranch.trim()}
+                    className="px-2 py-1 text-[11px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 transition-all font-medium">
+                    Create
+                  </button>
+                  <button type="button" onClick={() => { setShowNewBranch(false); setNewBranch('') }}
+                    className="px-2 py-1 text-[11px] border border-border rounded-md text-text-muted hover:bg-bg-hover transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </form>
+              ) : (
+                <button onClick={() => setShowNewBranch(true)}
+                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] border border-dashed border-border text-text-muted hover:text-text-primary hover:border-border-active rounded-md transition-colors">
+                  <Plus className="w-3 h-3" />
+                  New branch
+                </button>
+              )}
+            </div>
+
             {branches.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-text-muted">
                 <GitBranch className="w-6 h-6 mb-2 opacity-25" />
@@ -610,8 +692,96 @@ export default function GitPanel({ authFetch, visible, isMobile }) {
             )}
           </div>
         )}
+
+        {/* ── Remote operations ── */}
+        {section === 'remotes' && (
+          <div className="p-3 space-y-3">
+            {/* Remote list */}
+            {remotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-text-muted">
+                <AlertCircle className="w-5 h-5 mb-2 opacity-30" />
+                <span className="text-[12px]">No remotes configured</span>
+                <span className="text-[11px] mt-1 text-center">Run <code className="text-accent bg-accent/10 px-1 rounded font-mono text-[10px]">git remote add origin &lt;url&gt;</code> in the terminal</span>
+              </div>
+            ) : (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Remotes</div>
+                {remotes.map((r) => (
+                  <div key={r.name} className="flex items-center gap-2 px-2 py-1.5 bg-bg-primary border border-border rounded-lg mb-1.5">
+                    <span className="text-[12px] font-mono font-medium text-text-primary shrink-0">{r.name}</span>
+                    <span className="text-[10px] text-text-muted truncate">{r.url}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Operation buttons */}
+            <div className="space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Operations</div>
+
+              <RemoteOpBtn
+                icon={Download}
+                label="Fetch"
+                desc="Download objects & refs"
+                loading={remoteOp === 'fetch'}
+                disabled={!!remoteOp || remotes.length === 0}
+                onClick={() => runRemoteOp('fetch')}
+              />
+              <RemoteOpBtn
+                icon={CloudDownload}
+                label="Pull"
+                desc="Fetch + merge current branch"
+                loading={remoteOp === 'pull'}
+                disabled={!!remoteOp || remotes.length === 0}
+                onClick={() => runRemoteOp('pull')}
+              />
+              <RemoteOpBtn
+                icon={Upload}
+                label="Push"
+                desc="Upload commits to remote"
+                loading={remoteOp === 'push'}
+                disabled={!!remoteOp || remotes.length === 0}
+                onClick={() => runRemoteOp('push')}
+              />
+            </div>
+
+            {/* Operation output */}
+            {remoteMsg && (
+              <div className={`p-2.5 rounded-lg text-[11px] font-mono border ${
+                remoteMsg.startsWith('Error:')
+                  ? 'bg-red/5 border-red/20 text-red'
+                  : 'bg-green/5 border-green/20 text-green'
+              }`}>
+                {remoteMsg}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+/* Remote operation button */
+// eslint-disable-next-line no-unused-vars
+function RemoteOpBtn({ icon: Icon, label, desc, loading, disabled, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full flex items-center gap-3 p-3 bg-bg-primary border border-border rounded-lg hover:bg-bg-hover hover:border-border-active transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <div className="w-7 h-7 flex items-center justify-center rounded-md bg-accent/10 shrink-0">
+        <Icon className={`w-4 h-4 text-accent ${loading ? 'animate-spin' : ''}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-medium text-text-primary">{label}</div>
+        <div className="text-[10px] text-text-muted truncate">{desc}</div>
+      </div>
+      {loading && (
+        <RefreshCw className="w-3.5 h-3.5 text-text-muted animate-spin shrink-0" />
+      )}
+    </button>
   )
 }
 

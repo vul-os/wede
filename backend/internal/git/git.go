@@ -327,3 +327,194 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
+
+// validBranchName returns true when name is safe to pass as a git branch
+// argument — non-empty and not starting with "-" (which would look like a flag).
+func validBranchName(name string) bool {
+	return name != "" && !strings.HasPrefix(name, "-")
+}
+
+// validRemoteName returns true when name is safe to pass as a git remote name.
+func validRemoteName(name string) bool {
+	return name != "" && !strings.HasPrefix(name, "-")
+}
+
+// CreateBranch creates a new local branch (and optionally checks it out).
+// POST /api/git/branch  {"name":"feat/foo","checkout":true}
+func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Name     string `json:"name"`
+		Checkout bool   `json:"checkout"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validBranchName(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+		return
+	}
+
+	var out string
+	var err error
+	if body.Checkout {
+		// "git checkout -b <name>" — no "--" separator needed here since -b
+		// takes the next argument as the branch name (not a pathspec).
+		out, err = h.run("checkout", "-b", body.Name)
+	} else {
+		out, err = h.run("branch", "--", body.Name)
+	}
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// Fetch runs git fetch [remote].
+// POST /api/git/fetch  {"remote":"origin"}  (remote is optional)
+func (h *Handler) Fetch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Remote string `json:"remote"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	args := []string{"fetch", "--prune"}
+	if body.Remote != "" {
+		if !validRemoteName(body.Remote) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote name"})
+			return
+		}
+		args = append(args, "--", body.Remote)
+	}
+
+	out, err := h.run(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// Pull runs git pull [remote [branch]].
+// POST /api/git/pull  {"remote":"origin","branch":"main"}
+func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Remote string `json:"remote"`
+		Branch string `json:"branch"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	args := []string{"pull"}
+	if body.Remote != "" {
+		if !validRemoteName(body.Remote) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote name"})
+			return
+		}
+		args = append(args, "--", body.Remote)
+		if body.Branch != "" {
+			if !validBranchName(body.Branch) {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+				return
+			}
+			args = append(args, body.Branch)
+		}
+	}
+
+	out, err := h.run(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// Push runs git push [remote [branch]].
+// POST /api/git/push  {"remote":"origin","branch":"main","setUpstream":true}
+func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Remote      string `json:"remote"`
+		Branch      string `json:"branch"`
+		SetUpstream bool   `json:"setUpstream"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	args := []string{"push"}
+	if body.SetUpstream {
+		args = append(args, "--set-upstream")
+	}
+	if body.Remote != "" {
+		if !validRemoteName(body.Remote) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote name"})
+			return
+		}
+		args = append(args, "--", body.Remote)
+		if body.Branch != "" {
+			if !validBranchName(body.Branch) {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+				return
+			}
+			args = append(args, body.Branch)
+		}
+	}
+
+	out, err := h.run(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// Remotes returns the list of configured git remotes.
+// GET /api/git/remotes
+func (h *Handler) Remotes(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	out, _ := h.run("remote", "-v")
+	// Parse "origin\thttps://... (fetch)" lines into deduplicated names.
+	seen := map[string]string{}
+	for _, line := range strings.Split(out, "\n") {
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+		name := parts[0]
+		url := parts[1]
+		if _, ok := seen[name]; !ok {
+			seen[name] = url
+		}
+	}
+	remotes := []map[string]string{}
+	for name, url := range seen {
+		remotes = append(remotes, map[string]string{"name": name, "url": url})
+	}
+	json.NewEncoder(w).Encode(map[string]any{"remotes": remotes})
+}

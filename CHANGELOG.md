@@ -10,6 +10,38 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Auto-save** — debounced 1.5 s after the last keystroke; toggled per-user in Settings
+  (default on). Status indicator ("saving…" / "saved") appears in the top bar while
+  active. Manual Ctrl/Cmd+S still works regardless of the auto-save setting.
+- **Project-wide search (Ctrl/Cmd+Shift+F)** — new Search sidebar panel with a 350 ms
+  debounced query box, case-sensitivity toggle, and regex toggle. Backend uses ripgrep
+  when on `$PATH` and falls back to a pure-Go `filepath.Walk` scanner. Results are
+  grouped by file; clicking a match opens the file at the exact line. Workspace-confined
+  via the same `safePath` guard used by all file endpoints. Skips `.git/`, `node_modules/`,
+  and other build-artefact directories. Max 500 matches per query.
+- **Git push / pull / fetch / create-branch** — new "Remote" tab in the git panel exposes
+  fetch, pull, and push buttons with live output; backend endpoints validate remote and
+  branch names to prevent flag-injection. Inline "New branch" input in the Branches tab
+  creates and checks out a local branch via `git checkout -b`.
+- **File-watching SSE** — `GET /api/watch` streams `text/event-stream` events using
+  fsnotify. Explorer and git status refresh automatically on file-system changes
+  (250 ms debounce); the 10 s git-status poll is relaxed to 30 s.
+- **Editor settings** — Settings panel now has a dedicated Editor section: font size
+  (10–24 px, +/− buttons), tab width (2/4/8 radio), word wrap toggle, auto-save toggle.
+  All settings persist to `localStorage` under the key `wede_editor_settings` and take
+  effect immediately without re-opening the editor.
+- **Multi-cursor / column select** — CodeMirror's `rectangularSelection` +
+  `crosshairCursor` extensions wired in. Alt+Click adds a cursor; Alt+Drag selects a
+  rectangular region. Shortcut listed in the Settings shortcuts section.
+
+### Deferred (scope-limited, documented)
+- **Minimap** — no first-party CodeMirror 6 minimap extension exists in the standard
+  package set. Deferred to a future milestone; see ROADMAP for notes.
+- **LSP proxy** — implementing a correct JSON-RPC WebSocket proxy to gopls / pyright
+  requires significant additional scope (lifecycle management, per-workspace server
+  instances, capability negotiation). Deferred to v0.4.x; see ROADMAP for the planned
+  approach.
+
 - **Command palette (Ctrl/Cmd+Shift+P)** — fully functional fuzzy-search command palette
   wired to all major IDE actions: New File, Save, Save All, Toggle Terminal, Open Settings,
   Focus Explorer, Focus Git, Open Browser Preview, Close Tab, Refresh Explorer, Git Stage

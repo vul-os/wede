@@ -1,8 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine, drawSelection, highlightSpecialChars } from '@codemirror/view'
+import {
+  EditorView, keymap, lineNumbers, highlightActiveLineGutter,
+  highlightActiveLine, drawSelection, highlightSpecialChars,
+  rectangularSelection, crosshairCursor,
+} from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
+import {
+  syntaxHighlighting, defaultHighlightStyle, bracketMatching,
+  foldGutter, indentOnInput,
+} from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -38,31 +45,61 @@ function getLang(filename) {
   return langMap[ext]?.() || []
 }
 
-const lightTheme = EditorView.theme({
-  '&': { backgroundColor: 'var(--c-bg-primary)', color: 'var(--c-text-primary)' },
-  '.cm-gutters': { backgroundColor: 'var(--c-bg-secondary)', color: 'var(--c-text-muted)', borderRight: '1px solid var(--c-border)' },
-  '.cm-activeLineGutter': { backgroundColor: 'var(--c-bg-hover)', color: 'var(--c-text-primary)' },
-  '.cm-activeLine': { backgroundColor: 'var(--c-accent-glow)' },
-  '.cm-cursor': { borderLeftColor: 'var(--c-accent)' },
-}, { dark: false })
+// Build a theme extension from editor settings.
+function makeEditorTheme(settings, isDark) {
+  const fontSize = `${settings.fontSize || 13}px`
+  const fontFamily = '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace'
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange }) {
+  const base = EditorView.theme({
+    '&': {
+      backgroundColor: 'var(--c-bg-primary)',
+      color: 'var(--c-text-primary)',
+      fontSize,
+      fontFamily,
+    },
+    '.cm-gutters': {
+      backgroundColor: 'var(--c-bg-secondary)',
+      color: 'var(--c-text-muted)',
+      borderRight: '1px solid var(--c-border)',
+      fontFamily,
+    },
+    '.cm-activeLineGutter': { backgroundColor: 'var(--c-bg-hover)', color: 'var(--c-text-primary)' },
+    '.cm-activeLine': { backgroundColor: 'var(--c-accent-glow)' },
+    '.cm-cursor': { borderLeftColor: 'var(--c-accent)' },
+    '.cm-content': { fontFamily, fontSize },
+    // Multi-cursor: secondary cursors are slightly dimmer.
+    '.cm-cursor-secondary': { borderLeftColor: 'var(--c-accent)', opacity: '0.6' },
+  }, { dark: isDark })
+
+  return base
+}
+
+
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {} }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
   const onSaveRef = useRef(onSave)
   const onCursorRef = useRef(onCursorChange)
+
+  // Compartments for live reconfiguration without destroying the editor.
   const themeCompRef = useRef(new Compartment())
+  const wrapCompRef  = useRef(new Compartment())
+  const tabCompRef   = useRef(new Compartment())
+
   const { isDark } = useTheme()
 
   onChangeRef.current = onChange
   onSaveRef.current = onSave
   onCursorRef.current = onCursorChange
 
+  // Rebuild editor when file changes (new language, new content).
   useEffect(() => {
     if (!containerRef.current) return
 
     const themeComp = themeCompRef.current
+    const wrapComp  = wrapCompRef.current
+    const tabComp   = tabCompRef.current
 
     const state = EditorState.create({
       doc: content || '',
@@ -78,7 +115,14 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
         foldGutter(),
         highlightSelectionMatches(),
         history(),
-        themeComp.of(isDark ? oneDark : lightTheme),
+        // Multi-cursor support: Alt+Click adds a cursor; Alt+drag selects
+        // a rectangular region. crosshairCursor shows a crosshair when Alt
+        // is held, giving users a visual cue that multi-cursor is active.
+        rectangularSelection(),
+        crosshairCursor(),
+        themeComp.of([isDark ? oneDark : [], makeEditorTheme(settings, isDark)]),
+        wrapComp.of(settings.wordWrap ? EditorView.lineWrapping : []),
+        tabComp.of(EditorState.tabSize.of(settings.tabWidth || 2)),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         getLang(file?.name || ''),
         keymap.of([
@@ -96,7 +140,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
         }),
         EditorView.theme({
           '&': { height: '100%' },
-          '.cm-scroller': { overflow: 'auto' },
+          '.cm-scroller': { overflow: 'auto', fontFamily: '"JetBrains Mono", "Fira Code", monospace' },
         }),
       ],
     })
@@ -104,16 +148,41 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     const view = new EditorView({ state, parent: containerRef.current })
     viewRef.current = view
     return () => view.destroy()
-  }, [file?.path])
+  }, [file?.path]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Toggle dark/light theme
+  // Live theme switch (dark ↔ light).
   useEffect(() => {
     if (!viewRef.current) return
     viewRef.current.dispatch({
-      effects: themeCompRef.current.reconfigure(isDark ? oneDark : lightTheme),
+      effects: themeCompRef.current.reconfigure([isDark ? oneDark : [], makeEditorTheme(settings, isDark)]),
     })
-  }, [isDark])
+  }, [isDark]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live settings: word wrap.
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: wrapCompRef.current.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
+    })
+  }, [settings.wordWrap])
+
+  // Live settings: tab width.
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: tabCompRef.current.reconfigure(EditorState.tabSize.of(settings.tabWidth || 2)),
+    })
+  }, [settings.tabWidth])
+
+  // Live settings: font size — rebuild the theme compartment.
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: themeCompRef.current.reconfigure([isDark ? oneDark : [], makeEditorTheme(settings, isDark)]),
+    })
+  }, [settings.fontSize]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync external content changes (e.g. auto-save feedback or file reload).
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
@@ -122,6 +191,18 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
       view.dispatch({ changes: { from: 0, to: current.length, insert: content || '' } })
     }
   }, [content])
+
+  // Scroll to a specific line (used by search result navigation).
+  useEffect(() => {
+    if (!viewRef.current || !file?.targetLine) return
+    const view = viewRef.current
+    const line = Math.max(1, Math.min(file.targetLine, view.state.doc.lines))
+    const pos = view.state.doc.line(line).from
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+    })
+  }, [file?.targetLine])
 
   if (!file) {
     return (

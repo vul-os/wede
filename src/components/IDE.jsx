@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
-  Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft
+  Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -14,6 +14,7 @@ import GitPanel from './GitPanel'
 import FolderPicker from './FolderPicker'
 import Browser from './Browser'
 import Settings from './Settings'
+import SearchPanel from './SearchPanel'
 import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
 
@@ -43,12 +44,32 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState('') // 'saving'|'saved'|''
   const [showCommandPalette, setShowCommandPalette] = useState(false)
 
-  // Expose FileExplorer's refresh + new-file/folder triggers for the command palette.
+  // Editor settings — persisted to localStorage
+  const [editorSettings, setEditorSettings] = useState(() => {
+    const saved = localStorage.getItem('wede_editor_settings')
+    if (!saved) return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true }
+    try {
+      return JSON.parse(saved)
+    } catch {
+      return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true }
+    }
+  })
+
+  const handleEditorSettingsChange = useCallback((s) => {
+    setEditorSettings(s)
+    try { localStorage.setItem('wede_editor_settings', JSON.stringify(s)) } catch (_ignored) { void _ignored }
+  }, [])
+
+  // Expose FileExplorer's refresh + new-file/folder triggers for the command palette and SSE watcher.
   const explorerActionsRef = useRef(null)
+  // Stable ref used by the SSE watcher to trigger explorer reload without re-subscribing.
+  const sseExplorerRefreshRef = useRef(null)
   const handleRegisterExplorerActions = useCallback((actions) => {
     explorerActionsRef.current = actions
+    sseExplorerRefreshRef.current = actions?.refresh
   }, [])
 
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -111,9 +132,75 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       } catch {}
     }
     fetchGit()
-    const interval = setInterval(fetchGit, 10000)
+    // Fallback poll at 30 s — the SSE watcher below provides faster updates.
+    const interval = setInterval(fetchGit, 30000)
     return () => { active = false; clearInterval(interval) }
   }, [authFetch, workspace])
+
+  // ── File watching SSE — workspace change events ──
+  // When the server detects a file change it sends {"type":"change"} which
+  // triggers a git-status refresh and signals the explorer to reload.
+  useEffect(() => {
+    if (!workspace) return
+    let es = null
+    let active = true
+
+    const connect = () => {
+      if (!active) return
+      // SSE can't use custom headers, so pass the token as a query param.
+      // The auth middleware already supports ?token= for WS/SSE routes.
+      const url = `/api/watch?token=${encodeURIComponent(token)}`
+      es = new EventSource(url)
+      es.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'change') {
+            // Refresh git status badge.
+            authFetch('/api/git/status').then(r => r.json()).then(data => {
+              setGitBranch(data.branch || '')
+              setGitChanges(data.files?.length || 0)
+            }).catch(() => {})
+            // Signal explorer to reload.
+            sseExplorerRefreshRef.current?.()
+          }
+        } catch {}
+      }
+      es.onerror = () => {
+        es?.close()
+        if (active) setTimeout(connect, 5000) // reconnect after 5 s
+      }
+    }
+
+    connect()
+    return () => {
+      active = false
+      es?.close()
+    }
+  }, [workspace, token]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save ──
+  // After a configurable debounce (1.5 s by default) auto-save dirty tabs.
+  const autoSaveTimerRef = useRef(null)
+  const triggerAutoSave = useCallback((path, content) => {
+    if (!editorSettings.autoSave) return
+    clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving')
+      try {
+        await authFetch('/api/files/write', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, content }),
+        })
+        setTabs((prev) => prev.map((t) =>
+          t.path === path ? { ...t, originalContent: t.content, modified: false } : t
+        ))
+        setAutoSaveStatus('saved')
+        setTimeout(() => setAutoSaveStatus(''), 2000)
+      } catch {
+        setAutoSaveStatus('')
+      }
+    }, 1500)
+  }, [authFetch, editorSettings.autoSave])
 
   // ── Global keyboard shortcuts ──
   useEffect(() => {
@@ -121,6 +208,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'P') {
         e.preventDefault()
         setShowCommandPalette((v) => !v)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        // Open search sidebar.
+        setSidebarTab('search')
+        setShowSidebar(true)
       }
     }
     window.addEventListener('keydown', handler)
@@ -285,10 +378,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   }, [activeTab])
 
   const updateContent = useCallback((path, newContent) => {
-    setTabs((prev) => prev.map((t) =>
-      t.path === path ? { ...t, content: newContent, modified: newContent !== t.originalContent } : t
-    ))
-  }, [])
+    setTabs((prev) => prev.map((t) => {
+      if (t.path !== path) return t
+      const modified = newContent !== t.originalContent
+      if (modified) triggerAutoSave(path, newContent)
+      return { ...t, content: newContent, modified }
+    }))
+  }, [triggerAutoSave])
 
   const saveFile = useCallback(async () => {
     const tab = tabs.find((t) => t.path === activeTab)
@@ -311,7 +407,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const renderTabContent = () => {
     if (!currentTab) {
-      return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} />
+      return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} settings={editorSettings} />
     }
     if (currentTab.type === 'browser') {
       return (
@@ -332,6 +428,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onChange={(c) => activeTab && updateContent(activeTab, c)}
         onSave={saveFile}
         onCursorChange={setCursor}
+        settings={editorSettings}
       />
     )
   }
@@ -427,7 +524,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           )}
           {mobilePanel === 'settings' && (
             <div className="h-full animate-fade-in">
-              <Settings visible onOpenFolder={() => setShowFolderPicker(true)} workspace={workspace} />
+              <Settings
+                visible
+                onOpenFolder={() => setShowFolderPicker(true)}
+                workspace={workspace}
+                editorSettings={editorSettings}
+                onEditorSettingsChange={handleEditorSettingsChange}
+              />
             </div>
           )}
         </div>
@@ -511,8 +614,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           </button>
         </div>
 
-        {/* Right: save + theme + logout */}
+        {/* Right: save + auto-save status + theme + logout */}
         <div className="flex items-center gap-1">
+          {/* Auto-save status indicator */}
+          {autoSaveStatus && (
+            <span className="text-[11px] text-text-muted px-2 animate-fade-in">
+              {autoSaveStatus === 'saving' ? 'saving…' : 'saved'}
+            </span>
+          )}
           {currentTab?.modified && currentTab.type !== 'browser' && (
             <button onClick={saveFile} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-1 text-[12px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium shadow-sm shadow-accent/20">
@@ -543,6 +652,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             onClick={() => toggleSidebarTab('files')}
           />
           <ActivityBtn
+            icon={SearchIcon}
+            title="Search (Ctrl+Shift+F)"
+            active={sidebarTab === 'search' && showSidebar}
+            onClick={() => toggleSidebarTab('search')}
+          />
+          <ActivityBtn
             icon={GitBranch}
             title="Source Control"
             active={sidebarTab === 'git' && showSidebar}
@@ -556,6 +671,20 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <>
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} />}
+              {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} onOpenFile={(entry, line) => {
+                openFile(entry).then?.(() => {
+                  // targetLine is used by Editor to scroll to the match.
+                  setTabs((prev) => prev.map((t) =>
+                    t.path === entry.path ? { ...t, targetLine: line } : t
+                  ))
+                })
+                // openFile is not async in the traditional sense, so set targetLine after a tick.
+                setTimeout(() => {
+                  setTabs((prev) => prev.map((t) =>
+                    t.path === entry.path ? { ...t, targetLine: line } : t
+                  ))
+                }, 50)
+              }} />}
               {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible />}
             </div>
             {/* Drag handle */}
@@ -585,7 +714,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <>
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('settings')} />
             <div style={{ width: settingsWidth }} className="shrink-0 border-l border-border bg-bg-secondary">
-              <Settings visible onOpenFolder={() => setShowFolderPicker(true)} workspace={workspace} />
+              <Settings
+                visible
+                onOpenFolder={() => setShowFolderPicker(true)}
+                workspace={workspace}
+                editorSettings={editorSettings}
+                onEditorSettingsChange={handleEditorSettingsChange}
+              />
             </div>
           </>
         )}

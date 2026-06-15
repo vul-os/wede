@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -140,5 +142,182 @@ func TestCheckoutEmptyBranch(t *testing.T) {
 	h.Checkout(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("empty branch: expected 400, got %d", w.Code)
+	}
+}
+
+// ── New endpoint tests (push / pull / fetch / create-branch) ─────────────────
+
+// initTestRepo creates a temp directory with a real git repo + initial commit.
+func initTestRepo(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmp
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init")
+	run("config", "user.email", "test@example.com")
+	run("config", "user.name", "Test")
+	if err := os.WriteFile(tmp+"/README.md", []byte("# test\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "README.md")
+	run("commit", "-m", "init")
+	return tmp
+}
+
+func postBody(t *testing.T, body any) *bytes.Reader {
+	t.Helper()
+	data, _ := json.Marshal(body)
+	return bytes.NewReader(data)
+}
+
+func TestCreateBranch_Basic(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/branch",
+		postBody(t, map[string]any{"name": "feat/hello", "checkout": false}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.CreateBranch(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("CreateBranch: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]string
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp["status"] != "ok" {
+		t.Errorf("expected status ok, got %q", resp["status"])
+	}
+	out, _ := h.run("branch", "--list", "feat/hello")
+	if out == "" {
+		t.Error("branch feat/hello not found after CreateBranch")
+	}
+}
+
+func TestCreateBranch_AndCheckout(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/branch",
+		postBody(t, map[string]any{"name": "new-feature", "checkout": true}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.CreateBranch(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("CreateBranch+checkout: expected 200, got %d", rec.Code)
+	}
+	branch, _ := h.run("branch", "--show-current")
+	if branch != "new-feature" {
+		t.Errorf("expected current branch new-feature, got %q", branch)
+	}
+}
+
+func TestCreateBranch_InvalidNames(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, name := range []string{"--evil", "-b", ""} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/branch",
+			postBody(t, map[string]any{"name": name, "checkout": false}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.CreateBranch(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("name=%q: expected 400, got %d", name, rec.Code)
+		}
+	}
+}
+
+func TestFetch_InvalidRemote(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/fetch",
+		postBody(t, map[string]any{"remote": "--evil"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Fetch(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for flag-like remote, got %d", rec.Code)
+	}
+}
+
+func TestPull_InvalidArgs(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// Bad remote.
+	req := httptest.NewRequest(http.MethodPost, "/api/git/pull",
+		postBody(t, map[string]any{"remote": "-x"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Pull(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("pull bad remote: expected 400, got %d", rec.Code)
+	}
+
+	// Bad branch with valid remote.
+	req2 := httptest.NewRequest(http.MethodPost, "/api/git/pull",
+		postBody(t, map[string]any{"remote": "origin", "branch": "--upstream"}))
+	req2.Header.Set("Content-Type", "application/json")
+	rec2 := httptest.NewRecorder()
+	h.Pull(rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Errorf("pull bad branch: expected 400, got %d", rec2.Code)
+	}
+}
+
+func TestPush_InvalidRemote(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/push",
+		postBody(t, map[string]any{"remote": "--bad"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Push(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("push bad remote: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestPush_InvalidBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/push",
+		postBody(t, map[string]any{"remote": "origin", "branch": "--force"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Push(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("push bad branch: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestRemotes_Empty(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/remotes", nil)
+	rec := httptest.NewRecorder()
+	h.Remotes(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Remotes: expected 200, got %d", rec.Code)
+	}
+	var resp struct {
+		Remotes []map[string]string `json:"remotes"`
+	}
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp.Remotes == nil {
+		t.Error("expected non-nil remotes slice")
 	}
 }
