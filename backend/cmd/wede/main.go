@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,10 @@ import (
 	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
 )
+
+// Version is injected at build time via -ldflags "-X main.Version=vX.Y.Z".
+// Falls back to "dev" when running without ldflags (e.g. go run).
+var Version = "dev"
 
 // securityHeaders wraps a handler and injects security headers on every
 // response.  Frame-embedding behaviour is controlled by cfg.FrameAncestors:
@@ -43,7 +48,13 @@ func securityHeaders(cfg *config.Config, next http.Handler) http.Handler {
 func main() {
 	portFlag := flag.String("port", "", "Override port (default: from config or 9090)")
 	pFlag := flag.String("p", "", "Override port (shorthand)")
+	versionFlag := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println("wede", Version)
+		os.Exit(0)
+	}
 
 	cfg := config.Load()
 
@@ -109,7 +120,7 @@ func main() {
 		host = "127.0.0.1" // safe default: loopback only
 	}
 	addr := host + ":" + cfg.Port
-	log.Printf("wede IDE running on http://%s", addr)
+	log.Printf("wede %s running on http://%s", Version, addr)
 	log.Printf("password: %s", cfg.Password)
 	if ws.HasWorkspace() {
 		log.Printf("workspace: %s", ws.Current())

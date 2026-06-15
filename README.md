@@ -13,11 +13,13 @@ Deploy on your server, NAS, Raspberry Pi, or run locally.
 [![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
 [![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
 [![License](https://img.shields.io/github/license/vul-os/wede?style=flat-square)](LICENSE)
-[![Go](https://img.shields.io/badge/go-1.22+-00ADD8?style=flat-square&logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/go-1.25+-00ADD8?style=flat-square&logo=go)](https://go.dev)
 
-[Website](https://wede.vulos.org/) · [Install](#quick-install) · [Screenshots](#screenshots) · [Docs](#getting-started)
+[Website](https://wede.vulos.org/) · [Install](#quick-install) · [Screenshots](#screenshots) · [Docs](#getting-started) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 </div>
+
+> **wede** is developed and maintained by [Vulos](https://vulos.org) (github.com/vul-os). It runs standalone or embedded as a first-class app in the Vulos OS shell via `frame_ancestors` iframe integration.
 
 <br>
 
@@ -98,6 +100,7 @@ wede [flags] [path]
 |------|-------------|---------|
 | `path` | Project directory to open | _(none — shows folder picker)_ |
 | `--port` | Override listen port | From config or `9090` |
+| `--version` | Print version and exit | — |
 
 wede looks for `wede.config.json` in the current directory or parent directories.
 
