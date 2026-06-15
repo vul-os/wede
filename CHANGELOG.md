@@ -9,6 +9,47 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **Server-side logout** — `DELETE /api/auth/logout` revokes the session token on disk;
+  tokens are no longer valid after logout even if replayed from another client.
+- **Session TTL** — session tokens now carry a `created_at` timestamp and expire after
+  24 hours idle. Expired tokens are pruned from disk on the next login or auth check.
+- **Lockout persistence** — brute-force attempt count and locked state are written to
+  `~/.wede/lockout.json` so a server restart no longer resets the lockout counter.
+  Unlock by deleting that file (instructions now printed in the error message).
+- **Folder picker path escape** — `GET /api/workspace/browse` now rejects `?path=`
+  values outside the user's home directory tree, preventing filesystem enumeration.
+- **WS token moved out of URL** — terminal WebSocket now sends the auth token as a
+  `auth.<token>` WebSocket subprotocol instead of a `?token=` query parameter.
+  Access logs and browser history no longer contain the session secret.
+- **Startup password redaction** — plaintext password is no longer logged at startup.
+
+### Fixed
+- **Config unknown keys are now fatal** — `wede.config.json` is decoded with
+  `DisallowUnknownFields()`, so a typo like `"frame_ancestor"` (missing `s`) causes
+  an immediate startup error rather than silently being ignored.
+- **Delete confirmation** — right-click → Delete in the file explorer now shows a
+  confirmation dialog before removing files or directories.
+- **Directory Copy removed** — "Copy" is no longer shown in directory context menus;
+  the file-read-based copy would silently fail on directories. File copy is unchanged.
+- **Ctrl+V paste target** — keyboard paste now inserts into the last focused directory
+  in the tree instead of always targeting the workspace root.
+- **Dead "Command palette" shortcut removed** — Settings no longer advertises
+  `Ctrl/Cmd+Shift+P` because no command palette is implemented.
+
+### Changed
+- **CI** — `ci.yml` now runs `go test ./...` (hard gate) and `npm run lint`
+  (advisory — pre-existing JS violations tracked separately).
+- **Config example** — `wede.config.example.json` added with placeholder password.
+  `wede.config.json` is now gitignored to prevent committing real credentials.
+
+### Removed
+- **`database/` module** — the orphaned Postgres migration tool (`database/go.mod`,
+  `migrate.go`, SQL migrations, env files) has been deleted. It was never referenced
+  by the main binary and contradicts the "no database dependency" design goal.
+- **`.env.dev` / `.env.main`** — environment files used only by the deleted database
+  module have been removed.
+
 ---
 
 ## [0.2.0] — 2026-06-15

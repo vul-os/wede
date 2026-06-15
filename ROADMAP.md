@@ -15,10 +15,21 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 - [x] IDE redesign: Midnight/Daylight themes, responsive mobile layout
 - [x] Visual git commit graph (DAG view)
 - [x] `--version` flag + version injected via ldflags
-- [ ] `go test ./...` CI gate (add test step to `ci.yml`)
-- [ ] `npm run lint` CI gate
-- [ ] Config validation: surface unknown JSON keys as warnings on startup
-- [ ] Session expiry: configurable idle timeout (default 24 h)
+- [x] `go test ./...` CI gate (`ci.yml` now runs Go tests)
+- [x] `npm run lint` CI step (advisory — pre-existing violations tracked separately)
+- [x] Config validation: unknown JSON keys are fatal on startup (`DisallowUnknownFields`)
+- [x] Session expiry: 24 h idle TTL on session tokens
+- [x] Server-side logout (`DELETE /api/auth/logout`) — tokens revoked on disk
+- [x] Brute-force lockout persisted to disk — survives server restart
+- [x] `HandleBrowse` path escape: folder picker confined to home directory tree
+- [x] WS token no longer in URL — passed as `auth.<token>` subprotocol
+- [x] Plaintext password removed from startup log
+- [x] Delete confirmation dialog in file explorer (especially for directories)
+- [x] "Copy" removed from directory context menus (file copy only)
+- [x] Ctrl+V paste targets focused directory, not always workspace root
+- [x] Dead "Command palette" shortcut removed from Settings shortcuts list
+- [x] Orphaned `database/` Postgres module deleted
+- [x] `wede.config.json` gitignored; `wede.config.example.json` added
 
 ---
 

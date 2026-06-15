@@ -82,6 +82,7 @@ func main() {
 	// Public auth routes
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 	mux.HandleFunc("GET /api/auth/check", authHandler.Check)
+	mux.Handle("DELETE /api/auth/logout", authHandler.Middleware(http.HandlerFunc(authHandler.Logout)))
 
 	// Protected API routes
 	protected := http.NewServeMux()
@@ -121,7 +122,6 @@ func main() {
 	}
 	addr := host + ":" + cfg.Port
 	log.Printf("wede %s running on http://%s", Version, addr)
-	log.Printf("password: %s", cfg.Password)
 	if ws.HasWorkspace() {
 		log.Printf("workspace: %s", ws.Current())
 	} else {

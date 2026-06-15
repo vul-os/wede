@@ -67,7 +67,13 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
       // In dev mode (Vite on 5173), connect directly to backend on 9090
       const port = window.location.port
       const host = (port === '5173' || port === '5174') ? window.location.hostname + ':9090' : window.location.host
-      const ws = new WebSocket(`${protocol}//${host}/api/terminal?token=${token}&session=${sid}`)
+      // Pass auth token as a WebSocket subprotocol ("auth.<token>") so it never
+      // appears in server access logs or browser history. The session ID is a
+      // non-secret resumption handle passed as a query param.
+      const ws = new WebSocket(
+        `${protocol}//${host}/api/terminal?session=${encodeURIComponent(sid)}`,
+        [`auth.${token}`]
+      )
       ws.binaryType = 'arraybuffer'
       wsRef.current = ws
 
@@ -123,7 +129,7 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
     })
 
     const ro = new ResizeObserver(() => {
-      try { fitAddon.fit() } catch {}
+      try { fitAddon.fit() } catch (_) { /* ignore resize errors */ }
     })
     ro.observe(containerRef.current)
 
@@ -150,8 +156,8 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
     if (visible) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          try { fitRef.current?.fit() } catch {}
-          try { termRef.current?.focus() } catch {}
+          try { fitRef.current?.fit() } catch (_) { /* ignore */ }
+          try { termRef.current?.focus() } catch (_) { /* ignore */ }
         })
       })
     }

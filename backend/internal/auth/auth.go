@@ -8,7 +8,25 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
+
+// sessionEntry holds a token's creation timestamp for idle-TTL enforcement.
+type sessionEntry struct {
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// SessionTTL is the idle lifetime of a session token (24 hours).
+const SessionTTL = 24 * time.Hour
+
+// lockoutFile is the basename of the file used to persist lockout state.
+const lockoutFile = "lockout.json"
+
+// lockoutState is persisted so brute-force lockout survives server restarts.
+type lockoutState struct {
+	Attempts int  `json:"attempts"`
+	Locked   bool `json:"locked"`
+}
 
 type Handler struct {
 	password    string
@@ -16,7 +34,7 @@ type Handler struct {
 	attempts    int
 	locked      bool
 	maxAttempts int
-	sessions    map[string]bool
+	sessions    map[string]sessionEntry
 	dataDir     string
 }
 
@@ -28,10 +46,11 @@ func New(password string) *Handler {
 	h := &Handler{
 		password:    password,
 		maxAttempts: 3,
-		sessions:    make(map[string]bool),
+		sessions:    make(map[string]sessionEntry),
 		dataDir:     dataDir,
 	}
 	h.loadSessions()
+	h.loadLockout()
 	return h
 }
 
@@ -39,26 +58,75 @@ func (h *Handler) sessionsFile() string {
 	return filepath.Join(h.dataDir, "sessions.json")
 }
 
+func (h *Handler) lockoutFilePath() string {
+	return filepath.Join(h.dataDir, lockoutFile)
+}
+
+// loadSessions reads persisted sessions and prunes expired ones.
 func (h *Handler) loadSessions() {
 	data, err := os.ReadFile(h.sessionsFile())
 	if err != nil {
 		return
 	}
-	var tokens []string
-	if json.Unmarshal(data, &tokens) == nil {
-		for _, t := range tokens {
-			h.sessions[t] = true
+	var stored map[string]sessionEntry
+	if json.Unmarshal(data, &stored) == nil {
+		now := time.Now()
+		for t, e := range stored {
+			if now.Sub(e.CreatedAt) < SessionTTL {
+				h.sessions[t] = e
+			}
 		}
 	}
 }
 
+// saveSessions writes the current session map to disk (must be called with mu held or
+// after acquiring it if the caller doesn't hold it).
 func (h *Handler) saveSessions() {
-	tokens := make([]string, 0, len(h.sessions))
-	for t := range h.sessions {
-		tokens = append(tokens, t)
-	}
-	data, _ := json.Marshal(tokens)
+	data, _ := json.Marshal(h.sessions)
 	os.WriteFile(h.sessionsFile(), data, 0600)
+}
+
+// loadLockout restores attempt count and locked state from disk.
+func (h *Handler) loadLockout() {
+	data, err := os.ReadFile(h.lockoutFilePath())
+	if err != nil {
+		return
+	}
+	var s lockoutState
+	if json.Unmarshal(data, &s) == nil {
+		h.attempts = s.Attempts
+		h.locked = s.Locked
+	}
+}
+
+// saveLockout persists the current lockout state (must be called with mu held or
+// immediately after the critical section that changed the state).
+func (h *Handler) saveLockout() {
+	data, _ := json.Marshal(lockoutState{Attempts: h.attempts, Locked: h.locked})
+	os.WriteFile(h.lockoutFilePath(), data, 0600)
+}
+
+// pruneExpired removes sessions whose idle TTL has elapsed. mu must be held.
+func (h *Handler) pruneExpired() {
+	now := time.Now()
+	for t, e := range h.sessions {
+		if now.Sub(e.CreatedAt) >= SessionTTL {
+			delete(h.sessions, t)
+		}
+	}
+}
+
+// validSession checks whether token is present and not expired. mu must be held.
+func (h *Handler) validSession(token string) bool {
+	e, ok := h.sessions[token]
+	if !ok {
+		return false
+	}
+	if time.Since(e.CreatedAt) >= SessionTTL {
+		delete(h.sessions, token)
+		return false
+	}
+	return true
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +138,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error":   "locked",
-			"message": "Too many failed attempts. Restart the server to unlock.",
+			"message": "Too many failed attempts. Delete ~/.wede/lockout.json to unlock.",
 		})
 		return
 	}
@@ -93,13 +161,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		remaining := h.maxAttempts - h.attempts
 		if remaining <= 0 {
 			h.locked = true
+			h.saveLockout()
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(map[string]any{
 				"error":   "locked",
-				"message": "Too many failed attempts. Restart the server to unlock.",
+				"message": "Too many failed attempts. Delete ~/.wede/lockout.json to unlock.",
 			})
 			return
 		}
+		h.saveLockout()
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error":     "wrong_password",
@@ -109,16 +179,34 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.attempts = 0
+	h.saveLockout()
 
 	token := make([]byte, 32)
 	rand.Read(token)
 	sessionToken := hex.EncodeToString(token)
-	h.sessions[sessionToken] = true
+	h.sessions[sessionToken] = sessionEntry{CreatedAt: time.Now()}
+	h.pruneExpired()
 	h.saveSessions()
 
 	json.NewEncoder(w).Encode(map[string]string{
 		"token": sessionToken,
 	})
+}
+
+// Logout revokes the caller's session token server-side.
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+
+	h.mu.Lock()
+	delete(h.sessions, token)
+	h.saveSessions()
+	h.mu.Unlock()
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +217,7 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	valid := h.sessions[token]
+	valid := h.validSession(token)
 	locked := h.locked
 	h.mu.Unlock()
 
@@ -147,7 +235,7 @@ func (h *Handler) Middleware(next http.Handler) http.Handler {
 		}
 
 		h.mu.Lock()
-		valid := h.sessions[token]
+		valid := h.validSession(token)
 		h.mu.Unlock()
 
 		if !valid {

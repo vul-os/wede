@@ -124,7 +124,7 @@ function InlineInput({ placeholder, value, onChange, onSubmit, onBlur }) {
 function TreeNode({
   entry, depth, onSelect, onToggle, expanded, authFetch,
   onRefresh, selectedPath, gitMap, clipboard, setClipboard,
-  onPaste, onDelete, onRename,
+  onPaste, onDelete, onRename, onFocusDir,
 }) {
   const [children, setChildren] = useState(null)
   const [ctx, setCtx] = useState(null)
@@ -148,13 +148,21 @@ function TreeNode({
   }, [isOpen, children, loadChildren])
 
   const handleClick = () => {
-    if (entry.isDir) { onToggle(entry.path); if (!isOpen) loadChildren() }
-    else onSelect(entry)
+    if (entry.isDir) {
+      onToggle(entry.path)
+      if (!isOpen) loadChildren()
+      onFocusDir(entry.path)
+    } else {
+      onSelect(entry)
+    }
   }
 
   const contextItems = [
-    ...(entry.isDir ? [] : [{ label: 'Open', icon: File, action: () => onSelect(entry) }]),
-    { label: 'Copy', icon: Copy, action: () => setClipboard({ path: entry.path, op: 'copy' }) },
+    ...(entry.isDir ? [] : [
+      { label: 'Open', icon: File, action: () => onSelect(entry) },
+      // Copy only available for files — directory copy is not implemented.
+      { label: 'Copy', icon: Copy, action: () => setClipboard({ path: entry.path, op: 'copy' }) },
+    ]),
     ...(entry.isDir ? [{ label: 'Paste', icon: Clipboard, action: () => onPaste(entry.path) }] : []),
     { separator: true },
     { label: 'Rename', icon: Pencil, action: () => onRename(entry.path) },
@@ -225,10 +233,36 @@ function TreeNode({
               authFetch={authFetch} onRefresh={onRefresh} selectedPath={selectedPath}
               gitMap={gitMap} clipboard={clipboard} setClipboard={setClipboard}
               onPaste={onPaste} onDelete={onDelete} onRename={onRename}
+              onFocusDir={onFocusDir}
             />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/* ── Confirmation dialog ── */
+function ConfirmDialog({ message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-bg-elevated border border-border rounded-xl shadow-xl shadow-shadow-lg p-5 max-w-xs w-full mx-4">
+        <p className="text-sm text-text-primary mb-4">{message}</p>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-xs rounded-lg border border-border text-text-secondary hover:bg-bg-hover transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-3 py-1.5 text-xs rounded-lg bg-red/15 border border-red/30 text-red hover:bg-red/25 transition-colors font-medium"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -244,6 +278,8 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
   const [gitMap, setGitMap] = useState({})
   const [renaming, setRenaming] = useState(null)
   const [renameName, setRenameName] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null) // path to confirm-delete
+  const [focusedDir, setFocusedDir] = useState('') // last directory clicked in tree
 
   const loadRoot = useCallback(async () => {
     try {
@@ -295,8 +331,13 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     const name = clipboard.path.split('/').pop()
     const dest = targetDir ? `${targetDir}/${name}` : name
     try {
+      // Only file copy is supported — reading a directory via /api/files/read
+      // returns an error. The "Copy" option is hidden for directories in the
+      // context menu, so this path should only be reached for files.
       const res = await authFetch(`/api/files/read?path=${encodeURIComponent(clipboard.path)}`)
+      if (!res.ok) return
       const data = await res.json()
+      if (typeof data.content !== 'string') return // directory — bail silently
       await authFetch('/api/files/write', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: dest, content: data.content }),
@@ -305,7 +346,14 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     } catch {}
   }
 
-  const handleDelete = async (path) => {
+  const handleDelete = (path) => {
+    setConfirmDelete(path)
+  }
+
+  const confirmAndDelete = async () => {
+    if (!confirmDelete) return
+    const path = confirmDelete
+    setConfirmDelete(null)
     await authFetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
     loadRoot()
   }
@@ -330,12 +378,13 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
-        handlePaste('')
+        // Paste into the focused directory if one is tracked; otherwise workspace root.
+        handlePaste(focusedDir)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [clipboard]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clipboard, focusedDir]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const folderLabel = workspace ? workspace.split('/').pop() : 'Explorer'
 
@@ -384,9 +433,19 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
             authFetch={authFetch} onRefresh={loadRoot} selectedPath={selectedPath}
             gitMap={gitMap} clipboard={clipboard} setClipboard={setClipboard}
             onPaste={handlePaste} onDelete={handleDelete} onRename={handleRename}
+            onFocusDir={setFocusedDir}
           />
         ))}
       </div>
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Delete "${confirmDelete.split('/').pop()}"? This cannot be undone.`}
+          onConfirm={confirmAndDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }

@@ -256,16 +256,36 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := h.upgrader.Upgrade(w, r, nil)
+	// The auth token is conveyed via the "auth.<token>" WebSocket subprotocol so
+	// it never appears in server access logs.  The Middleware already validated
+	// the request before this handler is reached; we echo the chosen subprotocol
+	// back to the client so the browser's WebSocket handshake succeeds.
+	var chosenProto string
+	for _, p := range websocket.Subprotocols(r) {
+		if strings.HasPrefix(p, "auth.") {
+			chosenProto = p
+			break
+		}
+	}
+	var upgradeHeader http.Header
+	if chosenProto != "" {
+		upgradeHeader = http.Header{"Sec-Websocket-Protocol": {chosenProto}}
+	}
+
+	conn, err := h.upgrader.Upgrade(w, r, upgradeHeader)
 	if err != nil {
 		log.Println("websocket upgrade error:", err)
 		return
 	}
 
-	// Session ID from query param, default to token-based
+	// Session ID from query param only (token no longer passed in URL).
 	sessionID := r.URL.Query().Get("session")
 	if sessionID == "" {
-		sessionID = r.URL.Query().Get("token")
+		// Fallback: derive session from the token subprotocol value so existing
+		// single-tab sessions continue to work even without an explicit session param.
+		if chosenProto != "" {
+			sessionID = strings.TrimPrefix(chosenProto, "auth.")
+		}
 	}
 
 	log.Printf("[terminal] ws connect: session=%q", sessionID)

@@ -1,0 +1,6 @@
+{
+  "password": "CHANGE_ME_BEFORE_USE",
+  "port": "9090",
+  "host": "127.0.0.1",
+  "frame_ancestors": ""
+}

@@ -40,9 +40,17 @@ export function useAuth() {
     }
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const t = localStorage.getItem('wede_token')
     localStorage.removeItem('wede_token')
     setToken(null)
+    if (t) {
+      // Revoke the token server-side (fire-and-forget; ignore network errors)
+      fetch(`${API}/auth/logout`, {
+        method: 'DELETE',
+        headers: { Authorization: t },
+      }).catch(() => {})
+    }
   }, [])
 
   const authFetch = useCallback(async (url, options = {}) => {

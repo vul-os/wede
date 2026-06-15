@@ -169,21 +169,37 @@ func (m *Manager) HandleOpen(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Browse lists directories at a given path for the folder picker
+// Browse lists directories at a given path for the folder picker.
+// The response is restricted to the user's home directory tree; paths outside
+// the home directory are rejected so an authenticated user cannot enumerate
+// the whole filesystem (e.g. ?path=/etc).
 func (m *Manager) HandleBrowse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	home, _ := os.UserHomeDir()
+
 	reqPath := r.URL.Query().Get("path")
 	if reqPath == "" || reqPath == "~" {
-		home, _ := os.UserHomeDir()
 		reqPath = home
 	}
 	if strings.HasPrefix(reqPath, "~/") {
-		home, _ := os.UserHomeDir()
 		reqPath = filepath.Join(home, reqPath[2:])
 	}
 
-	abs, _ := filepath.Abs(reqPath)
+	abs, err := filepath.Abs(reqPath)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid path"})
+		return
+	}
+
+	// Confine browsing to the home directory tree.
+	if !strings.HasPrefix(abs, home+string(filepath.Separator)) && abs != home {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "path outside home directory"})
+		return
+	}
+
 	entries, err := os.ReadDir(abs)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -221,7 +237,6 @@ func (m *Manager) HandleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Detect common root locations
-	home, _ := os.UserHomeDir()
 	roots := []DirEntry{
 		{Name: "Home", Path: home},
 	}

@@ -11,3 +11,5 @@ tmp/
 .DS_Store
 /wede
 /wede-*
+# Live config (contains password — never commit). Copy from wede.config.example.json.
+wede.config.json

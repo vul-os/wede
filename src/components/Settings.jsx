@@ -3,7 +3,7 @@ import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 
 export default function Settings({ visible, onOpenFolder, workspace }) {
-  const { theme, setTheme, isDark } = useTheme()
+  const { setTheme, isDark } = useTheme()
 
   if (!visible) return null
 
@@ -126,7 +126,6 @@ export default function Settings({ visible, onOpenFolder, workspace }) {
             {[
               ['Save file', 'Ctrl/Cmd + S'],
               ['Search in file', 'Ctrl/Cmd + F'],
-              ['Command palette', 'Ctrl/Cmd + Shift + P'],
             ].map(([action, keys]) => (
               <div key={action} className="flex items-center justify-between py-1.5 px-3 bg-bg-primary rounded-lg border border-border">
                 <span className="text-text-secondary">{action}</span>

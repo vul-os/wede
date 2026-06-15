@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"os"
@@ -78,7 +79,9 @@ func Load() *Config {
 	log.Printf("loaded config from %s", found)
 
 	cfg := &Config{Port: "9090", Host: "127.0.0.1"}
-	if err := json.Unmarshal(data, cfg); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(cfg); err != nil {
 		log.Fatal("invalid wede.config.json:", err)
 	}
 	if cfg.Password == "" {
