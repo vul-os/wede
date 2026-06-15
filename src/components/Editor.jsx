@@ -89,9 +89,13 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
 
   const { isDark } = useTheme()
 
-  onChangeRef.current = onChange
-  onSaveRef.current = onSave
-  onCursorRef.current = onCursorChange
+  // Keep callback refs in sync without triggering re-renders (updated in an
+  // effect rather than directly in render to satisfy react-hooks/refs).
+  useEffect(() => {
+    onChangeRef.current = onChange
+    onSaveRef.current = onSave
+    onCursorRef.current = onCursorChange
+  })
 
   // Rebuild editor when file changes (new language, new content).
   useEffect(() => {

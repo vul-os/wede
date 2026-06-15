@@ -11,6 +11,7 @@ const tabs = [
 export default function MobileNav({ active, onSelect, hasModified }) {
   return (
     <nav className="flex items-stretch bg-bg-tertiary border-t border-border mobile-safe-bottom">
+      {/* eslint-disable-next-line no-unused-vars */}
       {tabs.map(({ id, icon: Icon, label }) => {
         const isActive = active === id
         return (

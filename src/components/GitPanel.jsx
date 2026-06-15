@@ -410,11 +410,13 @@ export default function GitPanel({ authFetch, visible }) {
       setLog(lData.entries || [])
       setBranches(bData.branches || [])
       setRemotes(rData.remotes || [])
-    } catch {}
+    } catch { /* ignore */ }
     setRefreshing(false)
   }, [authFetch, visible])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { refresh(true) }, [refresh])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleStage   = async (path) => {
     await authFetch('/api/git/stage',   { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) })

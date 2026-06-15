@@ -10,6 +10,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Command palette (Ctrl/Cmd+Shift+P)** — fully functional fuzzy-search command palette
+  wired to all major IDE actions: New File, Save, Save All, Toggle Terminal, Open Settings,
+  Focus Explorer, Focus Git, Open Browser Preview, Close Tab, Refresh Explorer, Git Stage
+  All / Unstage All, Switch Theme, Log Out. Arrow-key navigation, Enter to run, Esc to close.
+  Shortcut listed in the Settings panel shortcuts section.
+- **Recursive directory copy** — `POST /api/files/copy` backend endpoint copies files and
+  directories recursively under the same `safePath` workspace-confinement guard used by all
+  other file endpoints. "Copy" is re-enabled in directory context menus; paste uses the new
+  endpoint for both files and directories.
+- **Ctrl/Cmd+W** global shortcut to close the active editor tab.
 - **Auto-save** — debounced 1.5 s after the last keystroke; toggled per-user in Settings
   (default on). Status indicator ("saving…" / "saved") appears in the top bar while
   active. Manual Ctrl/Cmd+S still works regardless of the auto-save setting.
@@ -42,20 +52,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instances, capability negotiation). Deferred to v0.4.x; see ROADMAP for the planned
   approach.
 
-- **Command palette (Ctrl/Cmd+Shift+P)** — fully functional fuzzy-search command palette
-  wired to all major IDE actions: New File, Save, Save All, Toggle Terminal, Open Settings,
-  Focus Explorer, Focus Git, Open Browser Preview, Close Tab, Refresh Explorer, Git Stage
-  All / Unstage All, Switch Theme, Log Out. Arrow-key navigation, Enter to run, Esc to close.
-  Shortcut listed in the Settings panel shortcuts section.
-- **Recursive directory copy** — `POST /api/files/copy` backend endpoint copies files and
-  directories recursively under the same `safePath` workspace-confinement guard used by all
-  other file endpoints. "Copy" is now re-enabled in directory context menus in the file
-  explorer, and paste uses the new endpoint for both files and directories.
-- **Ctrl/Cmd+W** global shortcut to close the active editor tab.
-
 ### Fixed
 - **Old brand references removed** — all remaining mentions of the previous brand name
   (including the historical changelog entry) have been scrubbed from the codebase.
+- **Config unknown keys are now fatal** — `wede.config.json` is decoded with
+  `DisallowUnknownFields()`, so a typo like `"frame_ancestor"` (missing `s`) causes
+  an immediate startup error rather than silently being ignored.
+- **Delete confirmation** — right-click → Delete in the file explorer now shows a
+  confirmation dialog before removing files or directories.
+- **Ctrl+V paste target** — keyboard paste now inserts into the last focused directory
+  in the tree instead of always targeting the workspace root.
 
 ### Security
 - **Server-side logout** — `DELETE /api/auth/logout` revokes the session token on disk;
@@ -72,22 +78,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Access logs and browser history no longer contain the session secret.
 - **Startup password redaction** — plaintext password is no longer logged at startup.
 
-### Fixed
-- **Config unknown keys are now fatal** — `wede.config.json` is decoded with
-  `DisallowUnknownFields()`, so a typo like `"frame_ancestor"` (missing `s`) causes
-  an immediate startup error rather than silently being ignored.
-- **Delete confirmation** — right-click → Delete in the file explorer now shows a
-  confirmation dialog before removing files or directories.
-- **Directory Copy removed** — "Copy" is no longer shown in directory context menus;
-  the file-read-based copy would silently fail on directories. File copy is unchanged.
-- **Ctrl+V paste target** — keyboard paste now inserts into the last focused directory
-  in the tree instead of always targeting the workspace root.
-- **Dead "Command palette" shortcut removed** — Settings no longer advertises
-  `Ctrl/Cmd+Shift+P` because no command palette is implemented.
-
 ### Changed
 - **CI** — `ci.yml` now runs `go test ./...` (hard gate) and `npm run lint`
-  (advisory — pre-existing JS violations tracked separately).
+  (advisory — pre-existing JS violations tracked separately, now resolved to 0 errors).
 - **Config example** — `wede.config.example.json` added with placeholder password.
   `wede.config.json` is now gitignored to prevent committing real credentials.
 

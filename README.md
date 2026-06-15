@@ -33,16 +33,20 @@ Deploy on your server, NAS, Raspberry Pi, or run locally.
 
 ## Features
 
-| | Feature | Description |
-|---|---|---|
-| :file_folder: | **File Explorer** | VS Code-style project tree with git status colors (green, yellow, red). Context menu for copy, paste, rename, delete. |
-| :pencil2: | **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Dark/light themes. |
-| :computer: | **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. Multiple tabs. Run shell commands, SSH, Docker — anything. |
-| :electric_plug: | **Git Client** | Built-in visual commit graph, staging area, branch management, and checkout. Right-click context menus on commits. |
-| :globe_with_meridians: | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
-| :iphone: | **Mobile Friendly** | Fully responsive UI for tablets and phones. Edit code and run commands from iPad or Android. |
-| :crescent_moon: | **Dark & Light Themes** | Midnight (dark) and Daylight (light) color schemes. Theme-aware terminal and editor. |
-| :lock: | **Secure Access** | Password authentication with 3-attempt lockout. Deploy behind HTTPS reverse proxy for production. |
+| Feature | Description |
+|---------|-------------|
+| **File Explorer** | VS Code-style project tree with git status colors. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
+| **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
+| **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
+| **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Results grouped by file; click to jump to exact line. |
+| **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
+| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. Multiple tabs. Run shell commands, SSH, Docker — anything. |
+| **Git Client** | Visual commit graph (SVG DAG), staging area, branch management, git push/pull/fetch, create branch. Right-click context menus on commits. |
+| **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
+| **Editor Settings** | Font size, tab width, word wrap, auto-save — all live-applied without reopening files, persisted to localStorage. |
+| **Mobile Friendly** | Fully responsive UI for tablets and phones. Edit code and run commands from iPad or Android. |
+| **Dark & Light Themes** | Midnight (dark) and Daylight (light) color schemes. Theme-aware terminal and editor. |
+| **Secure Access** | Password authentication with 3-attempt lockout (persisted across restarts). Session TTL, server-side logout, WS token in subprotocol (not URL). |
 
 ## Screenshots
 
@@ -71,16 +75,20 @@ Or download the binary directly from [GitHub Releases](https://github.com/vul-os
 
 ## Getting Started
 
+> **Security:** Always set a strong, unique password before exposing wede over a network.
+> The default config in `wede.config.example.json` uses a placeholder — **change it**.
+> The `install.sh` installer auto-generates a random password and prints it; note it down.
+
 **1. Create a config file** in your project directory:
 
 ```json
 {
-  "password": "your-password",
+  "password": "your-strong-password-here",
   "port": "9090"
 }
 ```
 
-Save this as `wede.config.json`.
+Save this as `wede.config.json`. The file is gitignored by default — do not commit it with a real password.
 
 **2. Start wede:**
 

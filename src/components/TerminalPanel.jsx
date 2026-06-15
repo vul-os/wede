@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, createRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Plus, X, TerminalSquare, Maximize2, Minimize2 } from 'lucide-react'
 import Terminal from './Terminal'
 import TerminalToolbar from './TerminalToolbar'
@@ -11,7 +11,7 @@ function loadTerminals() {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
     }
-  } catch {}
+  } catch { /* ignore */ }
   return null
 }
 
@@ -19,7 +19,7 @@ function saveTerminals(terminals, activeId) {
   try {
     localStorage.setItem('wede_terminals', JSON.stringify(terminals))
     localStorage.setItem('wede_terminal_active', String(activeId))
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 let nextId = (() => {

@@ -129,7 +129,7 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
     })
 
     const ro = new ResizeObserver(() => {
-      try { fitAddon.fit() } catch (_) { /* ignore resize errors */ }
+      try { fitAddon.fit() } catch { /* ignore resize errors */ }
     })
     ro.observe(containerRef.current)
 
@@ -143,7 +143,7 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
       wsRef.current = null
       fitRef.current = null
     }
-  }, [token, sessionId])
+  }, [token, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update theme dynamically
   useEffect(() => {
@@ -156,8 +156,8 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
     if (visible) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          try { fitRef.current?.fit() } catch (_) { /* ignore */ }
-          try { termRef.current?.focus() } catch (_) { /* ignore */ }
+          try { fitRef.current?.fit() } catch { /* ignore */ }
+          try { termRef.current?.focus() } catch { /* ignore */ }
         })
       })
     }

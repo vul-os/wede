@@ -23,11 +23,13 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
       setRoots(data.roots || [])
       setParent(data.parent || '')
       setManualPath(data.path)
-    } catch {}
+    } catch { /* ignore */ }
     setLoading(false)
   }, [authFetch])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { browse('') }, [browse])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleOpen = async (path) => {
     try {
@@ -40,7 +42,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
       if (data.status === 'ok') {
         onOpen(data.current)
       }
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   const handleManualOpen = (e) => {

@@ -19,14 +19,16 @@ function App() {
       const res = await authFetch('/api/workspace')
       const data = await res.json()
       setWorkspace(data)
-    } catch {}
+    } catch { /* ignore */ }
     setLoading(false)
   }, [token, authFetch])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (token) fetchWorkspace()
     else setLoading(false)
   }, [token, fetchWorkspace])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // First visit - pick theme
   if (!theme) {

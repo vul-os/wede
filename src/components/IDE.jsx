@@ -90,7 +90,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     try {
       const toSave = tabs.map(t => ({ path: t.path, name: t.name, type: t.type, url: t.url }))
       localStorage.setItem('wede_tabs', JSON.stringify(toSave))
-    } catch {}
+    } catch { /* ignore */ }
   }, [tabs])
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           setGitBranch(data.branch || '')
           setGitChanges(data.files?.length || 0)
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
     fetchGit()
     // Fallback poll at 30 s — the SSE watcher below provides faster updates.
@@ -163,7 +163,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             // Signal explorer to reload.
             sseExplorerRefreshRef.current?.()
           }
-        } catch {}
+        } catch { /* ignore */ }
       }
       es.onerror = () => {
         es?.close()
@@ -247,7 +247,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         setTabs((prev) => prev.map((t) =>
           t.path === tab.path ? { ...t, originalContent: t.content, modified: false } : t
         ))
-      } catch {}
+      } catch { /* ignore */ }
     }))
   }, [tabs, authFetch])
 
@@ -363,7 +363,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       }])
       setActiveTab(entry.path)
       if (isMobile) setMobilePanel('code')
-    } catch {}
+    } catch { /* ignore */ }
   }, [tabs, authFetch, isMobile])
 
   const closeTab = useCallback((path) => {
@@ -398,7 +398,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       setTabs((prev) => prev.map((t) =>
         t.path === activeTab ? { ...t, originalContent: t.content, modified: false } : t
       ))
-    } catch {}
+    } catch { /* ignore */ }
     setSaving(false)
   }, [tabs, activeTab, authFetch])
 
@@ -446,6 +446,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             { icon: FolderOpen, label: 'Open Folder', action: () => { setShowFolderPicker(true); setMobileMenu(false) } },
             { icon: isDark ? Sun : Moon, label: isDark ? 'Light' : 'Dark', action: () => { toggleTheme(); setMobileMenu(false) } },
             { icon: LogOut, label: 'Logout', action: () => { onLogout(); setMobileMenu(false) } },
+          // eslint-disable-next-line no-unused-vars
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
               className="flex flex-col items-center gap-2 p-3 rounded-xl bg-bg-secondary border border-border text-text-secondary hover:text-accent hover:border-accent/30 transition-colors">
@@ -788,6 +789,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 }
 
 /* Activity bar button */
+// eslint-disable-next-line no-unused-vars
 function ActivityBtn({ icon: Icon, title, active, badge, onClick }) {
   return (
     <button

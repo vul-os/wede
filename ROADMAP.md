@@ -25,11 +25,10 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 - [x] WS token no longer in URL — passed as `auth.<token>` subprotocol
 - [x] Plaintext password removed from startup log
 - [x] Delete confirmation dialog in file explorer (especially for directories)
-- [x] "Copy" removed from directory context menus (file copy only)
 - [x] Ctrl+V paste targets focused directory, not always workspace root
-- [x] Dead "Command palette" shortcut removed from Settings shortcuts list
 - [x] **Command palette implemented** — Ctrl/Cmd+Shift+P; fuzzy search; all IDE actions wired
-- [x] **Recursive directory copy** — `POST /api/files/copy`; re-enabled in file explorer
+- [x] **Recursive directory copy** — `POST /api/files/copy`; Copy/Paste re-enabled for both
+  files and directories via the new recursive endpoint; safePath-guarded
 - [x] **Ctrl/Cmd+W** close active tab shortcut
 - [x] All legacy brand references removed from codebase, docs, and configs
 - [x] Orphaned `database/` Postgres module deleted

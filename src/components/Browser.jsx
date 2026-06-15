@@ -6,12 +6,14 @@ export default function Browser({ url: initialUrl, onUrlChange }) {
   const [loadedUrl, setLoadedUrl] = useState(initialUrl || 'https://wede.vulos.org')
   const iframeRef = useRef(null)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (initialUrl && initialUrl !== loadedUrl) {
       setUrl(initialUrl)
       setLoadedUrl(initialUrl)
     }
-  }, [initialUrl])
+  }, [initialUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const navigate = (e) => {
     e?.preventDefault()
@@ -26,6 +28,7 @@ export default function Browser({ url: initialUrl, onUrlChange }) {
 
   const refresh = () => {
     if (iframeRef.current) {
+      // eslint-disable-next-line no-self-assign
       iframeRef.current.src = iframeRef.current.src
     }
   }
