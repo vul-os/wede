@@ -261,6 +261,83 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// Copy recursively copies src to dst (both are workspace-relative paths).
+// For files, it copies the file contents. For directories it walks the tree
+// and recreates the structure under dst.
+func (h *Handler) Copy(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Src string `json:"src"`
+		Dst string `json:"dst"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	srcFull, ok1 := h.safePath(body.Src)
+	dstFull, ok2 := h.safePath(body.Dst)
+	if !ok1 || !ok2 {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "path outside workspace"})
+		return
+	}
+
+	srcInfo, err := os.Stat(srcFull)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "source not found"})
+		return
+	}
+
+	if err := copyRecursive(srcFull, dstFull, srcInfo); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// copyRecursive copies src to dst. srcInfo is the result of os.Stat(src).
+func copyRecursive(src, dst string, srcInfo os.FileInfo) error {
+	if srcInfo.IsDir() {
+		if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+			return err
+		}
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			childSrc := filepath.Join(src, e.Name())
+			childDst := filepath.Join(dst, e.Name())
+			info, err := e.Info()
+			if err != nil {
+				return err
+			}
+			if err := copyRecursive(childSrc, childDst, info); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// Regular file
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, srcInfo.Mode())
+}
+
 func (h *Handler) Rename(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if !h.checkWorkspace(w) {

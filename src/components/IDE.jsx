@@ -15,6 +15,7 @@ import FolderPicker from './FolderPicker'
 import Browser from './Browser'
 import Settings from './Settings'
 import MobileNav from './MobileNav'
+import CommandPalette from './CommandPalette'
 
 let browserIdCounter = 0
 
@@ -42,6 +43,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+
+  // Expose FileExplorer's refresh + new-file/folder triggers for the command palette.
+  const explorerActionsRef = useRef(null)
+  const handleRegisterExplorerActions = useCallback((actions) => {
+    explorerActionsRef.current = actions
+  }, [])
 
   const [sidebarWidth, setSidebarWidth] = useState(260)
   const [terminalHeight, setTerminalHeight] = useState(250)
@@ -106,6 +114,64 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     const interval = setInterval(fetchGit, 10000)
     return () => { active = false; clearInterval(interval) }
   }, [authFetch, workspace])
+
+  // ── Global keyboard shortcuts ──
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault()
+        setShowCommandPalette((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // Ctrl/Cmd+W — close active tab
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'w') {
+        // Only intercept if there is an active tab (let browser handle otherwise)
+        if (activeTab) {
+          e.preventDefault()
+          closeTab(activeTab)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab, closeTab])
+
+  // ── Save All modified tabs ──
+  const saveAll = useCallback(async () => {
+    const modifiedTabs = tabs.filter((t) => t.modified && t.type !== 'browser')
+    await Promise.all(modifiedTabs.map(async (tab) => {
+      try {
+        await authFetch('/api/files/write', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: tab.path, content: tab.content }),
+        })
+        setTabs((prev) => prev.map((t) =>
+          t.path === tab.path ? { ...t, originalContent: t.content, modified: false } : t
+        ))
+      } catch {}
+    }))
+  }, [tabs, authFetch])
+
+  // ── Git stage/unstage all via command palette ──
+  const gitStageAll = useCallback(async () => {
+    await authFetch('/api/git/stage', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '.' }),
+    })
+  }, [authFetch])
+
+  const gitUnstageAll = useCallback(async () => {
+    await authFetch('/api/git/unstage', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '.' }),
+    })
+  }, [authFetch])
 
   // ── Open a browser tab ──
   const openBrowser = useCallback((url = 'https://wede.vulos.org') => {
@@ -343,7 +409,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 min-h-0 relative">
           {mobilePanel === 'files' && (
             <div className="h-full animate-fade-in">
-              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} />
+              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} />
             </div>
           )}
           {mobilePanel === 'code' && (
@@ -370,6 +436,29 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onSelect={(id) => { if (id === 'menu') { setMobileMenu(true); return }; setMobilePanel(id) }}
           hasModified={hasModified} />
         {mobileMenu && <MobileMenuOverlay />}
+        <CommandPalette
+          visible={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          onSaveFile={saveFile}
+          onSaveAll={saveAll}
+          onNewFile={() => { setMobilePanel('files'); explorerActionsRef.current?.newFile() }}
+          onNewFolder={() => { setMobilePanel('files'); explorerActionsRef.current?.newFolder() }}
+          onOpenFolder={() => setShowFolderPicker(true)}
+          onToggleTerminal={() => setMobilePanel('terminal')}
+          onOpenSettings={() => setMobilePanel('settings')}
+          onFocusExplorer={() => setMobilePanel('files')}
+          onFocusGit={() => setMobilePanel('git')}
+          onOpenBrowser={() => openBrowser()}
+          onCloseTab={() => activeTab && closeTab(activeTab)}
+          onRefreshExplorer={() => explorerActionsRef.current?.refresh()}
+          onGitStageAll={gitStageAll}
+          onGitUnstageAll={gitUnstageAll}
+          onToggleTheme={toggleTheme}
+          onLogout={onLogout}
+          isDark={isDark}
+          hasActiveTab={!!activeTab}
+          hasModified={hasModified}
+        />
       </div>
     )
   }
@@ -466,7 +555,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         {showSidebar && (
           <>
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
-              {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} />}
+              {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} />}
               {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible />}
             </div>
             {/* Drag handle */}
@@ -501,6 +590,31 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           </>
         )}
       </div>
+
+      {/* ── Command palette ── */}
+      <CommandPalette
+        visible={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onSaveFile={saveFile}
+        onSaveAll={saveAll}
+        onNewFile={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFile() }}
+        onNewFolder={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFolder() }}
+        onOpenFolder={() => setShowFolderPicker(true)}
+        onToggleTerminal={() => setShowTerminal((v) => !v)}
+        onOpenSettings={() => setShowSettings((v) => !v)}
+        onFocusExplorer={() => toggleSidebarTab('files')}
+        onFocusGit={() => toggleSidebarTab('git')}
+        onOpenBrowser={() => openBrowser()}
+        onCloseTab={() => activeTab && closeTab(activeTab)}
+        onRefreshExplorer={() => explorerActionsRef.current?.refresh()}
+        onGitStageAll={gitStageAll}
+        onGitUnstageAll={gitUnstageAll}
+        onToggleTheme={toggleTheme}
+        onLogout={onLogout}
+        isDark={isDark}
+        hasActiveTab={!!activeTab}
+        hasModified={hasModified}
+      />
 
       {/* ── Status bar ── */}
       <div className="flex items-center justify-between px-1 h-6 bg-status-bar border-t border-border text-status-text text-[11px] font-medium shrink-0 select-none">

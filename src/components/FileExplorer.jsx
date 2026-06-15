@@ -160,9 +160,9 @@ function TreeNode({
   const contextItems = [
     ...(entry.isDir ? [] : [
       { label: 'Open', icon: File, action: () => onSelect(entry) },
-      // Copy only available for files — directory copy is not implemented.
-      { label: 'Copy', icon: Copy, action: () => setClipboard({ path: entry.path, op: 'copy' }) },
     ]),
+    // Copy available for both files and directories (directories use recursive backend copy).
+    { label: 'Copy', icon: Copy, action: () => setClipboard({ path: entry.path, op: 'copy', isDir: entry.isDir }) },
     ...(entry.isDir ? [{ label: 'Paste', icon: Clipboard, action: () => onPaste(entry.path) }] : []),
     { separator: true },
     { label: 'Rename', icon: Pencil, action: () => onRename(entry.path) },
@@ -268,7 +268,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 }
 
 /* ── Main explorer ── */
-export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace }) {
+export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, onRegisterActions }) {
   const [files, _setFiles] = useState([])
   const setFiles = (v) => _setFiles(Array.isArray(v) ? v : [])
   const [expanded, setExpanded] = useState(new Set())
@@ -308,6 +308,15 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     return () => clearInterval(interval)
   }, [loadRoot, loadGitStatus, workspace])
 
+  // Register refresh + new-file/folder triggers with the parent (for command palette).
+  useEffect(() => {
+    onRegisterActions?.({
+      refresh: () => { loadRoot(); loadGitStatus() },
+      newFile: () => setShowNew('file'),
+      newFolder: () => setShowNew('folder'),
+    })
+  }, [onRegisterActions, loadRoot, loadGitStatus])
+
   const toggleExpand = (path) => {
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -331,16 +340,10 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     const name = clipboard.path.split('/').pop()
     const dest = targetDir ? `${targetDir}/${name}` : name
     try {
-      // Only file copy is supported — reading a directory via /api/files/read
-      // returns an error. The "Copy" option is hidden for directories in the
-      // context menu, so this path should only be reached for files.
-      const res = await authFetch(`/api/files/read?path=${encodeURIComponent(clipboard.path)}`)
-      if (!res.ok) return
-      const data = await res.json()
-      if (typeof data.content !== 'string') return // directory — bail silently
-      await authFetch('/api/files/write', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: dest, content: data.content }),
+      // Use the recursive copy endpoint for both files and directories.
+      await authFetch('/api/files/copy', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ src: clipboard.path, dst: dest }),
       })
       loadRoot()
     } catch {}

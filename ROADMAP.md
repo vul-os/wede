@@ -28,6 +28,10 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 - [x] "Copy" removed from directory context menus (file copy only)
 - [x] Ctrl+V paste targets focused directory, not always workspace root
 - [x] Dead "Command palette" shortcut removed from Settings shortcuts list
+- [x] **Command palette implemented** — Ctrl/Cmd+Shift+P; fuzzy search; all IDE actions wired
+- [x] **Recursive directory copy** — `POST /api/files/copy`; re-enabled in file explorer
+- [x] **Ctrl/Cmd+W** close active tab shortcut
+- [x] All legacy brand references removed from codebase, docs, and configs
 - [x] Orphaned `database/` Postgres module deleted
 - [x] `wede.config.json` gitignored; `wede.config.example.json` added
 

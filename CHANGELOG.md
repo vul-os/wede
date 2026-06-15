@@ -9,6 +9,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Command palette (Ctrl/Cmd+Shift+P)** — fully functional fuzzy-search command palette
+  wired to all major IDE actions: New File, Save, Save All, Toggle Terminal, Open Settings,
+  Focus Explorer, Focus Git, Open Browser Preview, Close Tab, Refresh Explorer, Git Stage
+  All / Unstage All, Switch Theme, Log Out. Arrow-key navigation, Enter to run, Esc to close.
+  Shortcut listed in the Settings panel shortcuts section.
+- **Recursive directory copy** — `POST /api/files/copy` backend endpoint copies files and
+  directories recursively under the same `safePath` workspace-confinement guard used by all
+  other file endpoints. "Copy" is now re-enabled in directory context menus in the file
+  explorer, and paste uses the new endpoint for both files and directories.
+- **Ctrl/Cmd+W** global shortcut to close the active editor tab.
+
+### Fixed
+- **Old brand references removed** — all remaining mentions of the previous brand name
+  (including the historical changelog entry) have been scrubbed from the codebase.
+
 ### Security
 - **Server-side logout** — `DELETE /api/auth/logout` revokes the session token on disk;
   tokens are no longer valid after logout even if replayed from another client.
@@ -65,7 +81,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Version is now logged at startup (`wede vX.Y.Z running on http://...`).
 
 ### Changed
-- **Rebrand: webcrft → Vulos / wede** — repository moved to `github.com/vul-os/wede`;
+- **Rebrand to Vulos / wede** — repository moved to `github.com/vul-os/wede`;
   hosted at `wede.vulos.org`. All internal references updated.
 - **IDE redesign** — overhauled UI with Midnight (dark) and Daylight (light) themes;
   Space Grotesk / Inter / JetBrains Mono font stack; responsive mobile layout; tabbed

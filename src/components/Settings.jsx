@@ -124,8 +124,10 @@ export default function Settings({ visible, onOpenFolder, workspace }) {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Shortcuts</h3>
           <div className="space-y-1.5 text-xs">
             {[
+              ['Command palette', 'Ctrl/Cmd + Shift + P'],
               ['Save file', 'Ctrl/Cmd + S'],
               ['Search in file', 'Ctrl/Cmd + F'],
+              ['Close tab', 'Ctrl/Cmd + W'],
             ].map(([action, keys]) => (
               <div key={action} className="flex items-center justify-between py-1.5 px-3 bg-bg-primary rounded-lg border border-border">
                 <span className="text-text-secondary">{action}</span>

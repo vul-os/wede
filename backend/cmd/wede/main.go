@@ -97,6 +97,7 @@ func main() {
 	protected.HandleFunc("POST /api/files/create", fileHandler.Create)
 	protected.HandleFunc("DELETE /api/files/delete", fileHandler.Delete)
 	protected.HandleFunc("POST /api/files/rename", fileHandler.Rename)
+	protected.HandleFunc("POST /api/files/copy", fileHandler.Copy)
 
 	protected.HandleFunc("GET /api/git/status", gitHandler.Status)
 	protected.HandleFunc("GET /api/git/log", gitHandler.Log)
