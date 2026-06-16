@@ -73,6 +73,27 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 
 ---
 
+## v0.3.x — IDE-class gaps (current)
+
+- [x] **Merge-conflict resolution** — conflicted files detected in git status (`UU`/`AA`/`DD`/`DU`/`UD`),
+  shown in a "Conflicts" section; inline resolver shows each `<<<`/`===`/`>>>` region with
+  Accept Current / Accept Incoming / Accept Both buttons; "Resolve & Stage" writes and stages the
+  file. Backend: `GET /api/git/conflict`, `POST /api/git/conflict/resolve`.
+- [x] **Remote management** — add and remove git remotes from the Remote tab; strict name
+  validation (`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`). Backend: `POST /api/git/remotes/add`,
+  `POST /api/git/remotes/remove`.
+- [x] **Replace across files** — replace mode in the Search panel; preview shows amber-tinted
+  replacements per match; "Replace All" applies atomically per file. 200-file / 10k-replacement
+  cap. Backend: `GET /api/search/replace-preview`, `POST /api/search/replace`.
+- [x] **Image/binary preview** — images (png/jpg/gif/svg/webp) rendered inline as `<img>` with
+  a checkerboard transparency background; other binary files show a "binary file" notice with size.
+  Backend: `Read` now returns `fileType:"image"` with base64 data URL, or `fileType:"binary"` + size.
+- [x] **Per-hunk staging** — each `@@` hunk header in the diff view has a "+" button to stage just
+  that hunk via `git apply --cached`; likewise "–" to unstage via `--reverse`. Backend:
+  `POST /api/git/stage-hunk`.
+
+---
+
 ## v0.4.0 — Terminal improvements
 
 - [ ] **Persistent terminal sessions** — reconnect without losing the PTY on browser reload

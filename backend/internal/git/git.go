@@ -1,9 +1,12 @@
 package git
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,9 +45,10 @@ func (h *Handler) checkWorkspace(w http.ResponseWriter) bool {
 }
 
 type StatusFile struct {
-	Path   string `json:"path"`
-	Status string `json:"status"`
-	Staged bool   `json:"staged"`
+	Path       string `json:"path"`
+	Status     string `json:"status"`
+	Staged     bool   `json:"staged"`
+	Conflicted bool   `json:"conflicted,omitempty"`
 }
 
 func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +79,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 			// Handle renames: "R  old -> new"
 			if idx := strings.Index(path, " -> "); idx >= 0 {
 				path = path[idx+4:]
+			}
+
+			// Conflict check: any line where either column is 'U', or both are the same non-space (AA, DD)
+			isConflict := x == 'U' || y == 'U' || (x == 'A' && y == 'A') || (x == 'D' && y == 'D')
+			if isConflict {
+				files = append(files, StatusFile{Path: path, Status: "conflict", Staged: false, Conflicted: true})
+				continue
 			}
 
 			// Untracked files
@@ -339,6 +350,10 @@ func validBranchName(name string) bool {
 func validRemoteName(name string) bool {
 	return name != "" && !strings.HasPrefix(name, "-")
 }
+
+// validRemoteNameStrict matches only safe characters for git remote names.
+// Must start with an alphanumeric character to prevent flag injection via "-" prefix.
+var validRemoteNameStrict = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // CreateBranch creates a new local branch (and optionally checks it out).
 // POST /api/git/branch  {"name":"feat/foo","checkout":true}
@@ -715,4 +730,324 @@ func (h *Handler) CommitDiff(w http.ResponseWriter, r *http.Request) {
 		"diff":  diff,
 		"files": files,
 	})
+}
+
+// ConflictRegion represents a merge conflict region in a file.
+type ConflictRegion struct {
+	Index         int      `json:"index"`
+	CurrentLines  []string `json:"currentLines"`
+	IncomingLines []string `json:"incomingLines"`
+	StartLine     int      `json:"startLine"`
+	EndLine       int      `json:"endLine"`
+}
+
+// ConflictRegions parses merge conflict markers from a file.
+// GET /api/git/conflict?file=<path>
+func (h *Handler) ConflictRegions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	reqPath := r.URL.Query().Get("file")
+	if reqPath == "" || strings.HasPrefix(reqPath, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid path"})
+		return
+	}
+
+	full := filepath.Join(h.ws.Current(), reqPath)
+	wsWithSep := h.ws.Current() + string(filepath.Separator)
+	if full != h.ws.Current() && !strings.HasPrefix(full, wsWithSep) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "path outside workspace"})
+		return
+	}
+
+	data, err := os.ReadFile(full)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "file not found"})
+		return
+	}
+
+	regions := parseConflictRegions(string(data))
+	json.NewEncoder(w).Encode(map[string]any{"regions": regions})
+}
+
+// parseConflictRegions finds all <<<<<<< ... ======= ... >>>>>>> blocks in text.
+func parseConflictRegions(text string) []ConflictRegion {
+	lines := strings.Split(text, "\n")
+	var regions []ConflictRegion
+	idx := 0
+	i := 0
+	for i < len(lines) {
+		if strings.HasPrefix(lines[i], "<<<<<<<") {
+			start := i + 1 // 1-based
+			var current []string
+			var incoming []string
+			j := i + 1
+			inIncoming := false
+			for j < len(lines) {
+				if strings.HasPrefix(lines[j], "=======") {
+					inIncoming = true
+					j++
+					continue
+				}
+				if strings.HasPrefix(lines[j], ">>>>>>>") {
+					break
+				}
+				if inIncoming {
+					incoming = append(incoming, lines[j])
+				} else {
+					current = append(current, lines[j])
+				}
+				j++
+			}
+			end := j + 1 // 1-based line of >>>>>>>
+			if current == nil {
+				current = []string{}
+			}
+			if incoming == nil {
+				incoming = []string{}
+			}
+			regions = append(regions, ConflictRegion{
+				Index:         idx,
+				CurrentLines:  current,
+				IncomingLines: incoming,
+				StartLine:     start,
+				EndLine:       end,
+			})
+			idx++
+			i = j + 1
+			continue
+		}
+		i++
+	}
+	return regions
+}
+
+// ConflictResolve applies resolutions to conflict markers and stages the file.
+// POST /api/git/conflict/resolve  {"path":"...","resolutions":[{"index":0,"choice":"current"|"incoming"|"both"}]}
+func (h *Handler) ConflictResolve(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Path        string `json:"path"`
+		Resolutions []struct {
+			Index  int    `json:"index"`
+			Choice string `json:"choice"`
+		} `json:"resolutions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if body.Path == "" || strings.HasPrefix(body.Path, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid path"})
+		return
+	}
+
+	full := filepath.Join(h.ws.Current(), body.Path)
+	wsWithSep := h.ws.Current() + string(filepath.Separator)
+	if full != h.ws.Current() && !strings.HasPrefix(full, wsWithSep) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "path outside workspace"})
+		return
+	}
+
+	data, err := os.ReadFile(full)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "file not found"})
+		return
+	}
+
+	// Build a resolution map by index.
+	choices := map[int]string{}
+	for _, res := range body.Resolutions {
+		choices[res.Index] = res.Choice
+	}
+
+	resolved := applyConflictResolutions(string(data), choices)
+
+	if err := os.WriteFile(full, []byte(resolved), 0644); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	out, err := h.run("add", "--", body.Path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// applyConflictResolutions rewrites text by resolving each conflict region.
+func applyConflictResolutions(text string, choices map[int]string) string {
+	lines := strings.Split(text, "\n")
+	var out []string
+	idx := 0
+	i := 0
+	for i < len(lines) {
+		if strings.HasPrefix(lines[i], "<<<<<<<") {
+			choice := choices[idx]
+			var current []string
+			var incoming []string
+			j := i + 1
+			inIncoming := false
+			for j < len(lines) {
+				if strings.HasPrefix(lines[j], "=======") {
+					inIncoming = true
+					j++
+					continue
+				}
+				if strings.HasPrefix(lines[j], ">>>>>>>") {
+					break
+				}
+				if inIncoming {
+					incoming = append(incoming, lines[j])
+				} else {
+					current = append(current, lines[j])
+				}
+				j++
+			}
+			switch choice {
+			case "incoming":
+				out = append(out, incoming...)
+			case "both":
+				out = append(out, current...)
+				out = append(out, incoming...)
+			default: // "current" or unspecified
+				out = append(out, current...)
+			}
+			idx++
+			i = j + 1
+			continue
+		}
+		out = append(out, lines[i])
+		i++
+	}
+	return strings.Join(out, "\n")
+}
+
+// RemoteAdd adds a new git remote.
+// POST /api/git/remotes/add  {"name":"origin","url":"https://..."}
+func (h *Handler) RemoteAdd(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validRemoteNameStrict.MatchString(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote name"})
+		return
+	}
+	if body.URL == "" || strings.HasPrefix(body.URL, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote url"})
+		return
+	}
+
+	out, err := h.run("remote", "add", "--", body.Name, body.URL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// RemoteRemove removes a git remote by name.
+// POST /api/git/remotes/remove  {"name":"origin"}
+func (h *Handler) RemoteRemove(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validRemoteNameStrict.MatchString(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid remote name"})
+		return
+	}
+
+	out, err := h.run("remote", "remove", "--", body.Name)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// StageHunk applies a patch to the index (staging area) via git apply --cached.
+// POST /api/git/stage-hunk  {"patch":"...unified diff..."}
+func (h *Handler) StageHunk(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Patch   string `json:"patch"`
+		Reverse bool   `json:"reverse"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if body.Patch == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "patch is required"})
+		return
+	}
+
+	// Basic sanity: reject patches with null bytes.
+	if strings.ContainsRune(body.Patch, 0) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid patch"})
+		return
+	}
+
+	args := []string{"apply", "--cached", "--whitespace=nowarn"}
+	if body.Reverse {
+		args = append(args, "--reverse")
+	}
+
+	dir := h.ws.Current()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Stdin = bytes.NewBufferString(body.Patch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": strings.TrimSpace(string(out))})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

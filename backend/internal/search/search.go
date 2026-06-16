@@ -379,6 +379,237 @@ func searchWithWalk(ws, query string, caseSensitive, useRegex bool) ([]Match, er
 	return matches, err
 }
 
+// ReplaceMatch extends Match with a replacedText field for preview.
+type ReplaceMatch struct {
+	Match
+	ReplacedText string `json:"replacedText"`
+}
+
+// ReplacePreview handles GET /api/search/replace-preview
+// Same params as /api/search plus replace= for the replacement string.
+// Returns matches with replacedText showing what the replacement would produce.
+func (h *Handler) ReplacePreview(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "q is required"})
+		return
+	}
+
+	replace := r.URL.Query().Get("replace")
+	caseSensitive := r.URL.Query().Get("case") == "true"
+	useRegex := r.URL.Query().Get("regex") == "true"
+
+	var re *regexp.Regexp
+	if useRegex {
+		flags := "(?i)"
+		if caseSensitive {
+			flags = ""
+		}
+		var err error
+		re, err = regexp.Compile(flags + query)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid regex: " + err.Error()})
+			return
+		}
+	}
+
+	ws := h.ws.Current()
+	var baseMatches []Match
+	var searchErr error
+	if rgPath, err := exec.LookPath("rg"); err == nil {
+		baseMatches, searchErr = searchWithRg(rgPath, ws, query, caseSensitive, useRegex)
+	} else {
+		baseMatches, searchErr = searchWithWalk(ws, query, caseSensitive, useRegex)
+	}
+	if searchErr != nil {
+		baseMatches = []Match{}
+	}
+	truncated := false
+	if len(baseMatches) > 500 {
+		baseMatches = baseMatches[:500]
+		truncated = true
+	}
+
+	queryLower := strings.ToLower(query)
+	rMatches := make([]ReplaceMatch, 0, len(baseMatches))
+	for _, m := range baseMatches {
+		replacedText := m.Text
+		if useRegex && re != nil {
+			replacedText = re.ReplaceAllString(m.Text, replace)
+		} else {
+			if caseSensitive {
+				replacedText = strings.ReplaceAll(m.Text, query, replace)
+			} else {
+				replacedText = replaceAllCaseInsensitive(m.Text, queryLower, replace)
+			}
+		}
+		rMatches = append(rMatches, ReplaceMatch{Match: m, ReplacedText: replacedText})
+	}
+
+	// Count affected files.
+	fileSet := map[string]struct{}{}
+	for _, m := range rMatches {
+		fileSet[m.File] = struct{}{}
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"matches":       rMatches,
+		"truncated":     truncated,
+		"count":         len(rMatches),
+		"affectedFiles": len(fileSet),
+	})
+}
+
+// replaceAllCaseInsensitive replaces all case-insensitive occurrences of needle in s with repl.
+func replaceAllCaseInsensitive(s, needle, repl string) string {
+	if needle == "" {
+		return s
+	}
+	lower := strings.ToLower(s)
+	var b strings.Builder
+	start := 0
+	for {
+		idx := strings.Index(lower[start:], needle)
+		if idx < 0 {
+			b.WriteString(s[start:])
+			break
+		}
+		abs := start + idx
+		b.WriteString(s[start:abs])
+		b.WriteString(repl)
+		start = abs + len(needle)
+	}
+	return b.String()
+}
+
+// ReplaceApply handles POST /api/search/replace
+// Body: {"query":"...","replace":"...","caseSensitive":false,"useRegex":false,"paths":[]}
+// Applies the replacement to all matched files (or only paths if non-empty).
+func (h *Handler) ReplaceApply(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Query         string   `json:"query"`
+		Replace       string   `json:"replace"`
+		CaseSensitive bool     `json:"caseSensitive"`
+		UseRegex      bool     `json:"useRegex"`
+		Paths         []string `json:"paths"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "query is required"})
+		return
+	}
+
+	var re *regexp.Regexp
+	if body.UseRegex {
+		flags := "(?i)"
+		if body.CaseSensitive {
+			flags = ""
+		}
+		var err error
+		re, err = regexp.Compile(flags + body.Query)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid regex: " + err.Error()})
+			return
+		}
+	}
+
+	ws := h.ws.Current()
+	var baseMatches []Match
+	var searchErr error
+	if rgPath, err := exec.LookPath("rg"); err == nil {
+		baseMatches, searchErr = searchWithRg(rgPath, ws, body.Query, body.CaseSensitive, body.UseRegex)
+	} else {
+		baseMatches, searchErr = searchWithWalk(ws, body.Query, body.CaseSensitive, body.UseRegex)
+	}
+	if searchErr != nil {
+		baseMatches = []Match{}
+	}
+
+	// Collect affected files (deduped), respecting path filter.
+	pathFilter := map[string]bool{}
+	for _, p := range body.Paths {
+		pathFilter[p] = true
+	}
+
+	fileSet := map[string]struct{}{}
+	for _, m := range baseMatches {
+		if len(pathFilter) > 0 && !pathFilter[m.File] {
+			continue
+		}
+		fileSet[m.File] = struct{}{}
+	}
+
+	if len(fileSet) > 200 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "too many files (>200)"})
+		return
+	}
+
+	queryLower := strings.ToLower(body.Query)
+	filesChanged := 0
+	totalReplacements := 0
+
+	for relPath := range fileSet {
+		full, ok := h.safePath(relPath)
+		if !ok {
+			continue
+		}
+		data, err := os.ReadFile(full)
+		if err != nil {
+			continue
+		}
+		content := string(data)
+		var newContent string
+		var count int
+
+		if body.UseRegex && re != nil {
+			matches := re.FindAllString(content, -1)
+			count = len(matches)
+			newContent = re.ReplaceAllString(content, body.Replace)
+		} else {
+			if body.CaseSensitive {
+				count = strings.Count(content, body.Query)
+				newContent = strings.ReplaceAll(content, body.Query, body.Replace)
+			} else {
+				count = strings.Count(strings.ToLower(content), queryLower)
+				newContent = replaceAllCaseInsensitive(content, queryLower, body.Replace)
+			}
+		}
+
+		if count == 0 || newContent == content {
+			continue
+		}
+		totalReplacements += count
+		if totalReplacements > 10000 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "too many replacements (>10000)"})
+			return
+		}
+		if err := os.WriteFile(full, []byte(newContent), 0644); err != nil {
+			continue
+		}
+		filesChanged++
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"filesChanged": filesChanged,
+		"replacements": totalReplacements,
+	})
+}
+
 // LineCount is a helper used by tests.
 func LineCount(s string) int {
 	return strings.Count(s, "\n") + 1

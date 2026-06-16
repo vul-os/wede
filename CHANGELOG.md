@@ -10,6 +10,37 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Merge-conflict resolution** — conflicted files (porcelain `UU`, `AA`, `DD`, `DU`, `UD`) are
+  detected in `GET /api/git/status` and marked `conflicted:true`. A new "Conflicts" section in the
+  Changes tab lists them with a `!` badge. Clicking opens an inline resolver showing each
+  `<<<<<<< / ======= / >>>>>>>` region as a card with "Accept Current", "Accept Incoming", and
+  "Accept Both" buttons. Once all regions are resolved a "Resolve & Stage" button writes the file
+  and stages it. Backend: `GET /api/git/conflict?file=` (parses conflict regions), `POST
+  /api/git/conflict/resolve` (applies choices and stages). Both endpoints validate the path
+  (injection-safe, workspace-confined).
+- **Remote management** — the Remote tab now has an "Add" button that expands a form (name + URL)
+  to call `POST /api/git/remotes/add`. Each existing remote row shows a hover trash icon that calls
+  `POST /api/git/remotes/remove`. Remote names are validated against `^[a-zA-Z0-9][a-zA-Z0-9._-]*$`
+  (stricter than branch name validation, no leading `-`).
+- **Replace across files** — the Search panel has a toggle (PenLine icon) to enter replace mode.
+  A "Replace with…" input appears below the search box. "Preview" shows amber-tinted replaced text
+  alongside the match. "Replace All" applies the replacement to every matching file (up to 200 files /
+  10 000 replacements per request) via `POST /api/search/replace`. Supports literal, case-insensitive,
+  and regex replacements. `GET /api/search/replace-preview` previews without writing.
+- **Image/binary preview** — `GET /api/files/read` now detects image files (`.png`, `.jpg`, `.jpeg`,
+  `.gif`, `.svg`, `.webp`) and returns a base64 data URL with `fileType:"image"`. Non-text binary
+  files (null-byte probe on first 512 bytes) return `fileType:"binary"` with file size. The IDE
+  renders a `<ImagePreview>` component (checkerboard background, centered `<img>`, filename + size)
+  or a `<BinaryNotice>` (package icon, filename, formatted size) instead of the CodeMirror editor.
+- **Per-hunk staging** — each `@@` hunk header in the inline diff view has a "+" button (hover
+  visible) that stages only that hunk via `POST /api/git/stage-hunk` (pipes the patch to
+  `git apply --cached`). For staged diffs an "–" button unstages the hunk via `--reverse`.
+  The patch is built from the file header and the specific hunk lines.
+
+### Changed
+- `GET /api/git/diff` response is now parsed as JSON (`{diff: string}`) in all frontend diff views
+  (was fetched as raw text in `FileDiffPanel`). The backend response shape is unchanged.
+
 - **Git diff viewer** — clicking any staged or unstaged file in the Changes tab expands an inline
   unified diff panel. Lines coloured green/red for additions/deletions; hunk headers muted.
   Truncates at 200 lines with a "N more lines" note. Uses `GET /api/git/diff?file=&staged=`.

@@ -503,3 +503,144 @@ func TestCommitDiff_ValidHashFormat(t *testing.T) {
 		t.Errorf("valid hex hash was rejected with 400: %s", resp["error"])
 	}
 }
+
+// ── New feature tests ─────────────────────────────────────────────────────────
+
+// TestConflictStatus creates a real merge conflict and verifies Status
+// returns the file with conflicted:true and status:"conflict".
+func TestConflictStatus(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Create a branch with a different change on the same line.
+	run("checkout", "-b", "branch-a")
+	if err := os.WriteFile(repo+"/README.md", []byte("branch-a change\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "README.md")
+	run("commit", "-m", "branch-a")
+
+	// Switch back and make a conflicting change.
+	defaultBranch := run("rev-parse", "--abbrev-ref", "HEAD~1")
+	_ = defaultBranch
+
+	// We need to go back to the initial branch. Use git log to find it.
+	run("checkout", "-")
+
+	if err := os.WriteFile(repo+"/README.md", []byte("main change\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "README.md")
+	run("commit", "-m", "main change")
+
+	// Attempt merge — this will produce a conflict.
+	mergeCmd := exec.Command("git", "merge", "branch-a")
+	mergeCmd.Dir = repo
+	mergeCmd.Run() // intentionally ignore error — conflict is expected
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodGet, "/api/git/status", nil)
+	rec := httptest.NewRecorder()
+	h.Status(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Status: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Files []StatusFile `json:"files"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range resp.Files {
+		if f.Path == "README.md" && f.Conflicted {
+			found = true
+			if f.Status != "conflict" {
+				t.Errorf("conflicted file status should be 'conflict', got %q", f.Status)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected README.md with conflicted:true in status, got %+v", resp.Files)
+	}
+}
+
+// TestConflictResolve_InvalidPath ensures empty/flag paths are rejected.
+func TestConflictResolve_InvalidPath(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, path := range []string{"", "-evil", "--flag"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/conflict/resolve",
+			postBody(t, map[string]any{"path": path, "resolutions": []any{}}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.ConflictResolve(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("path=%q: expected 400, got %d", path, rec.Code)
+		}
+	}
+}
+
+// TestRemoteAdd_InvalidName ensures names with special chars are rejected.
+func TestRemoteAdd_InvalidName(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	badNames := []string{"--evil", "-x", "name with space", "na$me", "na@me", ""}
+	for _, name := range badNames {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/remotes/add",
+			postBody(t, map[string]any{"name": name, "url": "https://example.com"}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.RemoteAdd(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("name=%q: expected 400, got %d", name, rec.Code)
+		}
+	}
+}
+
+// TestRemoteRemove_InvalidName ensures flag-like names are rejected.
+func TestRemoteRemove_InvalidName(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	badNames := []string{"--evil", "-x", "na me", ""}
+	for _, name := range badNames {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/remotes/remove",
+			postBody(t, map[string]any{"name": name}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.RemoteRemove(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("name=%q: expected 400, got %d", name, rec.Code)
+		}
+	}
+}
+
+// TestStageHunk_EmptyPatch ensures an empty patch is rejected with 400.
+func TestStageHunk_EmptyPatch(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/stage-hunk",
+		postBody(t, map[string]any{"patch": ""}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.StageHunk(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("empty patch: expected 400, got %d", rec.Code)
+	}
+}

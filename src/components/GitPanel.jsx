@@ -440,6 +440,7 @@ const STATUS_META = {
   untracked: { label: 'U', color: 'text-green',  ring: 'bg-green/10 border-green/25' },
   copied:    { label: 'C', color: 'text-cyan',   ring: 'bg-cyan/10 border-cyan/25' },
   renamed:   { label: 'R', color: 'text-accent', ring: 'bg-accent/10 border-accent/25' },
+  conflict:  { label: '!', color: 'text-red',    ring: 'bg-red/10 border-red/25' },
 }
 
 function FileBadge({ status }) {
@@ -477,35 +478,133 @@ function Toast({ message, type, onDismiss }) {
 }
 
 /* ═══════════════════════════════════════════════════
-   Inline diff panel for a changed file
+   Per-hunk staging helper
 ═══════════════════════════════════════════════════ */
 
-function FileDiffPanel({ file, staged, authFetch }) {
-  const [lines, setLines] = useState(null)
+// parseHunks splits diff text into header + array of hunks.
+// Each hunk includes the file header lines so it forms a valid patch.
+function parseHunks(diffText, filePath) {
+  if (!diffText) return []
+  const lines = diffText.split('\n')
+  const headerLines = []
+  const hunks = []
+  let i = 0
+
+  // Collect header lines (--- / +++ / diff --git etc.) until first @@
+  while (i < lines.length && !lines[i].startsWith('@@')) {
+    headerLines.push(lines[i])
+    i++
+  }
+
+  // Build a minimal header if none found
+  const header = headerLines.length > 0
+    ? headerLines.join('\n') + '\n'
+    : `--- a/${filePath}\n+++ b/${filePath}\n`
+
+  // Parse each @@ block
+  while (i < lines.length) {
+    if (lines[i].startsWith('@@')) {
+      const hunkLines = [lines[i]]
+      i++
+      while (i < lines.length && !lines[i].startsWith('@@')) {
+        hunkLines.push(lines[i])
+        i++
+      }
+      hunks.push({ patch: header + hunkLines.join('\n') + '\n', headerLine: hunkLines[0] })
+    } else {
+      i++
+    }
+  }
+  return hunks
+}
+
+/* ═══════════════════════════════════════════════════
+   Inline diff panel for a changed file (with per-hunk staging)
+═══════════════════════════════════════════════════ */
+
+function FileDiffPanel({ file, staged, authFetch, onRefresh }) {
+  const [diffText, setDiffText] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [stagingHunk, setStagingHunk] = useState(null) // index being staged
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setLoading(true)
-    setLines(null)
+    setDiffText(null)
     const url = `/api/git/diff?file=${encodeURIComponent(file.path)}&staged=${staged ? 'true' : 'false'}`
     authFetch(url)
-      .then((r) => r.text())
-      .then((text) => { setLines(parseDiff(text)); setLoading(false) })
-      .catch(() => { setLines([]); setLoading(false) })
+      .then((r) => r.json())
+      .then((data) => { setDiffText(data.diff || ''); setLoading(false) })
+      .catch(() => { setDiffText(''); setLoading(false) })
   }, [file.path, staged, authFetch])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const handleStageHunk = async (hunk, idx) => {
+    setStagingHunk(idx)
+    try {
+      await authFetch('/api/git/stage-hunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch: hunk.patch, reverse: staged }),
+      })
+      onRefresh?.()
+    } catch { /* ignore */ }
+    setStagingHunk(null)
+  }
+
+  const lines = diffText != null ? parseDiff(diffText) : null
+  const hunks = diffText ? parseHunks(diffText, file.path) : []
+
+  // Build a map from hunk header line → hunk index so we can show the button
+  const hunkHeaderToIdx = {}
+  hunks.forEach((h, i) => { hunkHeaderToIdx[h.headerLine] = i })
+
   return (
-    <div className="border-t border-border/40 bg-bg-primary overflow-x-auto" style={{ maxHeight: 260 }}>
+    <div className="border-t border-border/40 bg-bg-primary overflow-x-auto" style={{ maxHeight: 280 }}>
       {loading ? (
         <div className="flex items-center gap-2 px-3 py-3 text-text-muted">
           <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
           <span className="text-[11px]">Loading diff…</span>
         </div>
       ) : lines && lines.length > 0 ? (
-        <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
-          <DiffViewer lines={lines} />
+        <div className="overflow-y-auto" style={{ maxHeight: 280 }}>
+          <pre className="overflow-x-auto text-[11px] font-mono leading-[1.55] select-text p-0 m-0">
+            {lines.slice(0, MAX_DIFF_LINES).map((line, i) => {
+              let cls = 'block px-3 whitespace-pre'
+              if (line.type === 'add')  cls += ' bg-green/10 text-green'
+              else if (line.type === 'del')  cls += ' bg-red/10 text-red'
+              else if (line.type === 'hunk') cls += ' text-accent/70 bg-accent/5'
+              else if (line.type === 'meta') cls += ' text-text-muted'
+              else cls += ' text-text-secondary'
+
+              const hunkIdx = line.type === 'hunk' ? hunkHeaderToIdx[line.text] : undefined
+              const isHunkLine = hunkIdx !== undefined
+
+              return (
+                <span key={i} className={cls + (isHunkLine ? ' flex items-center justify-between group pr-1' : '')}>
+                  <span>{line.text || ' '}</span>
+                  {isHunkLine && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleStageHunk(hunks[hunkIdx], hunkIdx) }}
+                      disabled={stagingHunk !== null}
+                      className="opacity-0 group-hover:opacity-100 ml-2 px-1.5 py-0.5 text-[9px] font-semibold rounded bg-accent/20 text-accent hover:bg-accent/35 transition-all disabled:opacity-30 shrink-0"
+                      title={staged ? 'Unstage hunk' : 'Stage hunk'}
+                    >
+                      {stagingHunk === hunkIdx
+                        ? <RefreshCw className="w-2.5 h-2.5 animate-spin inline" />
+                        : (staged ? '–' : '+')
+                      }
+                    </button>
+                  )}
+                </span>
+              )
+            })}
+            {lines.length > MAX_DIFF_LINES && (
+              <span className="block px-3 py-1 text-text-muted italic bg-bg-hover">
+                … {lines.length - MAX_DIFF_LINES} more lines (open file to see full diff)
+              </span>
+            )}
+          </pre>
         </div>
       ) : (
         <div className="px-3 py-3 text-[11px] text-text-muted italic">No diff available</div>
@@ -515,19 +614,143 @@ function FileDiffPanel({ file, staged, authFetch }) {
 }
 
 /* ═══════════════════════════════════════════════════
+   Conflict resolver — shown for conflicted files
+═══════════════════════════════════════════════════ */
+
+function ConflictResolver({ file, authFetch, onRefresh }) {
+  const [regions, setRegions] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [resolutions, setResolutions] = useState({}) // index → 'current'|'incoming'|'both'
+  const [resolving, setResolving] = useState(false)
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setLoading(true)
+    setRegions(null)
+    setResolutions({})
+    authFetch(`/api/git/conflict?file=${encodeURIComponent(file.path)}`)
+      .then((r) => r.json())
+      .then((data) => { setRegions(data.regions || []); setLoading(false) })
+      .catch(() => { setRegions([]); setLoading(false) })
+  }, [file.path, authFetch])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const allResolved = regions && regions.length > 0 && regions.every((r) => resolutions[r.index])
+
+  const handleResolve = async () => {
+    if (!allResolved) return
+    setResolving(true)
+    try {
+      const resArr = Object.entries(resolutions).map(([idx, choice]) => ({ index: Number(idx), choice }))
+      await authFetch('/api/git/conflict/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: file.path, resolutions: resArr }),
+      })
+      onRefresh?.()
+    } catch { /* ignore */ }
+    setResolving(false)
+  }
+
+  const setChoice = (idx, choice) => {
+    setResolutions((prev) => ({ ...prev, [idx]: choice }))
+  }
+
+  return (
+    <div className="border-t border-border/40 bg-bg-primary" style={{ maxHeight: 320, overflowY: 'auto' }}>
+      {loading ? (
+        <div className="flex items-center gap-2 px-3 py-3 text-text-muted">
+          <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+          <span className="text-[11px]">Loading conflicts…</span>
+        </div>
+      ) : regions && regions.length > 0 ? (
+        <div className="p-2 space-y-2">
+          {regions.map((region) => {
+            const choice = resolutions[region.index]
+            return (
+              <div key={region.index} className="border border-border rounded-lg overflow-hidden text-[11px]">
+                {/* Region header */}
+                <div className="px-2.5 py-1 bg-bg-elevated border-b border-border text-[10px] text-text-muted font-mono">
+                  Conflict #{region.index + 1} · lines {region.startLine}–{region.endLine}
+                </div>
+
+                {/* Current (HEAD) */}
+                <div className={`border-b border-border/40 ${choice === 'current' || choice === 'both' ? 'bg-green/8' : 'bg-bg-secondary'}`}>
+                  <div className="px-2.5 pt-1 pb-0.5 flex items-center justify-between">
+                    <span className="text-[10px] text-green font-semibold uppercase tracking-wide">Current (HEAD)</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setChoice(region.index, 'current')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${choice === 'current' ? 'bg-green/25 text-green' : 'text-text-muted hover:bg-green/15 hover:text-green'}`}
+                      >Accept</button>
+                    </div>
+                  </div>
+                  <pre className="px-3 pb-1.5 text-[11px] font-mono text-green/80 whitespace-pre-wrap overflow-x-auto">
+                    {region.currentLines.length > 0 ? region.currentLines.join('\n') : <span className="italic opacity-50">empty</span>}
+                  </pre>
+                </div>
+
+                {/* Separator */}
+                <div className="px-2.5 py-1 bg-bg-active text-[10px] text-text-muted font-mono border-b border-border/40">
+                  =======
+                  <button
+                    onClick={() => setChoice(region.index, 'both')}
+                    className={`ml-2 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${choice === 'both' ? 'bg-accent/20 text-accent' : 'text-text-muted hover:bg-accent/10 hover:text-accent'}`}
+                  >Accept Both</button>
+                </div>
+
+                {/* Incoming */}
+                <div className={`${choice === 'incoming' || choice === 'both' ? 'bg-accent/8' : 'bg-bg-secondary'}`}>
+                  <div className="px-2.5 pt-1 pb-0.5 flex items-center justify-between">
+                    <span className="text-[10px] text-accent font-semibold uppercase tracking-wide">Incoming</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setChoice(region.index, 'incoming')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${choice === 'incoming' ? 'bg-accent/25 text-accent' : 'text-text-muted hover:bg-accent/15 hover:text-accent'}`}
+                      >Accept</button>
+                    </div>
+                  </div>
+                  <pre className="px-3 pb-1.5 text-[11px] font-mono text-accent/80 whitespace-pre-wrap overflow-x-auto">
+                    {region.incomingLines.length > 0 ? region.incomingLines.join('\n') : <span className="italic opacity-50">empty</span>}
+                  </pre>
+                </div>
+              </div>
+            )
+          })}
+
+          {allResolved && (
+            <button
+              onClick={handleResolve}
+              disabled={resolving}
+              className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold bg-green text-white rounded-lg hover:bg-green/80 disabled:opacity-40 transition-colors shadow-sm"
+            >
+              {resolving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <AlertCircle className="w-3.5 h-3.5" />}
+              Resolve &amp; Stage
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="px-3 py-3 text-[11px] text-text-muted italic">No conflict markers found</div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
    Changed-file row (with inline diff + discard)
 ═══════════════════════════════════════════════════ */
 
-function FileRow({ file, action, onAction, onDiscard, authFetch }) {
+function FileRow({ file, action, onAction, onDiscard, authFetch, onRefresh }) {
   const filename = file.path.split('/').pop()
   const dir = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : ''
   const [diffOpen, setDiffOpen] = useState(false)
   const isUnstaged = action === 'stage'
+  const isConflicted = file.conflicted
 
   return (
     <div>
       <div
-        className="flex items-center px-3 py-1.5 hover:bg-bg-hover transition-colors group overflow-hidden cursor-pointer"
+        className={`flex items-center px-3 py-1.5 hover:bg-bg-hover transition-colors group overflow-hidden cursor-pointer ${isConflicted ? 'bg-red/5' : ''}`}
         onClick={() => setDiffOpen((v) => !v)}
       >
         <FileBadge status={file.status} />
@@ -545,8 +768,8 @@ function FileRow({ file, action, onAction, onDiscard, authFetch }) {
               : <Eye className="w-3 h-3" />
             }
           </span>
-          {/* Discard button (unstaged only) */}
-          {isUnstaged && onDiscard && (
+          {/* Discard button (unstaged, non-conflicted only) */}
+          {isUnstaged && !isConflicted && onDiscard && (
             <button
               onClick={(e) => { e.stopPropagation(); onDiscard(file.path) }}
               className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-red/15 text-text-muted hover:text-red transition-all"
@@ -555,20 +778,24 @@ function FileRow({ file, action, onAction, onDiscard, authFetch }) {
               <Trash2 className="w-3 h-3" />
             </button>
           )}
-          {/* Stage / Unstage */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onAction(file.path) }}
-            className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-border-active text-text-muted hover:text-text-primary transition-all"
-            title={action === 'stage' ? 'Stage file' : 'Unstage file'}
-          >
-            {action === 'stage' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-          </button>
+          {/* Stage / Unstage (not shown for conflicted files) */}
+          {!isConflicted && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(file.path) }}
+              className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-border-active text-text-muted hover:text-text-primary transition-all"
+              title={action === 'stage' ? 'Stage file' : 'Unstage file'}
+            >
+              {action === 'stage' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Inline diff */}
+      {/* Conflict resolver or inline diff */}
       {diffOpen && (
-        <FileDiffPanel file={file} staged={!isUnstaged} authFetch={authFetch} />
+        isConflicted
+          ? <ConflictResolver file={file} authFetch={authFetch} onRefresh={onRefresh} />
+          : <FileDiffPanel file={file} staged={!isUnstaged} authFetch={authFetch} onRefresh={onRefresh} />
       )}
     </div>
   )
@@ -752,6 +979,11 @@ export default function GitPanel({ authFetch, visible }) {
   const [newBranch, setNewBranch] = useState('') // value for create-branch input
   const [showNewBranch, setShowNewBranch] = useState(false)
   const [toast, setToast]       = useState(null) // { message, type }
+  // Remote add state
+  const [showAddRemote, setShowAddRemote] = useState(false)
+  const [newRemoteName, setNewRemoteName] = useState('')
+  const [newRemoteUrl, setNewRemoteUrl] = useState('')
+  const [addingRemote, setAddingRemote] = useState(false)
 
   const showToast = useCallback((message, type = 'error') => {
     setToast({ message, type })
@@ -886,11 +1118,55 @@ export default function GitPanel({ authFetch, visible }) {
     setLoading(false)
   }
 
+  const handleAddRemote = async (e) => {
+    e.preventDefault()
+    if (!newRemoteName.trim() || !newRemoteUrl.trim()) return
+    setAddingRemote(true)
+    try {
+      const res = await authFetch('/api/git/remotes/add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newRemoteName.trim(), url: newRemoteUrl.trim() }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        showToast(data.error, 'error')
+      } else {
+        showToast('Remote added', 'success')
+        setNewRemoteName('')
+        setNewRemoteUrl('')
+        setShowAddRemote(false)
+        refresh(true)
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to add remote', 'error')
+    }
+    setAddingRemote(false)
+  }
+
+  const handleRemoveRemote = async (name) => {
+    try {
+      const res = await authFetch('/api/git/remotes/remove', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        showToast(data.error, 'error')
+      } else {
+        showToast('Remote removed', 'success')
+        refresh(true)
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to remove remote', 'error')
+    }
+  }
+
   if (!visible) return null
 
-  const staged   = status.files?.filter((f) => f.staged)  || []
-  const unstaged = status.files?.filter((f) => !f.staged) || []
-  const totalChanges = staged.length + unstaged.length
+  const conflicted = status.files?.filter((f) => f.conflicted) || []
+  const staged     = status.files?.filter((f) => f.staged && !f.conflicted)  || []
+  const unstaged   = status.files?.filter((f) => !f.staged && !f.conflicted) || []
+  const totalChanges = staged.length + unstaged.length + conflicted.length
 
   // Not a git repo
   if (!status.isRepo && status.isRepo !== undefined) {
@@ -978,6 +1254,17 @@ export default function GitPanel({ authFetch, visible }) {
               </div>
             </form>
 
+            {/* Conflicted files */}
+            {conflicted.length > 0 && (
+              <SectionHeader
+                label="Conflicts" count={conflicted.length} colorClass="text-red"
+              >
+                {conflicted.map((f) => (
+                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} authFetch={authFetch} onRefresh={() => refresh(true)} />
+                ))}
+              </SectionHeader>
+            )}
+
             {/* Staged files */}
             {staged.length > 0 && (
               <SectionHeader
@@ -985,7 +1272,7 @@ export default function GitPanel({ authFetch, visible }) {
                 onUnstageAll={handleUnstageAll}
               >
                 {staged.map((f) => (
-                  <FileRow key={f.path} file={f} action="unstage" onAction={handleUnstage} authFetch={authFetch} />
+                  <FileRow key={f.path} file={f} action="unstage" onAction={handleUnstage} authFetch={authFetch} onRefresh={() => refresh(true)} />
                 ))}
               </SectionHeader>
             )}
@@ -997,12 +1284,12 @@ export default function GitPanel({ authFetch, visible }) {
                 onStageAll={handleStageAll}
               >
                 {unstaged.map((f) => (
-                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} onDiscard={handleDiscard} authFetch={authFetch} />
+                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} onDiscard={handleDiscard} authFetch={authFetch} onRefresh={() => refresh(true)} />
                 ))}
               </SectionHeader>
             )}
 
-            {staged.length === 0 && unstaged.length === 0 && (
+            {staged.length === 0 && unstaged.length === 0 && conflicted.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-text-muted px-6">
                 <div className="w-10 h-10 rounded-xl bg-green/8 border border-green/15 flex items-center justify-center mb-3">
                   <Check className="w-5 h-5 text-green opacity-70" />
@@ -1095,24 +1382,78 @@ export default function GitPanel({ authFetch, visible }) {
         {/* ── Remote operations ── */}
         {section === 'remotes' && (
           <div className="p-3 space-y-3">
-            {/* Remote list */}
-            {remotes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-text-muted">
-                <AlertCircle className="w-5 h-5 mb-2 opacity-30" />
-                <span className="text-[12px]">No remotes configured</span>
-                <span className="text-[11px] mt-1 text-center">Run <code className="text-accent bg-accent/10 px-1 rounded font-mono text-[10px]">git remote add origin &lt;url&gt;</code> in the terminal</span>
+            {/* Remote list with add/remove */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Remotes</div>
+                <button
+                  onClick={() => setShowAddRemote((v) => !v)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${showAddRemote ? 'bg-accent/15 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
+                  title="Add remote"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add
+                </button>
               </div>
-            ) : (
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Remotes</div>
-                {remotes.map((r) => (
-                  <div key={r.name} className="flex items-center gap-2 px-2 py-1.5 bg-bg-primary border border-border rounded-lg mb-1.5">
-                    <span className="text-[12px] font-mono font-medium text-text-primary shrink-0">{r.name}</span>
-                    <span className="text-[10px] text-text-muted truncate">{r.url}</span>
+
+              {/* Add remote form */}
+              {showAddRemote && (
+                <form onSubmit={handleAddRemote} className="mb-2 p-2.5 bg-bg-primary border border-border rounded-lg space-y-1.5 animate-fade-in">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newRemoteName}
+                    onChange={(e) => setNewRemoteName(e.target.value)}
+                    placeholder="Name (e.g. origin)"
+                    className="w-full bg-bg-input border border-border rounded px-2.5 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={newRemoteUrl}
+                    onChange={(e) => setNewRemoteUrl(e.target.value)}
+                    placeholder="URL (https://... or git@...)"
+                    className="w-full bg-bg-input border border-border rounded px-2.5 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      type="submit"
+                      disabled={addingRemote || !newRemoteName.trim() || !newRemoteUrl.trim()}
+                      className="flex-1 py-1 text-[11px] bg-accent text-white rounded hover:bg-accent-hover disabled:opacity-40 transition-all font-medium"
+                    >
+                      {addingRemote ? 'Adding…' : 'Add Remote'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddRemote(false); setNewRemoteName(''); setNewRemoteUrl('') }}
+                      className="px-2 py-1 text-[11px] border border-border rounded text-text-muted hover:bg-bg-hover transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                </form>
+              )}
+
+              {remotes.length === 0 && !showAddRemote ? (
+                <div className="flex flex-col items-center justify-center py-8 text-text-muted">
+                  <AlertCircle className="w-5 h-5 mb-2 opacity-30" />
+                  <span className="text-[12px]">No remotes configured</span>
+                </div>
+              ) : (
+                remotes.map((r) => (
+                  <div key={r.name} className="flex items-center gap-2 px-2 py-1.5 bg-bg-primary border border-border rounded-lg mb-1.5 group">
+                    <span className="text-[12px] font-mono font-medium text-text-primary shrink-0">{r.name}</span>
+                    <span className="text-[10px] text-text-muted truncate flex-1">{r.url}</span>
+                    <button
+                      onClick={() => handleRemoveRemote(r.name)}
+                      className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-red hover:bg-red/10 transition-all shrink-0"
+                      title="Remove remote"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
 
             {/* Operation buttons */}
             <div className="space-y-2">

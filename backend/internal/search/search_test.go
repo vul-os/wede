@@ -189,3 +189,119 @@ func TestSearch_MultipleFiles(t *testing.T) {
 		t.Errorf("expected 2 matches, got %d", resp.Count)
 	}
 }
+
+// ── Replace tests ─────────────────────────────────────────────────────────────
+
+func TestReplacePreview_Basic(t *testing.T) {
+	ws := makeWS(t, map[string]string{
+		"main.go": "hello world\nhello again\n",
+	})
+	h := New(&staticWS{root: ws})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/search/replace-preview?q=hello&replace=goodbye", nil)
+	rec := httptest.NewRecorder()
+	h.ReplacePreview(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ReplacePreview: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Matches       []ReplaceMatch `json:"matches"`
+		Count         int            `json:"count"`
+		AffectedFiles int            `json:"affectedFiles"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Count != 2 {
+		t.Errorf("expected 2 matches, got %d", resp.Count)
+	}
+	if resp.AffectedFiles != 1 {
+		t.Errorf("expected 1 affected file, got %d", resp.AffectedFiles)
+	}
+	for _, m := range resp.Matches {
+		if !strings.Contains(m.ReplacedText, "goodbye") {
+			t.Errorf("replacedText should contain 'goodbye', got %q", m.ReplacedText)
+		}
+	}
+}
+
+func TestReplaceApply_Basic(t *testing.T) {
+	ws := makeWS(t, map[string]string{
+		"a.go": "hello world\nhello again\n",
+	})
+	h := New(&staticWS{root: ws})
+
+	body := map[string]any{
+		"query":   "hello",
+		"replace": "goodbye",
+	}
+	bs, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/search/replace", strings.NewReader(string(bs)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ReplaceApply(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ReplaceApply: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		FilesChanged int `json:"filesChanged"`
+		Replacements int `json:"replacements"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.FilesChanged != 1 {
+		t.Errorf("expected 1 file changed, got %d", resp.FilesChanged)
+	}
+	if resp.Replacements != 2 {
+		t.Errorf("expected 2 replacements, got %d", resp.Replacements)
+	}
+
+	// Verify the file content was actually changed.
+	content, err := os.ReadFile(filepath.Join(ws, "a.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(content), "hello") {
+		t.Errorf("file should no longer contain 'hello', got: %s", content)
+	}
+	if !strings.Contains(string(content), "goodbye") {
+		t.Errorf("file should contain 'goodbye', got: %s", content)
+	}
+}
+
+func TestReplaceApply_PathTraversal(t *testing.T) {
+	ws := makeWS(t, map[string]string{
+		"a.go": "hello\n",
+	})
+	h := New(&staticWS{root: ws})
+
+	// Supply a traversal path in the paths filter — it should be silently skipped
+	// (safePath will reject it, not crash).
+	body := map[string]any{
+		"query":   "hello",
+		"replace": "bye",
+		"paths":   []string{"../../etc/passwd", "../outside.go"},
+	}
+	bs, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/search/replace", strings.NewReader(string(bs)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ReplaceApply(rec, req)
+
+	// The traversal paths are not in the workspace match set, so filesChanged should be 0.
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var resp struct {
+		FilesChanged int `json:"filesChanged"`
+	}
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp.FilesChanged != 0 {
+		t.Errorf("expected 0 files changed (traversal skipped), got %d", resp.FilesChanged)
+	}
+}

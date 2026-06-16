@@ -127,6 +127,14 @@ func main() {
 	protected.HandleFunc("POST /api/files/format", fileHandler.Format)
 
 	protected.HandleFunc("GET /api/search", searchHandler.Search)
+	protected.HandleFunc("GET /api/search/replace-preview", searchHandler.ReplacePreview)
+	protected.HandleFunc("POST /api/search/replace", searchHandler.ReplaceApply)
+
+	protected.HandleFunc("GET /api/git/conflict", gitHandler.ConflictRegions)
+	protected.HandleFunc("POST /api/git/conflict/resolve", gitHandler.ConflictResolve)
+	protected.HandleFunc("POST /api/git/remotes/add", gitHandler.RemoteAdd)
+	protected.HandleFunc("POST /api/git/remotes/remove", gitHandler.RemoteRemove)
+	protected.HandleFunc("POST /api/git/stage-hunk", gitHandler.StageHunk)
 
 	protected.HandleFunc("GET /api/watch", watchHandler.HandleSSE)
 

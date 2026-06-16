@@ -1,6 +1,7 @@
 package files
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -143,10 +144,60 @@ func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine file type by extension.
+	ext := strings.ToLower(filepath.Ext(info.Name()))
+	imageMimes := map[string]string{
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+		".svg":  "image/svg+xml",
+		".webp": "image/webp",
+	}
+
+	if mime, isImage := imageMimes[ext]; isImage {
+		data, err := os.ReadFile(full)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		encoded := base64.StdEncoding.EncodeToString(data)
+		dataURL := "data:" + mime + ";base64," + encoded
+		json.NewEncoder(w).Encode(map[string]any{
+			"path":     reqPath,
+			"content":  "",
+			"fileType": "image",
+			"dataUrl":  dataURL,
+		})
+		return
+	}
+
 	data, err := os.ReadFile(full)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Binary probe: if > 0.5% of first 512 bytes are null, treat as binary.
+	probe := data
+	if len(probe) > 512 {
+		probe = probe[:512]
+	}
+	nullCount := 0
+	for _, b := range probe {
+		if b == 0 {
+			nullCount++
+		}
+	}
+	if len(probe) > 0 && nullCount*200 > len(probe) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"path":     reqPath,
+			"content":  "",
+			"fileType": "binary",
+			"size":     info.Size(),
+		})
 		return
 	}
 

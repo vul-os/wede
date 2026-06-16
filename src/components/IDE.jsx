@@ -17,6 +17,7 @@ import Settings from './Settings'
 import SearchPanel from './SearchPanel'
 import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
+import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 
 let browserIdCounter = 0
@@ -120,12 +121,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       try {
         const res = await authFetch(`/api/files/read?path=${encodeURIComponent(t.path)}`)
         const data = await res.json()
+        if (data.fileType === 'image') return { path: t.path, content: '', fileType: 'image', dataUrl: data.dataUrl }
+        if (data.fileType === 'binary') return { path: t.path, content: '', fileType: 'binary', size: data.size }
         return { path: t.path, content: data.content }
       } catch { return { path: t.path, content: '' } }
     })).then(results => {
       setTabs(prev => prev.map(t => {
         const r = results.find(r => r.path === t.path)
-        if (r) return { ...t, content: r.content, originalContent: r.content, modified: false }
+        if (r) return { ...t, content: r.content, originalContent: r.content, modified: false, fileType: r.fileType, dataUrl: r.dataUrl, size: r.size }
         return t
       }))
     })
@@ -379,10 +382,18 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     try {
       const res = await authFetch(`/api/files/read?path=${encodeURIComponent(entry.path)}`)
       const data = await res.json()
-      setTabs((prev) => [...prev, {
+      const tab = {
         path: entry.path, name: entry.name,
-        content: data.content, originalContent: data.content, modified: false,
-      }])
+        content: data.content || '', originalContent: data.content || '', modified: false,
+      }
+      if (data.fileType === 'image') {
+        tab.fileType = 'image'
+        tab.dataUrl = data.dataUrl
+      } else if (data.fileType === 'binary') {
+        tab.fileType = 'binary'
+        tab.size = data.size
+      }
+      setTabs((prev) => [...prev, tab])
       setActiveTab(entry.path)
       if (isMobile) setMobilePanel('code')
     } catch { /* ignore */ }
@@ -507,6 +518,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           }}
         />
       )
+    }
+    if (currentTab.fileType === 'image') {
+      return <ImagePreview dataUrl={currentTab.dataUrl} filename={currentTab.name} />
+    }
+    if (currentTab.fileType === 'binary') {
+      return <BinaryNotice filename={currentTab.name} size={currentTab.size} />
     }
     return (
       <Editor
