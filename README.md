@@ -11,6 +11,9 @@
 [![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
 
+<a href="https://vulos.org"><img src="docs/assets/vulos-logo.png" alt="Vulos" width="80"></a><br>
+Part of the **[Vulos](https://vulos.org)** OS suite
+
 ![wede](docs/screenshots/hero.png)
 
 </div>
@@ -149,11 +152,12 @@ npm run lint
 ```bash
 npm install                          # installs playwright devDep
 npx playwright install chromium      # one-time chromium download
-wede /path/to/project &              # start wede with a workspace
-npm run screenshots
+npm run screenshots                  # auto-starts wede on scripts/demo-workspace/
 ```
 
-See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for environment variables and route details.
+The screenshotter starts the `./wede` binary pointed at `scripts/demo-workspace/`
+automatically. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for environment
+variables and route details.
 
 > **Security reminder:** Always set a strong, unique password in `wede.config.json` before exposing wede over a network. The example config uses a placeholder — **change it before use**. The `install.sh` installer auto-generates a random password; if you configured manually, update `wede.config.json` now.
 

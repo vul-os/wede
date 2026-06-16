@@ -10,16 +10,24 @@
  * Environment variables:
  *   BASE_URL       wede instance URL  (default: http://localhost:9090)
  *   WEDE_PASSWORD  login password     (default: admin)
+ *
+ * The screenshotter starts wede pointed at scripts/demo-workspace/ so all
+ * captures show a realistic developer project (taskboard — Go API + React).
+ * The workspace has 2 commits of git history and an unstaged diff in
+ * api/middleware.go so the git panel, graph, and diff view are all populated.
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const OUT_DIR = resolve(ROOT, 'docs', 'screenshots');
+const DEMO_WORKSPACE = resolve(__dirname, 'demo-workspace');
+const WEDE_BIN = resolve(ROOT, 'wede');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:9090';
 const PASSWORD = process.env.WEDE_PASSWORD || 'admin';
@@ -35,30 +43,76 @@ async function shot(page, name) {
   console.log(`  ✓  ${name}.png`);
 }
 
-async function sleep(ms) {
+function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
 async function waitForIDE(page) {
-  // Wait for file explorer content or editor to appear
   await page.waitForFunction(() =>
-    // File tree visible
-    document.body.innerText.includes('WEDE') ||
+    document.body.innerText.includes('taskboard') ||
     document.querySelector('.cm-editor') ||
     document.body.innerText.length > 200,
-    { timeout: 12000 }
+    { timeout: 15000 }
   ).catch(() => {});
-  await sleep(800);
+  await sleep(900);
+}
+
+/**
+ * Start the wede binary pointed at the demo workspace.
+ * Returns a cleanup function that kills the process.
+ * If wede is already reachable, this is a no-op.
+ */
+async function maybeStartWede() {
+  // Check if already running
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/check`);
+    if (res.ok || res.status === 401) {
+      console.log('  wede already reachable — skipping auto-start');
+      return () => {};
+    }
+  } catch (_) {}
+
+  if (!existsSync(WEDE_BIN)) {
+    console.log(`  wede binary not found at ${WEDE_BIN} — skipping auto-start`);
+    return () => {};
+  }
+
+  console.log(`  Starting wede → ${DEMO_WORKSPACE} ...`);
+  const proc = spawn(WEDE_BIN, [DEMO_WORKSPACE], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, HOME: process.env.HOME },
+    cwd: DEMO_WORKSPACE,
+  });
+
+  proc.stdout.on('data', d => process.stdout.write(`  [wede] ${d}`));
+  proc.stderr.on('data', d => process.stderr.write(`  [wede] ${d}`));
+
+  // Wait up to 8 s for it to become reachable
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    await sleep(300);
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/check`);
+      if (res.ok || res.status === 401) break;
+    } catch (_) {}
+  }
+
+  return () => {
+    proc.kill('SIGTERM');
+  };
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function run() {
   console.log(`\nwede screenshotter`);
-  console.log(`  BASE_URL : ${BASE_URL}`);
-  console.log(`  output   : ${OUT_DIR}\n`);
+  console.log(`  BASE_URL  : ${BASE_URL}`);
+  console.log(`  workspace : ${DEMO_WORKSPACE}`);
+  console.log(`  output    : ${OUT_DIR}\n`);
 
-  // Check wede is reachable
+  const stopWede = await maybeStartWede();
+
+  // Confirm wede is reachable after potential auto-start
   try {
     const res = await fetch(`${BASE_URL}/api/auth/check`);
     if (!res.ok && res.status !== 401) throw new Error(`HTTP ${res.status}`);
@@ -69,7 +123,7 @@ async function run() {
       `Could not connect to wede at ${BASE_URL}.`,
       '',
       'To capture screenshots:',
-      '1. Start wede: `wede /path/to/project`',
+      '1. Start wede: `wede scripts/demo-workspace`',
       '2. Run: `npm run screenshots`',
       '',
       `Error: ${err.message}`,
@@ -78,6 +132,7 @@ async function run() {
     console.error(`  ✗  wede not reachable at ${BASE_URL}`);
     console.error(`     Start wede first, then re-run npm run screenshots`);
     console.error(`     Wrote docs/screenshots/README.md with instructions.`);
+    stopWede();
     process.exit(0); // exit 0 so CI is not broken
   }
 
@@ -96,6 +151,7 @@ async function run() {
   } catch (err) {
     console.error(`  ✗  Login failed: ${err.message}`);
     console.error(`     Check WEDE_PASSWORD matches the password in wede.config.json`);
+    stopWede();
     process.exit(1);
   }
 
@@ -112,7 +168,6 @@ async function run() {
     await ctx.addInitScript(() => {
       localStorage.setItem('wede_theme', 'dark');
     });
-    // SSE will block networkidle — use domcontentloaded + wait
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('input[placeholder="Enter password"]', { timeout: 8000 });
     await sleep(400);
@@ -122,10 +177,6 @@ async function run() {
 
   // ── Create IDE context with pre-seeded auth token ─────────────────────────
   const ctx = await browser.newContext({ viewport: VIEWPORT });
-  // Use addInitScript so localStorage is set before any JS runs
-  // Note: wede_theme must be set first to skip ThemePicker; then wede_token
-  // to skip Login. The SSE /api/watch connection keeps networkidle open, so
-  // always use waitUntil:'domcontentloaded' and then wait for the app.
   await ctx.addInitScript(({ tok }) => {
     localStorage.setItem('wede_theme', 'dark');
     localStorage.setItem('wede_token', tok);
@@ -138,106 +189,115 @@ async function run() {
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   await waitForIDE(page);
 
-  // ── 2. IDE hero — editor + file tree ─────────────────────────────────────
-  console.log('Capturing: IDE hero...');
-  // Click the first non-directory item in the file tree to open an editor
-  const fileTree = page.locator('li, [role="treeitem"]').filter({ hasText: /\.(js|jsx|go|ts|json|md)$/i }).first();
-  if (await fileTree.count() > 0) {
-    await fileTree.click();
-    await page.waitForSelector('.cm-editor', { timeout: 5000 }).catch(() => {});
-    await sleep(600);
+  // Collect sidebar button titles for use throughout
+  const sidebarBtns = page.locator('button[title]');
+  const btnCount = await sidebarBtns.count();
+
+  // ── helper: click a sidebar button by title regex ─────────────────────────
+  async function clickSidebar(regex) {
+    for (let i = 0; i < btnCount; i++) {
+      const title = await sidebarBtns.nth(i).getAttribute('title').catch(() => '');
+      if (title && regex.test(title)) {
+        await sidebarBtns.nth(i).click();
+        await sleep(500);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ── 2. IDE hero — editor open on api/handlers.go ─────────────────────────
+  console.log('Capturing: IDE hero (editor + file tree)...');
+  // Ensure file explorer is visible
+  await clickSidebar(/file|explorer/i);
+  await sleep(400);
+
+  // Expand the api/ folder by clicking it
+  const apiFolder = page.locator('li, [role="treeitem"]').filter({ hasText: /^api$/i }).first();
+  if (await apiFolder.count() > 0) {
+    await apiFolder.click();
+    await sleep(400);
+  }
+
+  // Open handlers.go
+  const handlersFile = page.locator('li, [role="treeitem"]').filter({ hasText: /handlers\.go/i }).first();
+  if (await handlersFile.count() > 0) {
+    await handlersFile.click();
+    await page.waitForSelector('.cm-editor', { timeout: 6000 }).catch(() => {});
+    await sleep(700);
+  } else {
+    // Fallback: open any source file
+    const anyFile = page.locator('li, [role="treeitem"]').filter({ hasText: /\.(go|jsx|js|json|md)$/i }).first();
+    if (await anyFile.count() > 0) {
+      await anyFile.click();
+      await page.waitForSelector('.cm-editor', { timeout: 5000 }).catch(() => {});
+      await sleep(600);
+    }
   }
   await shot(page, 'hero');
 
-  // ── 3. Git panel — Changes tab ────────────────────────────────────────────
-  console.log('Capturing: git panel...');
-  // Find sidebar buttons with titles and click the Git one
-  const sidebarBtns = page.locator('button[title]');
-  const btnCount = await sidebarBtns.count();
-  let gitOpened = false;
-  for (let i = 0; i < btnCount; i++) {
-    const title = await sidebarBtns.nth(i).getAttribute('title').catch(() => '');
-    if (title && /git/i.test(title)) {
-      await sidebarBtns.nth(i).click();
-      await sleep(700);
-      gitOpened = true;
-      break;
-    }
+  // ── 3. Git panel — Changes tab (unstaged diff for api/middleware.go) ──────
+  console.log('Capturing: git panel (changes + diff)...');
+  const gitOpened = await clickSidebar(/git/i);
+  if (!gitOpened && btnCount > 1) {
+    await sidebarBtns.nth(1).click();
+    await sleep(700);
   }
-  if (!gitOpened) {
-    // Fallback: second sidebar button is usually git
-    if (btnCount > 1) { await sidebarBtns.nth(1).click(); await sleep(700); }
-  }
+  // Wait for diff content to appear
+  await page.waitForFunction(() =>
+    document.body.innerText.includes('middleware') ||
+    document.body.innerText.includes('Changes') ||
+    document.body.innerText.includes('modified'),
+    { timeout: 5000 }
+  ).catch(() => {});
+  await sleep(500);
   await shot(page, 'git');
 
   // ── 4. Git graph — History tab ────────────────────────────────────────────
-  console.log('Capturing: git graph...');
-  const historyTab = page.locator('button:has-text("History")');
+  console.log('Capturing: git graph (commit history)...');
+  const historyTab = page.locator('button:has-text("History"), button:has-text("Graph"), button:has-text("Log")').first();
   if (await historyTab.count() > 0) {
-    await historyTab.first().click();
-    await sleep(1000); // wait for SVG graph to render
+    await historyTab.click();
+    await sleep(1200); // wait for SVG graph to render
   }
   await shot(page, 'git_graph');
 
-  // ── 5. Search panel ───────────────────────────────────────────────────────
+  // ── 5. Search panel — results for "handleCreate" ─────────────────────────
   console.log('Capturing: search panel...');
-  // Open files sidebar first (to return to normal state)
-  for (let i = 0; i < btnCount; i++) {
-    const title = await sidebarBtns.nth(i).getAttribute('title').catch(() => '');
-    if (title && /file|explorer/i.test(title)) {
-      await sidebarBtns.nth(i).click();
-      await sleep(300);
-      break;
-    }
-  }
+  await clickSidebar(/file|explorer/i);
+  await sleep(300);
   await page.keyboard.press('Control+Shift+F');
-  await sleep(500);
+  await sleep(600);
   const searchInput = page.locator('input[placeholder*="Search" i], input[placeholder*="Find" i]').first();
   if (await searchInput.count() > 0) {
-    await searchInput.fill('function');
-    await sleep(900);
+    await searchInput.fill('handleCreate');
+    await sleep(1000); // wait for ripgrep results
   }
   await shot(page, 'search');
   await page.keyboard.press('Escape');
   await sleep(300);
 
-  // ── 6. Terminal panel ─────────────────────────────────────────────────────
+  // ── 6. Terminal panel — show a real command ───────────────────────────────
   console.log('Capturing: terminal...');
-  // Find terminal button in sidebar/toolbar
-  let termOpened = false;
-  for (let i = 0; i < btnCount; i++) {
-    const title = await sidebarBtns.nth(i).getAttribute('title').catch(() => '');
-    if (title && /terminal/i.test(title)) {
-      await sidebarBtns.nth(i).click();
-      await sleep(800);
-      termOpened = true;
-      break;
-    }
-  }
+  let termOpened = await clickSidebar(/terminal/i);
   if (!termOpened) {
-    // Ctrl+` shortcut
     await page.keyboard.press('Control+`');
     await sleep(800);
   }
   await page.waitForFunction(() =>
     document.querySelector('.xterm-screen, .xterm, [class*="terminal"]'),
-    { timeout: 5000 }
+    { timeout: 6000 }
   ).catch(() => {});
-  await sleep(400);
+  await sleep(600);
+  // Type a command so the terminal isn't blank
+  await page.keyboard.type('git log --oneline');
+  await page.keyboard.press('Enter');
+  await sleep(900);
   await shot(page, 'terminal');
 
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
-  let settingsOpened = false;
-  for (let i = 0; i < btnCount; i++) {
-    const title = await sidebarBtns.nth(i).getAttribute('title').catch(() => '');
-    if (title && /settings/i.test(title)) {
-      await sidebarBtns.nth(i).click();
-      await sleep(600);
-      settingsOpened = true;
-      break;
-    }
-  }
+  let settingsOpened = await clickSidebar(/settings/i);
   if (!settingsOpened) {
     await page.keyboard.press('Control+,');
     await sleep(600);
@@ -249,18 +309,21 @@ async function run() {
   // ── 8. Command palette ────────────────────────────────────────────────────
   console.log('Capturing: command palette...');
   await page.keyboard.press('Control+Shift+P');
-  await sleep(600);
+  await sleep(700);
   await page.waitForFunction(() =>
     document.body.innerText.includes('New File') ||
     document.body.innerText.includes('Toggle Terminal') ||
     document.body.innerText.includes('Save All'),
     { timeout: 4000 }
   ).catch(() => {});
-  await sleep(300);
+  // Type a query so the palette shows filtered results
+  await page.keyboard.type('git');
+  await sleep(400);
   await shot(page, 'command_palette');
   await page.keyboard.press('Escape');
 
   await browser.close();
+  stopWede();
   console.log(`\nDone! Screenshots written to docs/screenshots/\n`);
 }
 

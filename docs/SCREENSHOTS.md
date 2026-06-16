@@ -1,6 +1,8 @@
 # wede Screenshots
 
-Visual tour of the IDE. All screenshots are captured at 1440×900.
+Visual tour of the IDE. All screenshots are captured at 1440×900 against the
+`scripts/demo-workspace/` project (taskboard — Go API + React frontend) so
+every panel shows realistic developer content.
 
 ---
 
@@ -18,23 +20,27 @@ The password authentication screen.
 
 ![IDE full view](screenshots/hero.png)
 
-Full IDE layout: file explorer on the left, code editor in the centre, top bar with workspace controls.
+Full IDE layout: file explorer on the left with the `api/` folder expanded,
+`handlers.go` open in the editor with Go syntax highlighting, top bar with
+workspace controls.
 
 ---
 
-### Git Panel
+### Git Panel — Changes
 
 ![Git panel](screenshots/git.png)
 
-Staging area with inline diff view.
+Staging area with inline diff view. The demo workspace has an unstaged edit in
+`api/middleware.go` (rate-limiter stub) so the diff is real.
 
 ---
 
-### Git commit graph
+### Git Commit Graph
 
 ![Git commit graph](screenshots/git_graph.png)
 
-Visual SVG DAG of branch/merge history. Right-click commits for context menu.
+Visual SVG DAG of branch/merge history. The demo workspace has two commits so
+the graph is populated. Right-click commits for the context menu.
 
 ---
 
@@ -42,7 +48,8 @@ Visual SVG DAG of branch/merge history. Right-click commits for context menu.
 
 ![Search panel](screenshots/search.png)
 
-Workspace-wide search with ripgrep. Supports regex, case-toggle, and replace-across-files.
+Workspace-wide search with ripgrep. The query `handleCreate` returns real hits
+across the Go source files. Supports regex, case-toggle, and replace-across-files.
 
 ---
 
@@ -50,7 +57,8 @@ Workspace-wide search with ripgrep. Supports regex, case-toggle, and replace-acr
 
 ![Terminal](screenshots/terminal.png)
 
-Full PTY terminal panel with multiple tabs. Run shell commands, SSH, Docker — anything.
+Full PTY terminal panel with multiple tabs. The capture shows `git log --oneline`
+output inside the demo workspace.
 
 ---
 
@@ -58,7 +66,8 @@ Full PTY terminal panel with multiple tabs. Run shell commands, SSH, Docker — 
 
 ![Settings](screenshots/settings.png)
 
-Editor settings: font size, tab width, word wrap, auto-save, minimap, LSP, and theme picker.
+Editor settings: font size, tab width, word wrap, auto-save, minimap, LSP, and
+theme picker.
 
 ---
 
@@ -66,7 +75,8 @@ Editor settings: font size, tab width, word wrap, auto-save, minimap, LSP, and t
 
 ![Command palette](screenshots/command_palette.png)
 
-`Ctrl+Shift+P` — fuzzy-search over all IDE commands.
+`Ctrl+Shift+P` — fuzzy-search over all IDE commands. The capture shows the
+palette filtered to `git` commands.
 
 ---
 
@@ -74,7 +84,7 @@ Editor settings: font size, tab width, word wrap, auto-save, minimap, LSP, and t
 
 ![Mobile view](screenshots/mobile.png)
 
-Fully responsive layout for tablets and phones.
+Fully responsive layout for tablets and phones. *(manual capture)*
 
 ---
 
@@ -82,7 +92,7 @@ Fully responsive layout for tablets and phones.
 
 ![Browser preview](screenshots/preview.png)
 
-Embedded browser tab for previewing your running app.
+Embedded browser tab for previewing your running app. *(manual capture)*
 
 ---
 
@@ -90,13 +100,14 @@ Embedded browser tab for previewing your running app.
 
 ![Light theme](screenshots/full_light.png)
 
-Daylight colour scheme.
+Daylight colour scheme. *(manual capture)*
 
 ---
 
 ## Regenerating screenshots
 
-See the [Development section in README.md](../README.md#development) or run:
+The screenshotter auto-starts the `wede` binary pointed at `scripts/demo-workspace/`
+if it is not already running. Run:
 
 ```bash
 npm run screenshots
@@ -107,8 +118,7 @@ npm run screenshots
 - Node.js 18+
 - `npm install` (installs Playwright)
 - `npx playwright install chromium`
-- wede running locally (default: `http://localhost:9090`)
-- A workspace open in wede (pass a path on startup: `wede /path/to/project`)
+- The `./wede` binary must exist (`npm run build:all` to rebuild it)
 
 ### Environment variables
 
@@ -117,20 +127,31 @@ npm run screenshots
 | `BASE_URL` | `http://localhost:9090` | wede instance URL |
 | `WEDE_PASSWORD` | `admin` | Login password |
 
+If `BASE_URL` points at an already-running wede instance the auto-start is
+skipped and that instance is used instead.
+
 ### Routes captured
 
-| Screenshot file | Route / action |
-|----------------|----------------|
-| `login.png` | `/` before login |
-| `hero.png` | IDE main view (editor + file tree) |
-| `git.png` | Git panel — Changes tab with diff |
-| `git_graph.png` | Git panel — History (commit graph) |
-| `search.png` | Search panel (`Ctrl+Shift+F`) |
-| `terminal.png` | Terminal panel |
-| `settings.png` | Settings panel |
-| `command_palette.png` | Command palette (`Ctrl+Shift+P`) |
+| Screenshot file | Route / action | Content |
+|----------------|----------------|---------|
+| `login.png` | `/` before login | Password prompt |
+| `hero.png` | IDE main view | `api/handlers.go` open, file tree expanded |
+| `git.png` | Git panel — Changes tab | Unstaged diff in `api/middleware.go` |
+| `git_graph.png` | Git panel — History | Two-commit SVG graph |
+| `search.png` | Search panel (`Ctrl+Shift+F`) | Query `handleCreate`, real hits |
+| `terminal.png` | Terminal panel | `git log --oneline` output |
+| `settings.png` | Settings panel | Editor preferences |
+| `command_palette.png` | Command palette (`Ctrl+Shift+P`) | Filtered to `git` |
 
-### Notes
+### Demo workspace
 
-- Screenshots that require a workspace with git history (git graph, diff) are best-effort — the script opens the IDE pointed at the wede repo itself.
-- If wede cannot start in the CI environment, the script writes `docs/screenshots/README.md` with a note and exits cleanly.
+`scripts/demo-workspace/` is a small self-contained project committed in this
+repo. It has:
+
+- `api/` — Go HTTP server (main.go, handlers.go, middleware.go)
+- `src/` — React frontend (App.jsx, components/, utils/)
+- `tests/` — Go table tests
+- `README.md`, `package.json`
+
+The workspace git repo has 2 commits and an intentional unstaged edit so the
+git diff view is always populated.
