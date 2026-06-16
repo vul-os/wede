@@ -18,10 +18,10 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, appendFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -34,6 +34,59 @@ const PASSWORD = process.env.WEDE_PASSWORD || 'admin';
 const VIEWPORT = { width: 1440, height: 900 };
 
 mkdirSync(OUT_DIR, { recursive: true });
+
+// ── demo workspace git setup ──────────────────────────────────────────────────
+// scripts/demo-workspace/ is committed as plain files (no nested .git).
+// Before running wede we initialise a throwaway git repo there so the git
+// panel, diff view, and commit graph are populated with real content.
+
+function git(args, opts = {}) {
+  return spawnSync('git', args, {
+    cwd: DEMO_WORKSPACE,
+    stdio: 'pipe',
+    ...opts,
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'Demo Dev',
+      GIT_AUTHOR_EMAIL: 'demo@vulos.org',
+      GIT_COMMITTER_NAME: 'Demo Dev',
+      GIT_COMMITTER_EMAIL: 'demo@vulos.org',
+    },
+  });
+}
+
+function setupDemoWorkspaceGit() {
+  if (existsSync(resolve(DEMO_WORKSPACE, '.git'))) {
+    console.log('  demo-workspace git already initialised — skipping');
+    return;
+  }
+  console.log('  Initialising demo-workspace git repo...');
+
+  git(['init', '-b', 'main']);
+  git(['config', 'user.email', 'demo@vulos.org']);
+  git(['config', 'user.name', 'Demo Dev']);
+
+  // Commit 1 — all files except the file we'll leave unstaged
+  git(['add',
+    'README.md', 'package.json',
+    'api/main.go', 'api/handlers.go',
+    'src/App.jsx', 'src/components/TaskList.jsx', 'src/components/TaskForm.jsx',
+    'src/utils/api.js', 'tests/handlers_test.go',
+  ]);
+  git(['commit', '-m', 'feat: initial taskboard scaffold']);
+
+  // Commit 2 — stage middleware.go in its clean state
+  git(['add', 'api/middleware.go']);
+  git(['commit', '-m', 'feat: add auth middleware']);
+
+  // Unstaged change — append a stub function so the diff view is populated
+  appendFileSync(
+    resolve(DEMO_WORKSPACE, 'api/middleware.go'),
+    '\n// rateLimiter stub — TODO: implement with golang.org/x/time/rate\nfunc rateLimiter(next http.HandlerFunc, _ int) http.HandlerFunc {\n\treturn next\n}\n',
+  );
+
+  console.log('  demo-workspace git ready (2 commits + 1 unstaged change)');
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +162,9 @@ async function run() {
   console.log(`  BASE_URL  : ${BASE_URL}`);
   console.log(`  workspace : ${DEMO_WORKSPACE}`);
   console.log(`  output    : ${OUT_DIR}\n`);
+
+  // Ensure the demo workspace has a real git history before starting wede
+  setupDemoWorkspaceGit();
 
   const stopWede = await maybeStartWede();
 
