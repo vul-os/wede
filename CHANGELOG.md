@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] — 2026-06-16
+
 ### Added
 - **Merge-conflict resolution** — conflicted files (porcelain `UU`, `AA`, `DD`, `DU`, `UD`) are
   detected in `GET /api/git/status` and marked `conflicted:true`. A new "Conflicts" section in the
@@ -209,6 +213,7 @@ Initial public release under the `vul-os/wede` namespace.
 
 ---
 
-[Unreleased]: https://github.com/vul-os/wede/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/vul-os/wede/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/vul-os/wede/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vul-os/wede/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/vul-os/wede/releases/tag/v0.1.2

@@ -7,20 +7,25 @@
 **A lightweight, open-source, self-hosted web IDE.**<br>
 **Code editor, terminal, git, and file explorer — all in your browser.**
 
-[![License](https://img.shields.io/github/license/vul-os/wede?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
 
-<a href="https://vulos.org"><img src="docs/assets/vulos-logo.png" alt="Vulos" width="80"></a><br>
-Part of the **[Vulos](https://vulos.org)** OS suite
+*Vulos — rooted in **vula**, the Zulu and Xhosa word for **open**.*
 
-![wede](docs/screenshots/hero.png)
+<sub>Part of the <strong><a href="https://vulos.org">Vulos</a></strong> OS suite &nbsp;<img src="docs/assets/vulos-logo.png" alt="Vulos" height="14" style="vertical-align:middle" /></sub>
+
+![wede IDE](docs/screenshots/hero.png)
 
 </div>
 
+---
+
 ## Overview
 
-wede is a single ~10MB Go binary that serves a full web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser.
+wede is a single ~10 MB Go binary that serves a full web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser.
 
 It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
 
@@ -49,6 +54,8 @@ It runs standalone or embedded as a first-class app in the [Vulos OS](https://vu
 </tr>
 </table>
 
+See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the full gallery and how to regenerate.
+
 ---
 
 ## Features
@@ -64,10 +71,13 @@ It runs standalone or embedded as a first-class app in the [Vulos OS](https://vu
 | **Git Client** | Visual commit graph (SVG DAG), staging area, per-hunk staging, branch management, git push/pull/fetch, create branch, stash, merge-conflict resolution. |
 | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
 | **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Supports gopls, typescript-language-server, pylsp, rust-analyzer. |
-| **Editor Settings** | Font size, tab width, word wrap, auto-save, minimap — all live-applied without reopening files, persisted to localStorage. |
+| **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python. |
+| **Image & Binary Preview** | Images render inline with a checkerboard background; other binary files show a size notice instead of garbled editor content. |
+| **Editor Settings** | Font size, tab width, word wrap, minimap, auto-save — all live-applied without reopening files, persisted to `localStorage`. |
+| **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes with Space Grotesk / Inter / JetBrains Mono font stack. |
 | **Mobile Friendly** | Fully responsive UI for tablets and phones. |
-| **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes. |
 | **Secure Access** | Password authentication with 3-attempt lockout (persisted across restarts). Session TTL, server-side logout, WS token in subprotocol (not URL). |
+| **Single binary** | Go embeds the entire frontend — one ~10 MB file to deploy anywhere. |
 
 ---
 
@@ -87,7 +97,7 @@ Open [http://localhost:9090](http://localhost:9090) and log in.
 
 Or download a binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
 
-**Manual config:**
+**Manual config** — save as `wede.config.json` in your project root (gitignored by default):
 
 ```json
 {
@@ -95,8 +105,6 @@ Or download a binary directly from [GitHub Releases](https://github.com/vul-os/w
   "port": "9090"
 }
 ```
-
-Save as `wede.config.json` in your project root (gitignored by default).
 
 ---
 
@@ -140,7 +148,7 @@ npm run build:all
 # outputs ./wede
 ```
 
-**Tests:**
+**Tests and lint:**
 
 ```bash
 cd backend && go test ./...
@@ -155,9 +163,7 @@ npx playwright install chromium      # one-time chromium download
 npm run screenshots                  # auto-starts wede on scripts/demo-workspace/
 ```
 
-The screenshotter starts the `./wede` binary pointed at `scripts/demo-workspace/`
-automatically. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for environment
-variables and route details.
+The screenshotter starts the `./wede` binary pointed at `scripts/demo-workspace/` automatically. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for environment variables and route details.
 
 > **Security reminder:** Always set a strong, unique password in `wede.config.json` before exposing wede over a network. The example config uses a placeholder — **change it before use**. The `install.sh` installer auto-generates a random password; if you configured manually, update `wede.config.json` now.
 
@@ -168,18 +174,18 @@ variables and route details.
 Contributions are welcome!
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes
-4. Push to the branch: `git push origin feature/my-feature`
+2. Create a feature branch: `git checkout -b feat/my-feature`
+3. Commit your changes: `git commit -m 'feat: add my feature'`
+4. Push to the branch: `git push origin feat/my-feature`
 5. Open a pull request
 
-Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`).
+Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`) before submitting.
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — free to use, modify, and distribute.
 
 ---
 

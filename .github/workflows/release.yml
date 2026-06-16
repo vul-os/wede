@@ -1,14 +1,16 @@
 name: Release
 
+# Triggered by pushing a semver tag, e.g. v0.3.0
 on:
   push:
     tags:
       - "v*"
 
 permissions:
-  contents: write
+  contents: write   # create GitHub Releases + upload assets
 
 jobs:
+  # ── Build cross-compiled binaries ─────────────────────────────────────────────
   release:
     name: Build & Release
     runs-on: ubuntu-latest
@@ -39,14 +41,43 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
+
+      # ── Verify tag matches package.json version ────────────────────────────────
+      # Run this once (only on the first matrix shard is fine — all shards share
+      # the same tag, so any failure would repeat identically; still, matrix jobs
+      # run in parallel so we let every shard check and fail fast.)
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "ERROR: package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            echo "Bump version in package.json to ${TAG_VERSION} before tagging."
+            exit 1
+          fi
+          echo "Version check passed: $PKG_VERSION == $TAG_VERSION"
 
       - run: npm ci
+
+      - name: JS lint
+        run: npm run lint
+
       - run: npm run build
 
+      # ── Go: test + vet ────────────────────────────────────────────────────────
+      - name: Go test
+        run: go test ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      # ── Cross-compile ─────────────────────────────────────────────────────────
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
         run: |
           mkdir -p backend/cmd/wede/dist
           cp -r dist/* backend/cmd/wede/dist/
@@ -56,6 +87,7 @@ jobs:
           if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
 
           go build -tags embed_frontend \
+            -trimpath \
             -ldflags "-s -w -X main.Version=${VERSION}" \
             -o "wede-${GOOS}-${GOARCH}${EXT}" ./backend/cmd/wede
 
@@ -67,6 +99,7 @@ jobs:
           name: wede-${{ matrix.goos }}-${{ matrix.goarch }}
           path: wede-*
 
+  # ── Create GitHub Release with all artifacts ───────────────────────────────────
   publish:
     name: Publish Release
     runs-on: ubuntu-latest
@@ -85,31 +118,13 @@ jobs:
         run: |
           cd artifacts
           sha256sum wede-* > checksums.txt
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git tag --sort=-v:refname | head -2 | tail -1)
-          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$GITHUB_REF_NAME" ]; then
-            echo "body=Initial release" >> "$GITHUB_OUTPUT"
-          else
-            CHANGES=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG".."$GITHUB_REF_NAME" --no-merges)
-            {
-              echo "body<<EOF"
-              echo "## What's Changed"
-              echo ""
-              echo "$CHANGES"
-              echo ""
-              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ github.ref_name }}"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          cat checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          body: ${{ steps.changelog.outputs.body }}
-          generate_release_notes: false
+          name: "wede ${{ github.ref_name }}"
+          generate_release_notes: true
           files: |
             artifacts/wede-*
             artifacts/checksums.txt
