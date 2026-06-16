@@ -1,85 +1,90 @@
 <div align="center">
 
-<img src="public/icon.svg" alt="wede — self-hosted web IDE" width="80" height="80">
+<img src="public/icon.svg" alt="wede" width="80" height="80">
 
 # wede
 
 **A lightweight, open-source, self-hosted web IDE.**<br>
 **Code editor, terminal, git, and file explorer — all in your browser.**
 
-One ~10MB binary. No cloud, no Docker, no subscriptions.<br>
-Deploy on your server, NAS, Raspberry Pi, or run locally.
-
-[![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
-[![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
 [![License](https://img.shields.io/github/license/vul-os/wede?style=flat-square)](LICENSE)
-[![Go](https://img.shields.io/badge/go-1.25+-00ADD8?style=flat-square&logo=go)](https://go.dev)
+[![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
 
-[Website](https://wede.vulos.org/) · [Install](#quick-install) · [Screenshots](#screenshots) · [Docs](#getting-started) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
+![wede](docs/screenshots/hero.png)
 
 </div>
 
-> **wede** is developed and maintained by [Vulos](https://vulos.org) (github.com/vul-os). It runs standalone or embedded as a first-class app in the Vulos OS shell via `frame_ancestors` iframe integration.
+## Overview
 
-<br>
+wede is a single ~10MB Go binary that serves a full web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser.
 
-<div align="center">
-<img src="docs/screenshots/full_light.png" alt="wede self-hosted web IDE running in browser with code editor, terminal, and git integration" width="800">
-<br>
-<em>wede — browser-based IDE with light mode (Daylight theme)</em>
-</div>
+It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
 
-<br>
+[Website](https://wede.vulos.org/) · [Quick start](#quick-start) · [Docs](#documentation) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **File Explorer** | VS Code-style project tree with git status colors. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
-| **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
-| **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
-| **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Results grouped by file; click to jump to exact line. |
-| **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
-| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. Multiple tabs. Run shell commands, SSH, Docker — anything. |
-| **Git Client** | Visual commit graph (SVG DAG), staging area, branch management, git push/pull/fetch, create branch. Right-click context menus on commits. |
-| **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
-| **Editor Settings** | Font size, tab width, word wrap, auto-save — all live-applied without reopening files, persisted to localStorage. |
-| **Mobile Friendly** | Fully responsive UI for tablets and phones. Edit code and run commands from iPad or Android. |
-| **Dark & Light Themes** | Midnight (dark) and Daylight (light) color schemes. Theme-aware terminal and editor. |
-| **Secure Access** | Password authentication with 3-attempt lockout (persisted across restarts). Session TTL, server-side logout, WS token in subprotocol (not URL). |
+---
 
 ## Screenshots
 
 <table>
 <tr>
-<td><img src="docs/screenshots/git_graph.png" alt="wede visual git commit graph" width="400"><br><em>Git commit graph</em></td>
+<td><img src="docs/screenshots/hero.png" alt="wede IDE — editor and file tree" width="400"><br><em>IDE main view — editor + file tree</em></td>
+<td><img src="docs/screenshots/git.png" alt="wede git panel with diff" width="400"><br><em>Git panel — staging with inline diff</em></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/git_graph.png" alt="wede visual git commit graph" width="400"><br><em>Git commit graph (SVG DAG)</em></td>
+<td><img src="docs/screenshots/terminal.png" alt="wede terminal panel" width="400"><br><em>Full PTY terminal</em></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/search.png" alt="wede workspace search panel" width="400"><br><em>Workspace search + replace</em></td>
+<td><img src="docs/screenshots/settings.png" alt="wede settings panel" width="400"><br><em>Settings — editor, LSP, themes</em></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/command_palette.png" alt="wede command palette" width="400"><br><em>Command palette (Ctrl+Shift+P)</em></td>
 <td><img src="docs/screenshots/preview.png" alt="wede built-in browser preview" width="400"><br><em>Built-in browser preview</em></td>
 </tr>
 </table>
 
-## Why wede?
+---
 
-- **No cloud dependency** — your code never leaves your machine. No GitHub Codespaces, no Gitpod, no monthly bill.
-- **Single binary** — one ~10MB Go executable with the frontend embedded. No Docker, no Node.js runtime, no database.
-- **Run anywhere** — Linux servers, macOS, Raspberry Pi, NAS devices, air-gapped networks, CI runners.
-- **Access from any device** — code from your laptop, tablet, or phone through any modern browser.
-- **Self-hosted alternative** to code-server, VS Code Server, Theia, and cloud IDEs.
+## Features
 
-## Quick Install
+| Feature | Description |
+|---------|-------------|
+| **File Explorer** | VS Code-style project tree with git status colours. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
+| **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
+| **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
+| **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Replace across files. Results grouped by file; click to jump to exact line. |
+| **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
+| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. Multiple tabs. Run shell commands, SSH, Docker — anything. |
+| **Git Client** | Visual commit graph (SVG DAG), staging area, per-hunk staging, branch management, git push/pull/fetch, create branch, stash, merge-conflict resolution. |
+| **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
+| **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Supports gopls, typescript-language-server, pylsp, rust-analyzer. |
+| **Editor Settings** | Font size, tab width, word wrap, auto-save, minimap — all live-applied without reopening files, persisted to localStorage. |
+| **Mobile Friendly** | Fully responsive UI for tablets and phones. |
+| **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes. |
+| **Secure Access** | Password authentication with 3-attempt lockout (persisted across restarts). Session TTL, server-side logout, WS token in subprotocol (not URL). |
+
+---
+
+## Quick start
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vul-os/wede/main/install.sh | bash
 ```
 
-Or download the binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
+The installer downloads the binary, generates a random password, and prints it. Then:
 
-## Getting Started
+```bash
+wede /path/to/your/project
+```
 
-> **Security:** Always set a strong, unique password before exposing wede over a network.
-> The default config in `wede.config.example.json` uses a placeholder — **change it**.
-> The `install.sh` installer auto-generates a random password and prints it; note it down.
+Open [http://localhost:9090](http://localhost:9090) and log in.
 
-**1. Create a config file** in your project directory:
+Or download a binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
+
+**Manual config:**
 
 ```json
 {
@@ -88,69 +93,28 @@ Or download the binary directly from [GitHub Releases](https://github.com/vul-os
 }
 ```
 
-Save this as `wede.config.json`. The file is gitignored by default — do not commit it with a real password.
+Save as `wede.config.json` in your project root (gitignored by default).
 
-**2. Start wede:**
+---
 
-```bash
-wede /path/to/your/project
-```
+## Documentation
 
-**3. Open your browser** at [http://localhost:9090](http://localhost:9090) and log in with your password.
+| Document | Description |
+|----------|-------------|
+| [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) | Installation, first steps, network exposure |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internal structure, API surface, security model |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | All config keys, iframe embedding, CLI flags |
+| [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) | Screenshot gallery + how to regenerate |
+| [ROADMAP.md](ROADMAP.md) | Planned features by milestone |
+| [CHANGELOG.md](CHANGELOG.md) | Full version history |
 
-## CLI Usage
-
-```
-wede [flags] [path]
-```
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `path` | Project directory to open | _(none — shows folder picker)_ |
-| `--port` | Override listen port | From config or `9090` |
-| `--version` | Print version and exit | — |
-
-wede looks for `wede.config.json` in the current directory or parent directories.
-
-## Configuration
-
-wede is configured via a `wede.config.json` file:
-
-```json
-{
-  "password": "your-password",
-  "port": "9090",
-  "frame_ancestors": ""
-}
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `password` | `string` | Password for browser login. Required. |
-| `port` | `string` | Port to listen on. Default: `9090`. |
-| `frame_ancestors` | `string` | Space-separated list of origins allowed to embed wede in an `<iframe>`. Empty (default) = block all cross-origin framing (`'self'` only). |
-
-### Embedding wede in an iframe (Vulos OS / custom shell)
-
-By default wede sets `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'self'`, so it cannot be framed by any external origin.
-
-To allow a parent shell (e.g. the Vulos OS app registry) to embed wede as an iframe app, set `frame_ancestors` in your config:
-
-```json
-{
-  "password": "your-password",
-  "port": "9090",
-  "frame_ancestors": "https://vulos.org https://app.vulos.org"
-}
-```
-
-When `frame_ancestors` is non-empty, the server emits `Content-Security-Policy: frame-ancestors <value>` and omits `X-Frame-Options`, which is the correct behaviour for modern browsers. The standalone experience is unaffected — the field defaults to empty.
+---
 
 ## Development
 
-Run the frontend and backend separately for development with hot reload:
+**Prerequisites:** Go 1.25+, Node.js 18+
 
-**Frontend** (React + Vite):
+**Frontend** (React + Vite, hot reload):
 
 ```bash
 npm install
@@ -164,41 +128,50 @@ cd backend
 go run ./cmd/wede .
 ```
 
-The Vite dev server proxies API and WebSocket requests to the Go backend.
+The Vite dev server proxies `/api` and WebSocket requests to the Go backend at port 9090.
 
-**Build a single binary:**
+**Production build** (single binary with embedded frontend):
 
 ```bash
 npm run build:all
+# outputs ./wede
 ```
 
-This builds the frontend, embeds it in the Go binary, and outputs `./wede`.
+**Tests:**
 
-## Tech Stack
+```bash
+cd backend && go test ./...
+npm run lint
+```
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | [Go](https://go.dev) |
-| Frontend | [React 19](https://react.dev) + [Vite](https://vite.dev) |
-| Styling | [Tailwind CSS 4](https://tailwindcss.com) |
-| Editor | [CodeMirror 6](https://codemirror.net) |
-| Terminal | [xterm.js](https://xtermjs.org) |
-| Icons | [Lucide](https://lucide.dev) |
-| Fonts | Space Grotesk, Inter, JetBrains Mono |
+**Regenerate screenshots:**
+
+```bash
+npm install                          # installs playwright devDep
+npx playwright install chromium      # one-time chromium download
+wede /path/to/project &              # start wede with a workspace
+npm run screenshots
+```
+
+See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for environment variables and route details.
+
+> **Security reminder:** Always set a strong, unique password in `wede.config.json` before exposing wede over a network. The example config uses a placeholder — **change it before use**. The `install.sh` installer auto-generates a random password; if you configured manually, update `wede.config.json` now.
+
+---
 
 ## Contributing
 
-Contributions are welcome! Please:
+Contributions are welcome!
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
+2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Commit your changes
-4. Push to the branch (`git push origin feature/my-feature`)
+4. Push to the branch: `git push origin feature/my-feature`
 5. Open a pull request
 
-## Author
+Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`).
 
-Vibe coded by <a href="https://github.com/imranparuk"><img src="https://github.githubassets.com/favicons/favicon-dark.svg" width="14" height="14" alt="GitHub"> <strong>imranparuk</strong></a>
+---
 
 ## License
 

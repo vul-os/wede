@@ -218,6 +218,20 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     }, 1500)
   }, [authFetch, editorSettings.autoSave])
 
+  // ── Close tab ── (defined here so it is reachable by the keyboard-shortcut
+  // useEffect below — Vite/Rolldown's const hoisting can trigger a TDZ when
+  // a const binding is referenced before its declaration in the same scope.)
+  const closeTab = useCallback((path) => {
+    setTabs((prev) => {
+      const next = prev.filter((t) => t.path !== path)
+      if (activeTab === path) {
+        const idx = prev.findIndex((t) => t.path === path)
+        setActiveTab(next[Math.min(idx, next.length - 1)]?.path || null)
+      }
+      return next
+    })
+  }, [activeTab])
+
   // ── Global keyboard shortcuts ──
   useEffect(() => {
     const handler = (e) => {
@@ -398,17 +412,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if (isMobile) setMobilePanel('code')
     } catch { /* ignore */ }
   }, [tabs, authFetch, isMobile])
-
-  const closeTab = useCallback((path) => {
-    setTabs((prev) => {
-      const next = prev.filter((t) => t.path !== path)
-      if (activeTab === path) {
-        const idx = prev.findIndex((t) => t.path === path)
-        setActiveTab(next[Math.min(idx, next.length - 1)]?.path || null)
-      }
-      return next
-    })
-  }, [activeTab])
 
   const updateContent = useCallback((path, newContent) => {
     setTabs((prev) => prev.map((t) => {
