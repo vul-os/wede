@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -517,4 +518,201 @@ func (h *Handler) Remotes(w http.ResponseWriter, r *http.Request) {
 		remotes = append(remotes, map[string]string{"name": name, "url": url})
 	}
 	json.NewEncoder(w).Encode(map[string]any{"remotes": remotes})
+}
+
+// Discard restores a working-tree file to its HEAD state using git restore.
+// For untracked files, the command will fail and an appropriate error is returned.
+// POST /api/git/discard  {"path": "src/foo.go"}
+func (h *Handler) Discard(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Path string `json:"path"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	// Reject flag-like paths to prevent injection (e.g. "--source=evil").
+	if body.Path == "" || strings.HasPrefix(body.Path, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid path"})
+		return
+	}
+
+	out, err := h.run("restore", "--", body.Path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// StashEntry represents a single stash entry.
+type StashEntry struct {
+	Index   int    `json:"index"`
+	Message string `json:"message"`
+	Date    string `json:"date"`
+}
+
+// StashList lists all stash entries.
+// GET /api/git/stash
+func (h *Handler) StashList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	out, _ := h.run("stash", "list", "--format=%gd|%s|%cr")
+	entries := []StashEntry{}
+	if out != "" {
+		for i, line := range strings.Split(out, "\n") {
+			parts := strings.SplitN(line, "|", 3)
+			if len(parts) < 3 {
+				continue
+			}
+			entries = append(entries, StashEntry{
+				Index:   i,
+				Message: parts[1],
+				Date:    parts[2],
+			})
+		}
+	}
+	json.NewEncoder(w).Encode(map[string]any{"stashes": entries})
+}
+
+// StashPush creates a new stash entry.
+// POST /api/git/stash  {"message": "optional message"}
+func (h *Handler) StashPush(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Message string `json:"message"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	args := []string{"stash", "push"}
+	if body.Message != "" {
+		args = append(args, "-m", body.Message)
+	}
+
+	out, err := h.run(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// validStashIndex parses and validates a stash index: must be a non-negative integer.
+func validStashIndex(v int) bool {
+	return v >= 0
+}
+
+// StashPop applies and removes a stash entry by index.
+// POST /api/git/stash/pop  {"index": 0}
+func (h *Handler) StashPop(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Index *int `json:"index"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Index == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "index required"})
+		return
+	}
+	if !validStashIndex(*body.Index) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid stash index"})
+		return
+	}
+
+	ref := "stash@{" + strconv.Itoa(*body.Index) + "}"
+	out, err := h.run("stash", "pop", ref)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// StashDrop removes a stash entry by index without applying it.
+// POST /api/git/stash/drop  {"index": 0}
+func (h *Handler) StashDrop(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Index *int `json:"index"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Index == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "index required"})
+		return
+	}
+	if !validStashIndex(*body.Index) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid stash index"})
+		return
+	}
+
+	ref := "stash@{" + strconv.Itoa(*body.Index) + "}"
+	out, err := h.run("stash", "drop", ref)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+// validCommitHash checks that a commit hash is safe to pass to git:
+// 4–64 lowercase hex characters only.
+var validCommitHash = regexp.MustCompile(`^[0-9a-f]{4,64}$`)
+
+// CommitDiff returns the stat and full diff for a specific commit.
+// GET /api/git/commit-diff?hash=<hash>
+func (h *Handler) CommitDiff(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	hash := r.URL.Query().Get("hash")
+	if !validCommitHash.MatchString(hash) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid commit hash"})
+		return
+	}
+
+	stat, _ := h.run("show", "--stat", "--format=", hash)
+	diff, _ := h.run("show", hash)
+
+	// Parse file names from the stat output.
+	// Lines look like: " src/foo.go | 3 +++"
+	// The last summary line ("N files changed…") is skipped (no "|").
+	files := []string{}
+	for _, line := range strings.Split(stat, "\n") {
+		if idx := strings.Index(line, " | "); idx >= 0 {
+			name := strings.TrimSpace(line[:idx])
+			if name != "" {
+				files = append(files, name)
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"stat":  stat,
+		"diff":  diff,
+		"files": files,
+	})
 }

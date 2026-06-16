@@ -1,10 +1,60 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   GitBranch, Plus, Minus, RefreshCw, Check,
-  ChevronDown, ChevronRight, RotateCcw, Copy, GitCommit,
+  ChevronDown, ChevronRight, Copy, GitCommit,
   GitMerge, Clock, User, Hash, Upload, Download, CloudDownload,
-  AlertCircle, X
+  AlertCircle, X, Trash2, Eye, EyeOff, Package
 } from 'lucide-react'
+
+/* ═══════════════════════════════════════════════════
+   Unified-diff parser + inline viewer
+═══════════════════════════════════════════════════ */
+
+const MAX_DIFF_LINES = 200
+
+function parseDiff(text) {
+  if (!text) return []
+  const lines = text.split('\n')
+  const result = []
+  for (const line of lines) {
+    if (line.startsWith('+') && !line.startsWith('+++')) {
+      result.push({ type: 'add', text: line })
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+      result.push({ type: 'del', text: line })
+    } else if (line.startsWith('@@')) {
+      result.push({ type: 'hunk', text: line })
+    } else if (line.startsWith('+++') || line.startsWith('---')) {
+      result.push({ type: 'meta', text: line })
+    } else {
+      result.push({ type: 'ctx', text: line })
+    }
+  }
+  return result
+}
+
+function DiffViewer({ lines }) {
+  const truncated = lines.length > MAX_DIFF_LINES
+  const visible = truncated ? lines.slice(0, MAX_DIFF_LINES) : lines
+
+  return (
+    <pre className="overflow-x-auto text-[11px] font-mono leading-[1.55] select-text p-0 m-0">
+      {visible.map((line, i) => {
+        let cls = 'block px-3 whitespace-pre'
+        if (line.type === 'add')  cls += ' bg-green/10 text-green'
+        else if (line.type === 'del')  cls += ' bg-red/10 text-red'
+        else if (line.type === 'hunk') cls += ' text-accent/70 bg-accent/5'
+        else if (line.type === 'meta') cls += ' text-text-muted'
+        else cls += ' text-text-secondary'
+        return <span key={i} className={cls}>{line.text || ' '}</span>
+      })}
+      {truncated && (
+        <span className="block px-3 py-1 text-text-muted italic bg-bg-hover">
+          … {lines.length - MAX_DIFF_LINES} more lines (open file to see full diff)
+        </span>
+      )}
+    </pre>
+  )
+}
 
 /* ═══════════════════════════════════════════════════
    Commit right-click context menu
@@ -120,7 +170,7 @@ const LANE_W = 16
 const ROW_H  = 34
 const DOT_R  = 4.5
 
-function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected }) {
+function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected, onClick }) {
   const laneCount = Math.max(row.laneCount, nextRow?.laneCount || 0, 1)
   const svgW = laneCount * LANE_W + 8
   const cx   = 4 + row.lane * LANE_W + LANE_W / 2
@@ -168,6 +218,7 @@ function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected }) {
         isSelected ? 'bg-accent/8' : 'hover:bg-bg-hover'
       }`}
       style={{ minHeight: ROW_H }}
+      onClick={() => onClick?.(row)}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, row) }}
     >
       {/* SVG lane graph */}
@@ -225,15 +276,104 @@ function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected }) {
   )
 }
 
-function GitGraph({ entries, onCommitAction }) {
+/* ═══════════════════════════════════════════════════
+   Commit detail panel (diff for a selected commit)
+═══════════════════════════════════════════════════ */
+
+function CommitDetail({ commit, authFetch, onClose }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [expandedFile, setExpandedFile] = useState(null)
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!commit) return
+    setLoading(true)
+    setData(null)
+    setExpandedFile(null)
+    authFetch(`/api/git/commit-diff?hash=${encodeURIComponent(commit.hash)}`)
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [commit, authFetch])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (!commit) return null
+
+  const diffLines = parseDiff(data?.diff || '')
+
+  return (
+    <div className="border-t border-border bg-bg-primary flex flex-col" style={{ maxHeight: '55%' }}>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
+        <span className="font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded font-semibold shrink-0">{commit.short}</span>
+        <span className="text-[11px] text-text-secondary truncate flex-1">{commit.message}</span>
+        <button onClick={onClose}
+          className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="overflow-y-auto flex-1 min-h-0">
+        {loading && (
+          <div className="flex items-center justify-center py-8 gap-2 text-text-muted">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-[12px]">Loading diff…</span>
+          </div>
+        )}
+
+        {!loading && data && (
+          <>
+            {/* Files changed summary */}
+            {data.files && data.files.length > 0 && (
+              <div className="border-b border-border/40 py-1">
+                {data.files.map((f, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setExpandedFile(expandedFile === f ? null : f)}
+                    className="w-full flex items-center gap-2 px-3 py-1 hover:bg-bg-hover transition-colors text-left"
+                  >
+                    {expandedFile === f
+                      ? <EyeOff className="w-3 h-3 text-text-muted shrink-0" />
+                      : <Eye className="w-3 h-3 text-text-muted shrink-0" />
+                    }
+                    <span className="text-[11px] text-text-secondary truncate font-mono">{f}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Diff */}
+            {diffLines.length > 0 ? (
+              <div className="bg-bg-secondary border-border/30">
+                <DiffViewer lines={diffLines} />
+              </div>
+            ) : (
+              !loading && (
+                <div className="flex items-center justify-center py-6 text-text-muted">
+                  <span className="text-[11px]">No diff available</span>
+                </div>
+              )
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GitGraph({ entries, authFetch, onCommitAction }) {
   const rows = useMemo(() => buildGraph(entries), [entries])
   const [menu, setMenu] = useState(null)
   const [selected, setSelected] = useState(null)
 
   const handleCtx = (e, row) => {
     e.preventDefault()
-    setSelected(row.hash)
     setMenu({ x: e.clientX, y: e.clientY, commit: row })
+  }
+
+  const handleClick = (row) => {
+    setSelected((prev) => prev?.hash === row.hash ? null : row)
   }
 
   const handleAction = async (action, hash) => {
@@ -254,22 +394,35 @@ function GitGraph({ entries, onCommitAction }) {
   }
 
   return (
-    <div className="overflow-y-auto overflow-x-hidden" onClick={() => setSelected(null)}>
-      {rows.map((row, i) => (
-        <GraphRow
-          key={row.hash}
-          row={row}
-          nextRow={rows[i + 1]}
-          isLast={i === rows.length - 1}
-          onContextMenu={handleCtx}
-          isSelected={selected === row.hash}
-        />
-      ))}
-      {menu && (
-        <CommitMenu
-          x={menu.x} y={menu.y} commit={menu.commit}
-          onClose={() => setMenu(null)}
-          onAction={handleAction}
+    <div className="flex flex-col h-full min-h-0">
+      <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0" onClick={(e) => {
+        if (e.target === e.currentTarget) setSelected(null)
+      }}>
+        {rows.map((row, i) => (
+          <GraphRow
+            key={row.hash}
+            row={row}
+            nextRow={rows[i + 1]}
+            isLast={i === rows.length - 1}
+            onContextMenu={handleCtx}
+            isSelected={selected?.hash === row.hash}
+            onClick={handleClick}
+          />
+        ))}
+        {menu && (
+          <CommitMenu
+            x={menu.x} y={menu.y} commit={menu.commit}
+            onClose={() => setMenu(null)}
+            onAction={handleAction}
+          />
+        )}
+      </div>
+
+      {selected && (
+        <CommitDetail
+          commit={selected}
+          authFetch={authFetch}
+          onClose={() => setSelected(null)}
         />
       )}
     </div>
@@ -299,29 +452,124 @@ function FileBadge({ status }) {
 }
 
 /* ═══════════════════════════════════════════════════
-   Changed-file row
+   Toast notification (lightweight, inline)
 ═══════════════════════════════════════════════════ */
 
-function FileRow({ file, action, onAction }) {
-  const filename = file.path.split('/').pop()
-  const dir = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : ''
+function Toast({ message, type, onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000)
+    return () => clearTimeout(t)
+  }, [onDismiss])
 
   return (
-    <div className="flex items-center px-3 py-1.5 hover:bg-bg-hover transition-colors group overflow-hidden cursor-default">
-      <FileBadge status={file.status} />
-      <div className="flex-1 min-w-0 ml-2.5 overflow-hidden">
-        <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
-          <span className="text-[12px] text-text-primary font-medium truncate leading-tight">{filename}</span>
-          {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
+    <div className={`mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] border animate-fade-in ${
+      type === 'error'
+        ? 'bg-red/8 border-red/20 text-red'
+        : 'bg-green/8 border-green/20 text-green'
+    }`}>
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1 truncate">{message}</span>
+      <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100">
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
+   Inline diff panel for a changed file
+═══════════════════════════════════════════════════ */
+
+function FileDiffPanel({ file, staged, authFetch }) {
+  const [lines, setLines] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setLoading(true)
+    setLines(null)
+    const url = `/api/git/diff?file=${encodeURIComponent(file.path)}&staged=${staged ? 'true' : 'false'}`
+    authFetch(url)
+      .then((r) => r.text())
+      .then((text) => { setLines(parseDiff(text)); setLoading(false) })
+      .catch(() => { setLines([]); setLoading(false) })
+  }, [file.path, staged, authFetch])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  return (
+    <div className="border-t border-border/40 bg-bg-primary overflow-x-auto" style={{ maxHeight: 260 }}>
+      {loading ? (
+        <div className="flex items-center gap-2 px-3 py-3 text-text-muted">
+          <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+          <span className="text-[11px]">Loading diff…</span>
+        </div>
+      ) : lines && lines.length > 0 ? (
+        <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
+          <DiffViewer lines={lines} />
+        </div>
+      ) : (
+        <div className="px-3 py-3 text-[11px] text-text-muted italic">No diff available</div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
+   Changed-file row (with inline diff + discard)
+═══════════════════════════════════════════════════ */
+
+function FileRow({ file, action, onAction, onDiscard, authFetch }) {
+  const filename = file.path.split('/').pop()
+  const dir = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : ''
+  const [diffOpen, setDiffOpen] = useState(false)
+  const isUnstaged = action === 'stage'
+
+  return (
+    <div>
+      <div
+        className="flex items-center px-3 py-1.5 hover:bg-bg-hover transition-colors group overflow-hidden cursor-pointer"
+        onClick={() => setDiffOpen((v) => !v)}
+      >
+        <FileBadge status={file.status} />
+        <div className="flex-1 min-w-0 ml-2.5 overflow-hidden">
+          <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+            <span className="text-[12px] text-text-primary font-medium truncate leading-tight">{filename}</span>
+            {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-all">
+          {/* Diff toggle indicator */}
+          <span className="w-4 h-4 flex items-center justify-center text-text-muted">
+            {diffOpen
+              ? <EyeOff className="w-3 h-3" />
+              : <Eye className="w-3 h-3" />
+            }
+          </span>
+          {/* Discard button (unstaged only) */}
+          {isUnstaged && onDiscard && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDiscard(file.path) }}
+              className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-red/15 text-text-muted hover:text-red transition-all"
+              title="Discard changes"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+          {/* Stage / Unstage */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onAction(file.path) }}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-border-active text-text-muted hover:text-text-primary transition-all"
+            title={action === 'stage' ? 'Stage file' : 'Unstage file'}
+          >
+            {action === 'stage' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+          </button>
         </div>
       </div>
-      <button
-        onClick={() => onAction(file.path)}
-        className="opacity-0 group-hover:opacity-100 ml-2 w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-border-active text-text-muted hover:text-text-primary transition-all shrink-0"
-        title={action === 'stage' ? 'Stage file' : 'Unstage file'}
-      >
-        {action === 'stage' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-      </button>
+
+      {/* Inline diff */}
+      {diffOpen && (
+        <FileDiffPanel file={file} staged={!isUnstaged} authFetch={authFetch} />
+      )}
     </div>
   )
 }
@@ -369,6 +617,116 @@ function SectionHeader({ label, count, colorClass, defaultOpen = true, children,
 }
 
 /* ═══════════════════════════════════════════════════
+   Stash section
+═══════════════════════════════════════════════════ */
+
+function StashSection({ stashes, authFetch, onRefresh, onToast }) {
+  const [open, setOpen] = useState(false)
+  const [stashing, setStashing] = useState(false)
+  const [popping, setPopping] = useState(null) // index being popped
+
+  const handleStash = async () => {
+    setStashing(true)
+    try {
+      const res = await authFetch('/api/git/stash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '' }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        onToast(d.error || 'Stash failed', 'error')
+      } else {
+        onToast('Changes stashed', 'success')
+        onRefresh()
+      }
+    } catch (e) {
+      onToast(e.message || 'Stash failed', 'error')
+    }
+    setStashing(false)
+  }
+
+  const handlePop = async (index) => {
+    setPopping(index)
+    try {
+      const res = await authFetch('/api/git/stash/pop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        onToast(d.error || 'Pop failed', 'error')
+      } else {
+        onToast('Stash applied', 'success')
+        onRefresh()
+      }
+    } catch (e) {
+      onToast(e.message || 'Pop failed', 'error')
+    }
+    setPopping(null)
+  }
+
+  return (
+    <div className="border-t border-border/40">
+      {/* Header */}
+      <div className="flex items-center px-3 py-1.5 select-none">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 flex-1 min-w-0"
+        >
+          {open
+            ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+            : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
+          }
+          <Package className="w-3 h-3 text-text-muted shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted ml-0.5">Stash</span>
+          {stashes.length > 0 && (
+            <span className="ml-1 text-[10px] font-semibold text-text-muted opacity-60">{stashes.length}</span>
+          )}
+        </button>
+        <button
+          onClick={handleStash}
+          disabled={stashing}
+          className="text-[10px] text-text-muted hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-bg-hover transition-colors font-medium shrink-0 disabled:opacity-40"
+          title="Stash changes"
+        >
+          {stashing ? <RefreshCw className="w-3 h-3 animate-spin inline" /> : 'Stash'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="py-0.5 border-t border-border/30">
+          {stashes.length === 0 ? (
+            <div className="px-3 py-2 text-[11px] text-text-muted italic">No stashes</div>
+          ) : (
+            stashes.map((s) => (
+              <div key={s.index} className="flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover transition-colors group">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-text-secondary truncate">
+                    {s.message || `stash@{${s.index}}`}
+                  </div>
+                  {s.date && (
+                    <div className="text-[10px] text-text-muted">{s.date}</div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handlePop(s.index)}
+                  disabled={popping !== null}
+                  className="opacity-0 group-hover:opacity-100 text-[10px] text-accent hover:text-accent bg-accent/10 hover:bg-accent/20 px-2 py-0.5 rounded transition-all font-medium shrink-0 disabled:opacity-40"
+                >
+                  {popping === s.index ? <RefreshCw className="w-3 h-3 animate-spin inline" /> : 'Pop'}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
    Main GitPanel
 ═══════════════════════════════════════════════════ */
 
@@ -384,6 +742,7 @@ export default function GitPanel({ authFetch, visible }) {
   const [log, setLog]           = useState([])
   const [branches, setBranches] = useState([])
   const [remotes, setRemotes]   = useState([])
+  const [stashes, setStashes]   = useState([])
   const [commitMsg, setCommitMsg] = useState('')
   const [section, setSection]   = useState('changes')
   const [loading, setLoading]   = useState(false)
@@ -392,24 +751,31 @@ export default function GitPanel({ authFetch, visible }) {
   const [remoteMsg, setRemoteMsg] = useState('') // success/error message from remote op
   const [newBranch, setNewBranch] = useState('') // value for create-branch input
   const [showNewBranch, setShowNewBranch] = useState(false)
+  const [toast, setToast]       = useState(null) // { message, type }
+
+  const showToast = useCallback((message, type = 'error') => {
+    setToast({ message, type })
+  }, [])
 
   const refresh = useCallback(async (quiet = false) => {
     if (!visible) return
     if (!quiet) setRefreshing(true)
     try {
-      const [sRes, lRes, bRes, rRes] = await Promise.all([
+      const [sRes, lRes, bRes, rRes, stRes] = await Promise.all([
         authFetch('/api/git/status'),
         authFetch('/api/git/log'),
         authFetch('/api/git/branches'),
         authFetch('/api/git/remotes'),
+        authFetch('/api/git/stash'),
       ])
-      const [sData, lData, bData, rData] = await Promise.all([
-        sRes.json(), lRes.json(), bRes.json(), rRes.json(),
+      const [sData, lData, bData, rData, stData] = await Promise.all([
+        sRes.json(), lRes.json(), bRes.json(), rRes.json(), stRes.json(),
       ])
       setStatus(sData)
       setLog(lData.entries || [])
       setBranches(bData.branches || [])
       setRemotes(rData.remotes || [])
+      setStashes(stData.stashes || [])
     } catch { /* ignore */ }
     setRefreshing(false)
   }, [authFetch, visible])
@@ -433,6 +799,22 @@ export default function GitPanel({ authFetch, visible }) {
   const handleUnstageAll = async () => {
     await authFetch('/api/git/unstage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '.' }) })
     refresh(true)
+  }
+  const handleDiscard = async (path) => {
+    try {
+      const res = await authFetch('/api/git/discard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        showToast(d.error || 'Discard failed', 'error')
+      } else {
+        refresh(true)
+      }
+    } catch (e) {
+      showToast(e.message || 'Discard failed', 'error')
+    }
   }
   const handleCommit = async (e) => {
     e.preventDefault()
@@ -558,6 +940,11 @@ export default function GitPanel({ authFetch, visible }) {
         })}
       </div>
 
+      {/* Toast */}
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />
+      )}
+
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
 
@@ -598,7 +985,7 @@ export default function GitPanel({ authFetch, visible }) {
                 onUnstageAll={handleUnstageAll}
               >
                 {staged.map((f) => (
-                  <FileRow key={f.path} file={f} action="unstage" onAction={handleUnstage} />
+                  <FileRow key={f.path} file={f} action="unstage" onAction={handleUnstage} authFetch={authFetch} />
                 ))}
               </SectionHeader>
             )}
@@ -610,7 +997,7 @@ export default function GitPanel({ authFetch, visible }) {
                 onStageAll={handleStageAll}
               >
                 {unstaged.map((f) => (
-                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} />
+                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} onDiscard={handleDiscard} authFetch={authFetch} />
                 ))}
               </SectionHeader>
             )}
@@ -624,12 +1011,22 @@ export default function GitPanel({ authFetch, visible }) {
                 <span className="text-[11px] mt-1">No changes to commit</span>
               </div>
             )}
+
+            {/* Stash section */}
+            <StashSection
+              stashes={stashes}
+              authFetch={authFetch}
+              onRefresh={() => refresh(true)}
+              onToast={showToast}
+            />
           </div>
         )}
 
         {/* ── History (git graph) ── */}
         {section === 'graph' && (
-          <GitGraph entries={log} onCommitAction={handleCommitAction} />
+          <div className="flex flex-col h-full min-h-0">
+            <GitGraph entries={log} authFetch={authFetch} onCommitAction={handleCommitAction} />
+          </div>
         )}
 
         {/* ── Branches ── */}

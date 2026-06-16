@@ -10,6 +10,29 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Git diff viewer** — clicking any staged or unstaged file in the Changes tab expands an inline
+  unified diff panel. Lines coloured green/red for additions/deletions; hunk headers muted.
+  Truncates at 200 lines with a "N more lines" note. Uses `GET /api/git/diff?file=&staged=`.
+- **Discard file changes** — trash icon on hover for unstaged file rows calls
+  `POST /api/git/discard` (runs `git restore -- <path>`). Errors surface via a toast
+  notification. Injection-safe: paths starting with `-` are rejected with 400.
+- **Stash save / pop / list** — new "Stash" collapsible section at the bottom of the Changes tab.
+  "Stash" button saves current changes; each stash entry shows a "Pop" button. Backend:
+  `POST /api/git/stash`, `GET /api/git/stash`, `POST /api/git/stash/pop`, `POST /api/git/stash/drop`.
+  Index validated as non-negative integer to prevent injection.
+- **Commit detail diff** — left-clicking a commit row in the History graph opens a detail panel
+  showing files changed and the full diff (`GET /api/git/commit-diff?hash=<hash>`). Hash
+  validated to hex only (`^[0-9a-f]{4,64}$`). Per-file diff toggle included.
+- **Format on save (gofmt / prettier / black)** — new "Format on save" toggle in Settings → Editor.
+  When enabled, `Mod-s` pipes the current file content through the appropriate formatter before
+  writing: `gofmt` for `.go`, `prettier` for JS/TS/CSS/JSON/HTML/MD, `black` for `.py`.
+  Missing formatter binary → silently skips formatting, still saves. Bad syntax → skips
+  formatting. Available as "Format Document" in the command palette. Backend endpoint:
+  `POST /api/files/format`.
+- **Go to line dialog** — `Ctrl+G` opens a floating "Go to line:" input overlay in the editor.
+  Enter jumps and centres the view; Escape closes. Also available in the command palette.
+  Wired via `onRegisterActions` ref to keep Editor.jsx self-contained.
+- **Command palette entries** — new commands: "Go to Line…" (`Ctrl+G`), "Format Document".
 - **Minimap** — real code minimap rendered by `@replit/codemirror-minimap` (MIT).
   Toggled via Settings → Editor → Minimap. Viewport overlay scroll-syncs with the
   editor; enable/disable is live (no editor rebuild via `Compartment`).

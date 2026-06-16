@@ -62,6 +62,14 @@ Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG
 - [x] **File-watching SSE** — `GET /api/watch` (fsnotify + 250 ms debounce); explorer
   and git status refresh automatically on file-system changes; git-status poll relaxed
   from 10 s to 30 s.
+- [x] **Git diff viewer** — inline unified diff for staged/unstaged files; click-to-expand
+  per file row in the Changes tab.
+- [x] **Discard file changes** — trash icon to restore a file to HEAD; injection-safe backend.
+- [x] **Stash save/pop/list** — full stash workflow in the Changes tab.
+- [x] **Commit detail diff** — click a commit in History to see files changed + full diff.
+- [x] **Format on save** — `gofmt` / `prettier` / `black` via `POST /api/files/format`;
+  toggled in Settings; also available as "Format Document" in the command palette.
+- [x] **Go to line (`Ctrl+G`)** — floating line-jump overlay in the editor; command palette entry.
 
 ---
 

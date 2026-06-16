@@ -321,3 +321,185 @@ func TestRemotes_Empty(t *testing.T) {
 		t.Error("expected non-nil remotes slice")
 	}
 }
+
+// ── Discard tests ─────────────────────────────────────────────────────────────
+
+// TestDiscard_RejectsFlag ensures a path starting with "-" is rejected with 400.
+func TestDiscard_RejectsFlag(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	flagPaths := []string{
+		"-p",
+		"--source=HEAD",
+		"--staged",
+		"-",
+	}
+	for _, p := range flagPaths {
+		t.Run("path="+p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/git/discard",
+				postBody(t, map[string]string{"path": p}))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.Discard(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("path %q: expected 400, got %d", p, rec.Code)
+			}
+			var resp map[string]string
+			json.NewDecoder(rec.Body).Decode(&resp)
+			if !strings.Contains(resp["error"], "invalid path") {
+				t.Errorf("path %q: expected 'invalid path' error, got %q", p, resp["error"])
+			}
+		})
+	}
+}
+
+// TestDiscard_RejectsEmpty ensures an empty path is rejected with 400.
+func TestDiscard_RejectsEmpty(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/discard",
+		postBody(t, map[string]string{"path": ""}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Discard(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("empty path: expected 400, got %d", rec.Code)
+	}
+}
+
+// ── Stash tests ───────────────────────────────────────────────────────────────
+
+// TestStashPop_InvalidIndex verifies negative and non-integer indices are rejected.
+func TestStashPop_InvalidIndex(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// Negative index — JSON integer but invalid value.
+	t.Run("negative index", func(t *testing.T) {
+		neg := -1
+		req := httptest.NewRequest(http.MethodPost, "/api/git/stash/pop",
+			postBody(t, map[string]any{"index": neg}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.StashPop(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("negative index: expected 400, got %d", rec.Code)
+		}
+	})
+
+	// Missing index field — should return 400 (index required).
+	t.Run("missing index", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/stash/pop",
+			postBody(t, map[string]any{}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.StashPop(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("missing index: expected 400, got %d", rec.Code)
+		}
+	})
+}
+
+// TestStashDrop_InvalidIndex mirrors TestStashPop_InvalidIndex for StashDrop.
+func TestStashDrop_InvalidIndex(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	neg := -5
+	req := httptest.NewRequest(http.MethodPost, "/api/git/stash/drop",
+		postBody(t, map[string]any{"index": neg}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.StashDrop(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("negative index: expected 400, got %d", rec.Code)
+	}
+}
+
+// TestStashList_Empty verifies StashList returns an empty slice on a fresh repo.
+func TestStashList_Empty(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/stash", nil)
+	rec := httptest.NewRecorder()
+	h.StashList(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("StashList: expected 200, got %d", rec.Code)
+	}
+	var resp struct {
+		Stashes []StashEntry `json:"stashes"`
+	}
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp.Stashes == nil {
+		t.Error("expected non-nil stashes slice")
+	}
+	if len(resp.Stashes) != 0 {
+		t.Errorf("expected 0 stashes on fresh repo, got %d", len(resp.Stashes))
+	}
+}
+
+// ── CommitDiff tests ──────────────────────────────────────────────────────────
+
+// TestCommitDiff_InvalidHash verifies that non-hex or dangerous hash values are
+// rejected with 400, while a valid short hex hash reaches git (may return 500
+// for an unknown commit, but must not return 400).
+func TestCommitDiff_InvalidHash(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	type hashCase struct {
+		raw     string // value to validate
+		urlSafe string // URL-safe representation for httptest.NewRequest
+	}
+	badHashes := []hashCase{
+		{"../../etc/passwd", "..%2F..%2Fetc%2Fpasswd"},
+		{"--all", "--all"},
+		{"; rm -rf /", "%3B+rm+-rf+%2F"},
+		{"HEAD", "HEAD"},
+		{"main", "main"},
+		{"", ""},
+		{"xyz", "xyz"},       // too short (< 4 chars)
+		{"ABCDEF", "ABCDEF"}, // uppercase — not allowed
+	}
+	for _, tc := range badHashes {
+		hash := tc.raw
+		urlSafe := tc.urlSafe
+		t.Run("hash="+hash, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/git/commit-diff?hash="+urlSafe, nil)
+			rec := httptest.NewRecorder()
+			h.CommitDiff(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("hash %q: expected 400, got %d", hash, rec.Code)
+			}
+			var resp map[string]string
+			json.NewDecoder(rec.Body).Decode(&resp)
+			if !strings.Contains(resp["error"], "invalid commit hash") {
+				t.Errorf("hash %q: expected 'invalid commit hash' error, got %q", hash, resp["error"])
+			}
+		})
+	}
+}
+
+// TestCommitDiff_ValidHashFormat verifies a properly formatted hex hash passes
+// the format check and reaches git (which may return non-200 for unknown commit,
+// but never 400 "invalid commit hash").
+func TestCommitDiff_ValidHashFormat(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// "abc123" is a valid short hex hash that doesn't exist in the repo.
+	// The handler should NOT return 400 for it.
+	req := httptest.NewRequest(http.MethodGet, "/api/git/commit-diff?hash=abc123", nil)
+	rec := httptest.NewRecorder()
+	h.CommitDiff(rec, req)
+
+	if rec.Code == http.StatusBadRequest {
+		var resp map[string]string
+		json.NewDecoder(rec.Body).Decode(&resp)
+		t.Errorf("valid hex hash was rejected with 400: %s", resp["error"])
+	}
+}

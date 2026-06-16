@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   EditorView, keymap, lineNumbers, highlightActiveLineGutter,
   highlightActiveLine, drawSelection, highlightSpecialChars,
@@ -88,12 +88,52 @@ function makeMinimapConfig(enabled) {
   }
 }
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null }) {
+// GoToLine overlay widget — rendered inside the editor container.
+// Receives a ref object (not .current) to avoid the react-hooks/refs lint rule.
+function GoToLineWidget({ viewRef, onClose }) {
+  const handleKeyDown = useCallback((e) => {
+    const view = viewRef.current
+    if (e.key === 'Enter') {
+      const n = parseInt(e.target.value, 10)
+      if (!isNaN(n) && view) {
+        const line = Math.max(1, Math.min(n, view.state.doc.lines))
+        const pos = view.state.doc.line(line).from
+        view.dispatch({
+          selection: { anchor: pos },
+          effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+        })
+        view.focus()
+      }
+      onClose()
+    }
+    if (e.key === 'Escape') {
+      onClose()
+      view?.focus()
+    }
+  }, [viewRef, onClose])
+
+  return (
+    <div className="absolute top-2 right-4 z-20 flex items-center gap-2 bg-bg-elevated border border-border rounded-lg shadow-xl px-3 py-2">
+      <span className="text-[11px] text-text-muted">Go to line:</span>
+      <input
+        autoFocus
+        type="number"
+        min="1"
+        className="w-16 bg-bg-input border border-border rounded px-2 py-0.5 text-[12px] text-text-primary focus:outline-none focus:border-accent/60"
+        onKeyDown={handleKeyDown}
+      />
+    </div>
+  )
+}
+
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
   const onSaveRef = useRef(onSave)
   const onCursorRef = useRef(onCursorChange)
+
+  const [showGoToLine, setShowGoToLine] = useState(false)
 
   // Compartments for live reconfiguration without destroying the editor.
   const themeCompRef   = useRef(new Compartment())
@@ -111,6 +151,11 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     onSaveRef.current = onSave
     onCursorRef.current = onCursorChange
   })
+
+  // Register editor actions (goToLine) with the parent IDE.
+  useEffect(() => {
+    onRegisterActions?.({ goToLine: () => setShowGoToLine(true) })
+  }, [onRegisterActions])
 
   // Rebuild editor when file changes (new language, new content).
   useEffect(() => {
@@ -156,7 +201,10 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
           ...closeBracketsKeymap, ...defaultKeymap,
           ...searchKeymap, ...historyKeymap, indentWithTab,
         ]),
-        keymap.of([{ key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } }]),
+        keymap.of([
+          { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
+          { key: 'Ctrl-g', run: () => { setShowGoToLine(true); return true } },
+        ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChangeRef.current?.(update.state.doc.toString())
           if (update.selectionSet || update.docChanged) {
@@ -260,5 +308,15 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     )
   }
 
-  return <div ref={containerRef} className="h-full overflow-hidden" />
+  return (
+    <div className="relative h-full overflow-hidden">
+      <div ref={containerRef} className="h-full overflow-hidden" />
+      {showGoToLine && (
+        <GoToLineWidget
+          viewRef={viewRef}
+          onClose={() => setShowGoToLine(false)}
+        />
+      )}
+    </div>
+  )
 }

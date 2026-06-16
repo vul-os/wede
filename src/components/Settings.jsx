@@ -10,10 +10,11 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
   const s = editorSettings || {}
   const fontSize  = s.fontSize  ?? 13
   const tabWidth  = s.tabWidth  ?? 2
-  const wordWrap  = s.wordWrap  ?? false
-  const autoSave  = s.autoSave  ?? true
-  const minimap   = s.minimap   ?? false
-  const lspOn     = s.lsp       ?? true
+  const wordWrap     = s.wordWrap     ?? false
+  const autoSave     = s.autoSave     ?? true
+  const minimap      = s.minimap      ?? false
+  const lspOn        = s.lsp          ?? true
+  const formatOnSave = s.formatOnSave ?? false
 
   // Derive LSP status hint for the user.
   // lspAvailable: null = not yet fetched, {} = fetched (possibly empty), { go: '...' } = servers found
@@ -156,6 +157,15 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
               <Toggle checked={minimap} onChange={(v) => update({ minimap: v })} />
             </label>
 
+            {/* Format on save */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <div>
+                <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Format on save</span>
+                <span className="block text-[10px] text-text-muted">gofmt / prettier / black</span>
+              </div>
+              <Toggle checked={formatOnSave} onChange={(v) => update({ formatOnSave: v })} />
+            </label>
+
             {/* LSP */}
             <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
               <div>
@@ -229,6 +239,7 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
             {[
               ['Command palette', 'Ctrl/Cmd + Shift + P'],
               ['Save file', 'Ctrl/Cmd + S'],
+              ['Go to line', 'Ctrl + G'],
               ['Search in file', 'Ctrl/Cmd + F'],
               ['Project search', 'Ctrl/Cmd + Shift + F'],
               ['Close tab', 'Ctrl/Cmd + W'],

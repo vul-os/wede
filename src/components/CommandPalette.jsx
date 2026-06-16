@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Search, File, Save, FolderOpen, Terminal as TerminalIcon,
   Settings as SettingsIcon, GitBranch, Globe, Files,
-  Plus, Trash2, RefreshCw, Moon, Sun, LogOut, X
+  Plus, Trash2, RefreshCw, Moon, Sun, LogOut, X, Hash, Sparkles
 } from 'lucide-react'
 
 /* ── Fuzzy match: returns score > 0 if query matches label, 0 otherwise ── */
@@ -70,6 +70,8 @@ export default function CommandPalette({
   onGitStageAll,
   onGitUnstageAll,
   onLogout,
+  onGoToLine,
+  onFormatFile,
   isDark,
   hasActiveTab,
   hasModified,
@@ -95,6 +97,21 @@ export default function CommandPalette({
       description: 'Save all modified tabs',
       icon: Save,
       action: onSaveAll,
+    },
+    hasActiveTab && {
+      id: 'go-to-line',
+      label: 'Go to Line…',
+      description: 'Jump to a specific line number',
+      icon: Hash,
+      shortcut: 'Ctrl+G',
+      action: onGoToLine,
+    },
+    hasActiveTab && {
+      id: 'format-file',
+      label: 'Format Document',
+      description: 'Format the current file with gofmt/prettier/black',
+      icon: Sparkles,
+      action: onFormatFile,
     },
     {
       id: 'new-file',

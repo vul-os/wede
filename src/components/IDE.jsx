@@ -51,15 +51,16 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // Editor settings — persisted to localStorage
   const [editorSettings, setEditorSettings] = useState(() => {
     const saved = localStorage.getItem('wede_editor_settings')
-    if (!saved) return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true }
+    if (!saved) return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true, formatOnSave: false }
     try {
       const s = JSON.parse(saved)
       // Back-fill new keys for users upgrading from older localStorage state.
       if (s.minimap === undefined) s.minimap = false
       if (s.lsp === undefined) s.lsp = true
+      if (s.formatOnSave === undefined) s.formatOnSave = false
       return s
     } catch {
-      return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true }
+      return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true, formatOnSave: false }
     }
   })
 
@@ -76,6 +77,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const handleRegisterExplorerActions = useCallback((actions) => {
     explorerActionsRef.current = actions
     sseExplorerRefreshRef.current = actions?.refresh
+  }, [])
+
+  // Expose Editor actions (goToLine) registered by the active Editor instance.
+  const editorActionsRef = useRef(null)
+  const handleRegisterEditorActions = useCallback((actions) => {
+    editorActionsRef.current = actions
   }, [])
 
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -221,10 +228,19 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         setSidebarTab('search')
         setShowSidebar(true)
       }
+      // Ctrl+G — go to line (only when an editor tab is active; let the editor
+      // keymap handle it when the editor has focus; this catches the case where
+      // focus is outside the editor, e.g. in the sidebar).
+      if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key === 'g') {
+        if (activeTab) {
+          e.preventDefault()
+          editorActionsRef.current?.goToLine()
+        }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [activeTab])
 
   // Ctrl/Cmd+W — close active tab
   useEffect(() => {
@@ -392,9 +408,65 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     }))
   }, [triggerAutoSave])
 
+  const FORMAT_EXTS = new Set(['go', 'js', 'jsx', 'ts', 'tsx', 'css', 'json', 'html', 'md', 'py'])
+
+  const formatCurrentFile = useCallback(async () => {
+    const tab = tabs.find((t) => t.path === activeTab)
+    if (!tab || tab.type === 'browser') return
+    const ext = tab.name.split('.').pop().toLowerCase()
+    if (!FORMAT_EXTS.has(ext)) return
+    try {
+      const res = await authFetch('/api/files/format', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: tab.path, content: tab.content }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.formatted && data.content !== tab.content) {
+        setTabs((prev) => prev.map((t) =>
+          t.path === tab.path ? { ...t, content: data.content, modified: data.content !== t.originalContent } : t
+        ))
+      }
+    } catch { /* ignore — format failure should not block save */ }
+  }, [tabs, activeTab, authFetch]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const saveFile = useCallback(async () => {
     const tab = tabs.find((t) => t.path === activeTab)
     if (!tab?.modified || tab.type === 'browser') return
+    // Format on save — run before writing so the formatted content is persisted.
+    if (editorSettings.formatOnSave) {
+      const ext = tab.name.split('.').pop().toLowerCase()
+      if (FORMAT_EXTS.has(ext)) {
+        try {
+          const res = await authFetch('/api/files/format', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: tab.path, content: tab.content }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.formatted && data.content !== tab.content) {
+              setTabs((prev) => prev.map((t) =>
+                t.path === tab.path ? { ...t, content: data.content, modified: data.content !== t.originalContent } : t
+              ))
+              // Re-read the (now updated) tab for the write below.
+              // We use a local variable so we don't need to wait for state flush.
+              setSaving(true)
+              try {
+                await authFetch('/api/files/write', {
+                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ path: tab.path, content: data.content }),
+                })
+                setTabs((prev) => prev.map((t) =>
+                  t.path === tab.path ? { ...t, originalContent: data.content, modified: false } : t
+                ))
+              } catch { /* ignore */ }
+              setSaving(false)
+              return
+            }
+          }
+        } catch { /* ignore — fall through to normal save */ }
+      }
+    }
     setSaving(true)
     try {
       await authFetch('/api/files/write', {
@@ -406,7 +478,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       ))
     } catch { /* ignore */ }
     setSaving(false)
-  }, [tabs, activeTab, authFetch])
+  }, [tabs, activeTab, authFetch, editorSettings.formatOnSave]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
@@ -445,6 +517,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onCursorChange={setCursor}
         settings={editorSettings}
         lspExtension={lspExtension}
+        onRegisterActions={handleRegisterEditorActions}
       />
     )
   }
@@ -576,6 +649,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onGitUnstageAll={gitUnstageAll}
           onToggleTheme={toggleTheme}
           onLogout={onLogout}
+          onGoToLine={() => editorActionsRef.current?.goToLine()}
+          onFormatFile={formatCurrentFile}
           isDark={isDark}
           hasActiveTab={!!activeTab}
           hasModified={hasModified}
@@ -765,6 +840,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onGitUnstageAll={gitUnstageAll}
         onToggleTheme={toggleTheme}
         onLogout={onLogout}
+        onGoToLine={() => editorActionsRef.current?.goToLine()}
+        onFormatFile={formatCurrentFile}
         isDark={isDark}
         hasActiveTab={!!activeTab}
         hasModified={hasModified}

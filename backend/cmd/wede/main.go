@@ -118,6 +118,13 @@ func main() {
 	protected.HandleFunc("POST /api/git/pull", gitHandler.Pull)
 	protected.HandleFunc("POST /api/git/push", gitHandler.Push)
 	protected.HandleFunc("GET /api/git/remotes", gitHandler.Remotes)
+	protected.HandleFunc("POST /api/git/discard", gitHandler.Discard)
+	protected.HandleFunc("GET /api/git/stash", gitHandler.StashList)
+	protected.HandleFunc("POST /api/git/stash", gitHandler.StashPush)
+	protected.HandleFunc("POST /api/git/stash/pop", gitHandler.StashPop)
+	protected.HandleFunc("POST /api/git/stash/drop", gitHandler.StashDrop)
+	protected.HandleFunc("GET /api/git/commit-diff", gitHandler.CommitDiff)
+	protected.HandleFunc("POST /api/files/format", fileHandler.Format)
 
 	protected.HandleFunc("GET /api/search", searchHandler.Search)
 
