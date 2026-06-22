@@ -97,14 +97,36 @@ Open [http://localhost:9090](http://localhost:9090) and log in.
 
 Or download a binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
 
-**Manual config** — save as `wede.config.json` in your project root (gitignored by default):
+---
+
+## Configuration
+
+wede reads a single `wede.config.json`. It searches, in order: the working
+directory and its parents, `~/.config/wede/`, then next to the binary. A
+`password` is required; everything else has a safe default.
 
 ```json
 {
   "password": "your-strong-password-here",
-  "port": "9090"
+  "port": "9090",
+  "host": "127.0.0.1",
+  "frame_ancestors": ""
 }
 ```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `password` | *(required)* | Login password. Brute-force lockout after 3 failed attempts, persisted across restarts. |
+| `port` | `9090` | HTTP port. Override at runtime with `--port` / `-p`. |
+| `host` | `127.0.0.1` | Bind address. Loopback only by default; set to `0.0.0.0` to expose on the network. |
+| `frame_ancestors` | `""` | CSP `frame-ancestors` allow-list for iframe embedding. Empty denies all cross-origin framing; set to e.g. `https://vulos.org` to embed in the Vulos OS shell. |
+
+The config file holds your password and is gitignored by default — never commit
+it. Start from [`wede.config.example.json`](wede.config.example.json).
+
+CLI flags: `wede [path]` opens a workspace directly; `--port`/`-p` overrides the
+port; `--version` prints the version. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+for the full reference.
 
 ---
 
