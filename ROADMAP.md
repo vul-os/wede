@@ -122,7 +122,9 @@ No new user features — prove isolation.
 - [ ] Username at join; extend session record with `username`, `rooms[]`
 - [x] `internal/presence`: per-room hub, roster, join/leave/update events (transport-agnostic
       outbound channels); wired into `Room.Presence()` + torn down in `shutdown()`
-- [ ] Single **collab WebSocket** `/api/rooms/{id}/collab` (presence + later doc + file events)
+- [x] Single **collab WebSocket** `/api/rooms/{id}/collab` (`internal/collab`): auth-subprotocol
+      upgrade, write-pump drains roster channel + pings, read-pump parses `{type:cursor}` →
+      `Hub.Update`; `Room.Collab()` (lazy) + route wired. Doc/file events layer on later.
 - [x] Broadcast "X is viewing `file`" + cursor line (`Hub.Update`); stable per-user color (palette)
 - [ ] Frontend: avatar roster; per-file presence dots in FileExplorer
 - [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
@@ -236,4 +238,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
 - 2026-06-26: Wave 2 slice 1 — `internal/presence` hub (transport-agnostic: per-member
   outbound JSON channels, roster broadcast on join/leave/update, palette colors). Wired
   into `Room.Presence()` (lazy) + torn down in `shutdown()`. 4 hub tests green; check green.
-  Next: collab WebSocket `/api/rooms/{id}/collab` pumping the hub, then username at join.
+- 2026-06-26: Wave 2 slice 2 — `internal/collab` WebSocket: auth-subprotocol upgrade
+  (mirrors terminal), write-pump (roster + 30s ping) / read-pump (`parseCursor` →
+  `Hub.Update`), prompt teardown via stop chan + `hub.Leave`. `Room.Collab()` (lazy, avoids
+  mutex reentrancy) + `/api/rooms/{id}/collab` route. parseCursor table test; vet clean;
+  check green. Next: username-at-join (auth session record + /api/auth/check), then frontend
+  roster avatars + per-file presence dots.

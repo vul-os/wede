@@ -155,6 +155,8 @@ func main() {
 	protected.HandleFunc("GET /api/rooms/{id}/terminal", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().HandleWS }))
 	protected.HandleFunc("GET /api/rooms/{id}/lsp/available", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleAvailable }))
 	protected.HandleFunc("GET /api/rooms/{id}/lsp", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleWS }))
+	// collaboration socket (presence now; CRDT doc channel later)
+	protected.HandleFunc("GET /api/rooms/{id}/collab", rs(func(rm *room.Room) http.HandlerFunc { return rm.Collab().HandleWS }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)

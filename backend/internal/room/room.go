@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"wede/backend/internal/collab"
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
@@ -49,6 +50,7 @@ type Room struct {
 	terminal *terminal.Handler
 	lsp      *lsp.Handler
 	presence *presence.Hub
+	collab   *collab.Handler
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -130,6 +132,18 @@ func (r *Room) Presence() *presence.Hub {
 		r.presence = presence.NewHub()
 	}
 	return r.presence
+}
+
+// Collab returns this room's collaboration WebSocket handler, bound to the
+// room's presence hub. Lazily created on first use.
+func (r *Room) Collab() *collab.Handler {
+	hub := r.Presence() // acquires/releases r.mu internally; must not hold it here
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.collab == nil {
+		r.collab = collab.New(r.frameAncestors, hub)
+	}
+	return r.collab
 }
 
 // shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
