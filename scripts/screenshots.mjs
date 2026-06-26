@@ -264,70 +264,58 @@ async function run() {
 
   // ── 2. IDE hero — editor open on api/handlers.go ─────────────────────────
   console.log('Capturing: IDE hero (editor + file tree)...');
-  // Ensure file explorer is visible
-  await clickSidebar(/file|explorer/i);
+  // The file explorer is open by default — do NOT click its activity button
+  // (clicking the already-active tab collapses the sidebar). Just open a file.
   await sleep(400);
 
-  // Expand the api/ folder by clicking it
-  const apiFolder = page.locator('li, [role="treeitem"]').filter({ hasText: /^api$/i }).first();
-  if (await apiFolder.count() > 0) {
-    await apiFolder.click();
-    await sleep(400);
-  }
+  // Tree rows are <div class="cursor-pointer"> with the name text; target by
+  // exact visible text and let the click bubble to the row handler.
+  const apiFolder = page.getByText('api', { exact: true }).first();
+  if (await apiFolder.count() > 0) { await apiFolder.click(); await sleep(600); }
 
-  // Open handlers.go
-  const handlersFile = page.locator('li, [role="treeitem"]').filter({ hasText: /handlers\.go/i }).first();
-  if (await handlersFile.count() > 0) {
-    await handlersFile.click();
+  async function openFileInTree(name) {
+    const f = page.getByText(name, { exact: true }).first();
+    if (await f.count() === 0) return false;
+    await f.click();
     await page.waitForSelector('.cm-editor', { timeout: 6000 }).catch(() => {});
-    await sleep(700);
-  } else {
-    // Fallback: open any source file
-    const anyFile = page.locator('li, [role="treeitem"]').filter({ hasText: /\.(go|jsx|js|json|md)$/i }).first();
-    if (await anyFile.count() > 0) {
-      await anyFile.click();
-      await page.waitForSelector('.cm-editor', { timeout: 5000 }).catch(() => {});
-      await sleep(600);
-    }
+    await sleep(900);
+    return true;
   }
+  (await openFileInTree('handlers.go')) ||
+    (await openFileInTree('main.go')) ||
+    (await openFileInTree('middleware.go')) ||
+    (await openFileInTree('README.md'));
+  await sleep(300);
   await shot(page, 'hero');
 
   // ── 3. Git panel — Changes tab (unstaged diff for api/middleware.go) ──────
   console.log('Capturing: git panel (changes + diff)...');
-  const gitOpened = await clickSidebar(/git/i);
-  if (!gitOpened && btnCount > 1) {
-    await sidebarBtns.nth(1).click();
-    await sleep(700);
-  }
-  // Wait for diff content to appear
+  await clickSidebar(/source.?control/i); // activity button is titled "Source Control"
   await page.waitForFunction(() =>
-    document.body.innerText.includes('middleware') ||
-    document.body.innerText.includes('Changes') ||
-    document.body.innerText.includes('modified'),
+    /Changes|Staged|Commit|modified|middleware/.test(document.body.innerText),
     { timeout: 5000 }
   ).catch(() => {});
-  await sleep(500);
+  await sleep(700);
+  // Reveal a file diff if a changed file is listed.
+  const changedFile = page.locator('button, [class*="cursor-pointer"]').filter({ hasText: /\.(go|js|jsx|md)$/ }).first();
+  if (await changedFile.count() > 0) { await changedFile.click().catch(() => {}); await sleep(700); }
   await shot(page, 'git');
 
   // ── 4. Git graph — History tab ────────────────────────────────────────────
   console.log('Capturing: git graph (commit history)...');
-  const historyTab = page.locator('button:has-text("History"), button:has-text("Graph"), button:has-text("Log")').first();
-  if (await historyTab.count() > 0) {
-    await historyTab.click();
-    await sleep(1200); // wait for SVG graph to render
-  }
+  const historyTab = page.locator('button').filter({ hasText: /^(History|Graph|Log|Commits)$/ }).first();
+  if (await historyTab.count() > 0) { await historyTab.click(); await sleep(1400); }
   await shot(page, 'git_graph');
 
   // ── 5. Search panel — results for "handleCreate" ─────────────────────────
   console.log('Capturing: search panel...');
-  await clickSidebar(/file|explorer/i);
-  await sleep(300);
   await page.keyboard.press('Control+Shift+F');
-  await sleep(600);
+  await sleep(700);
   const searchInput = page.locator('input[placeholder*="Search" i], input[placeholder*="Find" i]').first();
   if (await searchInput.count() > 0) {
-    await searchInput.fill('handleCreate');
-    await sleep(1000); // wait for ripgrep results
+    await searchInput.fill('handler');
+    await searchInput.press('Enter');
+    await sleep(1200); // wait for ripgrep results
   }
   await shot(page, 'search');
   await page.keyboard.press('Escape');
@@ -335,20 +323,16 @@ async function run() {
 
   // ── 6. Terminal panel — show a real command ───────────────────────────────
   console.log('Capturing: terminal...');
-  let termOpened = await clickSidebar(/terminal/i);
-  if (!termOpened) {
-    await page.keyboard.press('Control+`');
-    await sleep(800);
+  // Terminal is already docked at the bottom; click into it and run a command
+  // (do NOT toggle the terminal button — that would hide it).
+  const termArea = page.locator('.xterm-screen, .xterm').first();
+  if (await termArea.count() > 0) {
+    await termArea.click().catch(() => {});
+    await sleep(300);
+    await page.keyboard.type('git log --oneline -5');
+    await page.keyboard.press('Enter');
+    await sleep(1000);
   }
-  await page.waitForFunction(() =>
-    document.querySelector('.xterm-screen, .xterm, [class*="terminal"]'),
-    { timeout: 6000 }
-  ).catch(() => {});
-  await sleep(600);
-  // Type a command so the terminal isn't blank
-  await page.keyboard.type('git log --oneline');
-  await page.keyboard.press('Enter');
-  await sleep(900);
   await shot(page, 'terminal');
 
   // ── 7. Settings panel ─────────────────────────────────────────────────────

@@ -90,9 +90,9 @@ Fully responsive layout for tablets and phones. *(manual capture)*
 
 ### Built-in browser preview
 
-![Browser preview](screenshots/preview.png)
+![Browser preview](screenshots/browser.png)
 
-Embedded browser tab for previewing your running app. *(manual capture)*
+Embedded browser tab for previewing your running app (shown loading wikipedia.org).
 
 ---
 

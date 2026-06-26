@@ -50,7 +50,7 @@ It runs standalone or embedded as a first-class app in the [Vulos OS](https://vu
 </tr>
 <tr>
 <td><img src="docs/screenshots/command_palette.png" alt="wede command palette" width="400"><br><em>Command palette (Ctrl+Shift+P)</em></td>
-<td><img src="docs/screenshots/preview.png" alt="wede built-in browser preview" width="400"><br><em>Built-in browser preview</em></td>
+<td><img src="docs/screenshots/browser.png" alt="wede built-in browser preview showing wikipedia.org" width="400"><br><em>Built-in browser preview (wikipedia.org)</em></td>
 </tr>
 </table>
 
