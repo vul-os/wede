@@ -78,9 +78,93 @@ func TestDiskPersistenceTraversalBlocked(t *testing.T) {
 	}
 }
 
-func TestDiskPersistenceStoreUpdateNoop(t *testing.T) {
+func TestDiskPersistenceStoreUpdateNoopWithoutProvider(t *testing.T) {
 	p := NewDiskPersistence(t.TempDir())
 	if err := p.StoreUpdate("a.txt", []byte{1, 2, 3}); err != nil {
-		t.Errorf("StoreUpdate should be a no-op returning nil, got %v", err)
+		t.Errorf("StoreUpdate without provider should be a no-op nil, got %v", err)
+	}
+}
+
+// fakeProvider serves a fixed doc per room for write-back tests.
+type fakeProvider struct{ docs map[string]*crdt.Doc }
+
+func (f *fakeProvider) GetDoc(room string) *crdt.Doc { return f.docs[room] }
+
+// docWith returns a crdt.Doc whose "content" text is s.
+func docWith(s string) *crdt.Doc {
+	d := crdt.New()
+	t := d.GetText(contentField)
+	d.Transact(func(txn *crdt.Transaction) { t.Insert(txn, 0, s, nil) })
+	return d
+}
+
+func TestWriteBackMaterializesToDisk(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewDiskPersistence(dir)
+	p.SetProvider(&fakeProvider{docs: map[string]*crdt.Doc{"a.txt": docWith("new content")}})
+
+	// flush is the synchronous core of the debounced write-back.
+	p.flush("a.txt")
+
+	got, err := os.ReadFile(filepath.Join(dir, "a.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new content" {
+		t.Fatalf("file = %q, want %q", got, "new content")
+	}
+}
+
+func TestWriteBackCreatesSubdirsAndNewFile(t *testing.T) {
+	dir := t.TempDir()
+	p := NewDiskPersistence(dir)
+	p.SetProvider(&fakeProvider{docs: map[string]*crdt.Doc{"pkg/new.go": docWith("package pkg")}})
+
+	p.flush("pkg/new.go")
+
+	got, err := os.ReadFile(filepath.Join(dir, "pkg", "new.go"))
+	if err != nil {
+		t.Fatalf("expected new file written: %v", err)
+	}
+	if string(got) != "package pkg" {
+		t.Errorf("new file = %q", got)
+	}
+}
+
+func TestStopFlushesPending(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewDiskPersistence(dir)
+	p.SetProvider(&fakeProvider{docs: map[string]*crdt.Doc{"a.txt": docWith("edited")}})
+
+	// Schedule a debounced flush, then Stop should flush it synchronously.
+	if err := p.StoreUpdate("a.txt", nil); err != nil {
+		t.Fatal(err)
+	}
+	p.Stop()
+
+	got, _ := os.ReadFile(filepath.Join(dir, "a.txt"))
+	if string(got) != "edited" {
+		t.Fatalf("after Stop file = %q, want %q", got, "edited")
+	}
+
+	// After Stop, further StoreUpdate is a no-op (no panic, returns nil).
+	if err := p.StoreUpdate("a.txt", nil); err != nil {
+		t.Errorf("StoreUpdate after Stop: %v", err)
+	}
+}
+
+func TestWriteBackTraversalBlocked(t *testing.T) {
+	dir := t.TempDir()
+	p := NewDiskPersistence(dir)
+	p.SetProvider(&fakeProvider{docs: map[string]*crdt.Doc{"../escape.txt": docWith("nope")}})
+	p.flush("../escape.txt")
+	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "escape.txt")); err == nil {
+		t.Error("write-back escaped the room root")
 	}
 }

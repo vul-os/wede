@@ -56,8 +56,9 @@ type Room struct {
 	lsp      *lsp.Handler
 	presence  *presence.Hub
 	collab    *collab.Handler
-	docs      *collabdoc.DocStore
-	docServer *ywebsocket.Server // ygo sync+awareness WS server (one doc per file)
+	docs       *collabdoc.DocStore
+	docServer  *ywebsocket.Server          // ygo sync+awareness WS server (one doc per file)
+	docPersist *collabdoc.DiskPersistence  // seeds from + writes back to disk
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -172,11 +173,14 @@ func (r *Room) DocServer() *ywebsocket.Server {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.docServer == nil {
-		srv := ywebsocket.NewServerWithPersistence(collabdoc.NewDiskPersistence(root))
+		persist := collabdoc.NewDiskPersistence(root)
+		srv := ywebsocket.NewServerWithPersistence(persist)
+		persist.SetProvider(srv) // enable debounced write-back of edits to disk
 		if r.frameAncestors != "" {
 			srv.AllowedOrigins = strings.Fields(r.frameAncestors)
 		}
 		r.docServer = srv
+		r.docPersist = persist
 	}
 	return r.docServer
 }
@@ -204,6 +208,10 @@ func (r *Room) shutdown() {
 	if r.docs != nil {
 		r.docs.CloseAll()
 		r.docs = nil
+	}
+	if r.docPersist != nil {
+		r.docPersist.Stop() // final flush of pending edits while docs are still alive
+		r.docPersist = nil
 	}
 	if r.docServer != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

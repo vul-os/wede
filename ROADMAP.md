@@ -163,9 +163,12 @@ No new user features — prove isolation.
       (per room, `AllowedOrigins` from frameAncestors), route `GET /api/rooms/{id}/doc/{room...}`
       ({room...} = file's relative path). `collabdoc.DiskPersistence.LoadDoc` seeds the doc
       from disk (path-traversal-guarded); 5 adapter tests. `Shutdown(ctx)` on room close.
-- [ ] Open → seed from disk DONE; edit → debounced write to disk via `StoreUpdate` (currently
-      a no-op TODO) — the reconciliation slice
-- [ ] Reconcile: watcher detects external change → re-seed as CRDT update (cursors survive) + UX
+- [x] Edit → disk: `StoreUpdate` debounces (600ms) → `DocProvider.GetDoc` →
+      `YText("content").ToString()` → atomic write (temp+rename, mkdir parents,
+      traversal-guarded). `Stop()` final-flushes on room close. 6 write-back tests (race-clean).
+- [ ] Reconcile EXTERNAL change: watcher detects on-disk edit (git checkout, terminal) →
+      re-seed open doc as CRDT update (cursors survive), avoiding feedback loops with our own
+      write-back — its own slice (deferred)
 - [ ] Doc persistence under `~/.wede/rooms/{id}/docs/`; flush-on-last-disconnect
 - [ ] Frontend: `y-codemirror.next`; remote cursors/selections with names
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect
@@ -308,5 +311,11 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   (AllowedOrigins from frameAncestors), `Shutdown(ctx)` on close. Route
   `GET /api/rooms/{id}/doc/{room...}` via Manager.Scoped (provider reads PathValue("room")).
   `go mod tidy` pulled provider transitive deps (x/sync, x/time, +indirect miniredis/gopher-lua).
-  Check green. Next: disk<->doc reconciliation (StoreUpdate write-back + watcher re-seed),
-  then frontend yjs + y-codemirror.next.
+  Check green.
+- 2026-06-26: Wave 4 slice 4 — edit→disk write-back. `DiskPersistence.StoreUpdate` now
+  debounces (600ms) and materializes the live doc text via a `DocProvider` interface
+  (ygo `Server.GetDoc` → `YText('content').ToString()`) to an atomic temp+rename write
+  (mkdir parents, traversal-guarded). `Stop()` final-flushes on room close (wired in
+  `Room.shutdown` before `Server.Shutdown`). 6 write-back tests incl. subdir/new-file, Stop
+  flush, traversal block; race-clean. External-disk-change re-seed deferred to its own slice
+  (feedback-loop risk). Check green. Next: FRONTEND yjs + y-codemirror.next binding.
