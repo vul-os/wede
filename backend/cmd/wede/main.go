@@ -199,6 +199,9 @@ func main() {
 	protected.HandleFunc("GET /api/workspaces/{id}/chat", rs(func(ws *workspace.Workspace) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) { ws.Chat(r.URL.Query().Get("channel")).HandleWS(w, r) }
 	}))
+	// .wede location — which workspace folder hosts .wede (owner-only; PUT moves it)
+	protected.Handle("GET /api/workspaces/{id}/wede-location", ro(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.HandleWedeLocationGet })))
+	protected.Handle("PUT /api/workspaces/{id}/wede-location", ro(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.HandleWedeLocationSet })))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)

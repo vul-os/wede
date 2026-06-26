@@ -165,17 +165,19 @@ func (r *Workspace) Collab() *collab.Handler {
 //
 //	GET /api/workspaces/{id}/chat?channel=public|private -> Chat(channel).HandleWS
 func (r *Workspace) Chat(channel string) *chat.Hub {
-	root := r.Root() // reads ws.Current(); does not take r.mu
+	// .wede lives under the chosen host folder (root/host); git still resolves
+	// upward from there, so the chat hub gets the correct .wede location.
+	hostRoot := r.wedeHostRoot() // reads ws.Current() + persisted host; does not take r.mu
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if channel == chat.ChannelPrivate {
 		if r.chatPrivate == nil {
-			r.chatPrivate = chat.NewHub(root, chat.ChannelPrivate)
+			r.chatPrivate = chat.NewHub(hostRoot, chat.ChannelPrivate)
 		}
 		return r.chatPrivate
 	}
 	if r.chatPublic == nil {
-		r.chatPublic = chat.NewHub(root, chat.ChannelPublic)
+		r.chatPublic = chat.NewHub(hostRoot, chat.ChannelPublic)
 	}
 	return r.chatPublic
 }
