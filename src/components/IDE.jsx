@@ -705,6 +705,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           {mobilePanel === 'settings' && (
             <div className="h-full animate-fade-in">
               <Settings
+                onClose={() => setShowSettings(false)}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}
@@ -911,6 +912,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('settings')} />
             <div style={{ width: settingsWidth }} className="shrink-0 border-l border-border bg-bg-secondary">
               <Settings
+                onClose={() => setShowSettings(false)}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}

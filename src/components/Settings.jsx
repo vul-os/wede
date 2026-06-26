@@ -1,9 +1,18 @@
-import { Moon, Sun, FolderOpen, Info, Minus, Plus } from 'lucide-react'
+import { useEffect } from 'react'
+import { Moon, Sun, FolderOpen, Info, Minus, Plus, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 
-export default function Settings({ visible, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable }) {
+export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable }) {
   const { setTheme, isDark } = useTheme()
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!visible) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visible, onClose])
 
   if (!visible) return null
 
@@ -30,8 +39,14 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-y-auto">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <h2 className="text-sm font-semibold text-text-primary">Settings</h2>
+        <button
+          onClick={() => onClose?.()}
+          title="Close settings (Esc)"
+          className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="p-4 space-y-6">
