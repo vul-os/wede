@@ -22,6 +22,7 @@ import (
 
 	ywebsocket "github.com/reearth/ygo/provider/websocket"
 
+	"wede/backend/internal/apiclient"
 	"wede/backend/internal/chat"
 	"wede/backend/internal/collab"
 	"wede/backend/internal/collabdoc"
@@ -59,6 +60,7 @@ type Workspace struct {
 	collab    *collab.Handler
 	chatPublic  *chat.Hub
 	chatPrivate *chat.Hub
+	apiClient   *apiclient.Handler
 	docs       *collabdoc.DocStore
 	docServer  *ywebsocket.Server          // ygo sync+awareness WS server (one doc per file)
 	docPersist *collabdoc.DiskPersistence  // seeds from + writes back to disk
@@ -180,6 +182,18 @@ func (r *Workspace) Chat(channel string) *chat.Hub {
 		r.chatPublic = chat.NewHub(hostRoot, chat.ChannelPublic)
 	}
 	return r.chatPublic
+}
+
+// APIClient returns this workspace's built-in HTTP API client (Postman-style),
+// persisting requests/environments under the workspace's .wede directory. The
+// bound wedeDir resolver is read per-request, so it follows .wede relocation.
+func (r *Workspace) APIClient() *apiclient.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.apiClient == nil {
+		r.apiClient = apiclient.New(r.WedeDir)
+	}
+	return r.apiClient
 }
 
 // Docs returns this workspace's collaborative document store (server-authoritative

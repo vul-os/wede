@@ -202,6 +202,13 @@ func main() {
 	// .wede location — which workspace folder hosts .wede (owner-only; PUT moves it)
 	protected.Handle("GET /api/workspaces/{id}/wede-location", ro(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.HandleWedeLocationGet })))
 	protected.Handle("PUT /api/workspaces/{id}/wede-location", ro(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.HandleWedeLocationSet })))
+	// built-in API client (Postman-style); requests saved under <wede>/requests/
+	protected.HandleFunc("GET /api/workspaces/{id}/apiclient", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().Tree }))
+	protected.Handle("POST /api/workspaces/{id}/apiclient/send", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().Send })))
+	protected.Handle("PUT /api/workspaces/{id}/apiclient/item", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().SaveItem })))
+	protected.Handle("DELETE /api/workspaces/{id}/apiclient/item", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().DeleteItem })))
+	protected.Handle("PUT /api/workspaces/{id}/apiclient/environment", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().SaveEnvironment })))
+	protected.Handle("DELETE /api/workspaces/{id}/apiclient/environment", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().DeleteEnvironment })))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)
