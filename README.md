@@ -124,6 +124,16 @@ directory and its parents, `~/.config/wede/`, then next to the binary. A
 The config file holds your password and is gitignored by default — never commit
 it. Start from [`wede.config.example.json`](wede.config.example.json).
 
+### Remote access
+
+wede binds to `127.0.0.1` by default. To reach it from elsewhere you can bind to
+the LAN (`"host": "0.0.0.0"`), run it as an app inside **Vulos** (the Vulos
+gateway handles routing and auth — no exposed port), or put it on the public
+internet via a **VPS running [frp](https://github.com/fatedier/frp)** — the frp
+client dials out from your machine, so no inbound ports or static IP are needed.
+See [Exposing wede over a network](docs/GETTING-STARTED.md#exposing-wede-over-a-network)
+for copy-paste configs.
+
 CLI flags: `wede [path]` opens a workspace directly; `--port`/`-p` overrides the
 port; `--version` prints the version. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 for the full reference.
