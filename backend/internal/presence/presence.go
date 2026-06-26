@@ -115,6 +115,23 @@ func (h *Hub) Update(id, file string, line int) {
 	}
 }
 
+// RelayExcept forwards a pre-built message to every member except the sender.
+// Used for ephemeral peer-to-peer signals (live mouse position, shared window
+// geometry) that change too often to ride the full-roster broadcast.
+func (h *Hub) RelayExcept(senderID string, data []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for id, c := range h.clients {
+		if id == senderID {
+			continue
+		}
+		select {
+		case c.out <- data:
+		default: // drop for a slow consumer rather than block the hub
+		}
+	}
+}
+
 // Roster returns a snapshot of current members (unordered).
 func (h *Hub) Roster() []Member {
 	h.mu.RLock()

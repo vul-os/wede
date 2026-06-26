@@ -27,3 +27,40 @@ func TestParseCursor(t *testing.T) {
 		})
 	}
 }
+
+func TestTagRelay(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		ok   bool
+	}{
+		{"mouse", `{"type":"mouse","x":0.5,"y":0.25}`, true},
+		{"window", `{"type":"window","win":"term-1","geo":{"x":10,"y":20}}`, true},
+		{"cursor not relayed", `{"type":"cursor","file":"a"}`, false},
+		{"unknown type", `{"type":"chat","text":"hi"}`, false},
+		{"no type", `{"x":1}`, false},
+		{"malformed", `{nope`, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, ok := tagRelay("m7", []byte(c.in))
+			if ok != c.ok {
+				t.Fatalf("ok = %v, want %v", ok, c.ok)
+			}
+			if ok && !contains(string(out), `"id":"m7"`) {
+				t.Fatalf("relayed message missing sender id: %s", out)
+			}
+		})
+	}
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (func() bool {
+		for i := 0; i+len(sub) <= len(s); i++ {
+			if s[i:i+len(sub)] == sub {
+				return true
+			}
+		}
+		return false
+	})()
+}

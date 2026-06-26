@@ -41,11 +41,24 @@ function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClos
   )
 }
 
-export default function FloatingTerminals({ token, workspaceId, term, onDock }) {
+export default function FloatingTerminals({ token, workspaceId, term, onDock, sendWindow, onWindow }) {
   const { terminalTheme } = useTheme()
   const { terminals, addTerminal, closeTerminal, termRefs } = term
   const [geos, setGeos] = useState({})
+  const geosRef = useRef(geos)
   const zRef = useRef(20)
+  useEffect(() => { geosRef.current = geos }, [geos])
+
+  // Apply window geometry pushed by a collaborator (no echo — we only broadcast
+  // from the drag/resize handlers below, never when applying a peer's update).
+  useEffect(() => {
+    if (!onWindow) return undefined
+    return onWindow((win, geo) => {
+      const id = Number(String(win).replace('term-', ''))
+      if (!id || !geo) return
+      setGeos((p) => (p[id] ? { ...p, [id]: { ...p[id], x: geo.x, y: geo.y, w: geo.w, h: geo.h } } : p))
+    })
+  }, [onWindow])
 
   useEffect(() => {
     setGeos((prev) => {
@@ -63,8 +76,14 @@ export default function FloatingTerminals({ token, workspaceId, term, onDock }) 
   }, [terminals])
 
   const focus = useCallback((id) => setGeos((p) => (p[id] ? { ...p, [id]: { ...p[id], z: ++zRef.current } } : p)), [])
-  const move = (id, x, y) => setGeos((p) => ({ ...p, [id]: { ...p[id], x, y } }))
-  const resize = (id, w, h) => setGeos((p) => ({ ...p, [id]: { ...p[id], w, h } }))
+  const move = (id, x, y) => {
+    setGeos((p) => ({ ...p, [id]: { ...p[id], x, y } }))
+    sendWindow?.(`term-${id}`, { ...(geosRef.current[id] || {}), x, y })
+  }
+  const resize = (id, w, h) => {
+    setGeos((p) => ({ ...p, [id]: { ...p[id], w, h } }))
+    sendWindow?.(`term-${id}`, { ...(geosRef.current[id] || {}), w, h })
+  }
 
   const topZ = Math.max(0, ...Object.values(geos).map((g) => g.z))
 

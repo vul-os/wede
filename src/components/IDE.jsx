@@ -34,6 +34,7 @@ import ApiCollections from './ApiCollections'
 import { useApiClient } from '../hooks/useApiClient'
 import GitGraphView from './GitGraphView'
 import FloatingTerminals from './FloatingTerminals'
+import RemoteCursors from './RemoteCursors'
 import { useTerminals } from '../hooks/useTerminals'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
@@ -59,7 +60,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wede_activeTab') || null)
 
   // Collaboration presence: who else is in this workspace and what they're viewing.
-  const { roster: collabRoster, setViewing: setCollabViewing } = useCollab(workspaceId, token, username)
+  const { roster: collabRoster, setViewing: setCollabViewing, mice: collabMice, sendMouse, sendWindow, onWindow } = useCollab(workspaceId, token, username)
 
   // Built-in API client — shared between the sidebar collections and the editor tab.
   const apiClient = useApiClient(workspaceId, authFetch)
@@ -618,6 +619,16 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     : null
   const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
 
+  // Live multiplayer mouse cursors — broadcast my pointer (as viewport fractions)
+  // and render collaborators' pointers, when the setting is enabled.
+  const shareCursors = (editorSettings.shareCursors ?? true)
+  useEffect(() => {
+    if (!shareCursors) return undefined
+    const onMove = (e) => sendMouse(e.clientX / window.innerWidth, e.clientY / window.innerHeight)
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [shareCursors, sendMouse])
+
   const renderTabContent = () => {
     const editable = role !== 'viewer'
     if (!currentTab) {
@@ -1020,7 +1031,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {renderTabContent()}
               {/* Floating terminal windows overlay the editor area. */}
               {floatingTerminals && role !== 'viewer' && (
-                <FloatingTerminals token={token} workspaceId={workspaceId} term={terminalsApi} onDock={() => setFloatingTerminals(false)} />
+                <FloatingTerminals token={token} workspaceId={workspaceId} term={terminalsApi} onDock={() => setFloatingTerminals(false)}
+                  sendWindow={sendWindow} onWindow={onWindow} />
               )}
             </div>
           </div>
@@ -1083,6 +1095,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       {showShareModal && role === 'owner' && (
         <ShareModal authFetch={authFetch} onClose={() => setShowShareModal(false)} />
       )}
+
+      {/* Collaborators' live mouse cursors */}
+      {shareCursors && <RemoteCursors mice={collabMice} roster={collabRoster} />}
 
       {/* ── Status bar ── */}
       <div className="flex items-center justify-between px-1 h-6 bg-status-bar border-t border-border text-status-text text-[11px] font-medium shrink-0 select-none">

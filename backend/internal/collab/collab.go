@@ -83,6 +83,12 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		}
 		if file, line, ok := parseCursor(msg); ok {
 			h.hub.Update(id, file, line)
+			continue
+		}
+		// Ephemeral peer signals (mouse / window) are relayed to everyone else,
+		// tagged with the sender id so the client can attribute them via the roster.
+		if relayed, ok := tagRelay(id, msg); ok {
+			h.hub.RelayExcept(id, relayed)
 		}
 	}
 
@@ -132,4 +138,34 @@ func parseCursor(msg []byte) (file string, line int, ok bool) {
 		return "", 0, false
 	}
 	return in.File, in.Line, true
+}
+
+// tagRelay re-tags an ephemeral message (mouse/window) with the sender id so it
+// can be fanned out to peers. Returns ok=false for any other message type.
+func tagRelay(senderID string, msg []byte) ([]byte, bool) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(msg, &m); err != nil {
+		return nil, false
+	}
+	raw, ok := m["type"]
+	if !ok {
+		return nil, false
+	}
+	var t string
+	if err := json.Unmarshal(raw, &t); err != nil {
+		return nil, false
+	}
+	if t != "mouse" && t != "window" {
+		return nil, false
+	}
+	idBytes, err := json.Marshal(senderID)
+	if err != nil {
+		return nil, false
+	}
+	m["id"] = idBytes
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, false
+	}
+	return out, true
 }
