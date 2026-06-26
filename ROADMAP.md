@@ -219,8 +219,9 @@ No new user features — prove isolation.
 - [x] Merge-conflict resolver (Accept Current/Incoming/Both, resolve & stage,
       `ConflictRegions`/`ConflictResolve`) — already shipped
 - [x] Stash (save/pop/list/drop), discard, push/pull/fetch, remote add/remove — already shipped
-- ⏭️ Side-by-side diff, `git blame` gutter, 3-way merge view, cherry-pick/revert, stage-by-line
-      — DEFERRED: meaningful git UX is already covered; these are advanced polish, lower ROI
+- [ ] Side-by-side diff, `git blame` gutter, 3-way merge view, cherry-pick/revert, stage-by-line
+      — UN-DEFERRED (maintainer wants comprehensive git): now first-class in **Wave 12**
+      "Comprehensive git TOOLS" + "VS Code-grade git graph".
 
 ### Wave 7 — UI/UX polish + deferred items  🚧
 - [x] **Collab Settings toggle** — `Settings.jsx` "Collaborative editing" switch bound to
@@ -289,13 +290,26 @@ folders; "room"/"project" read as single-folder). Keep "room" as the backend ter
       a top-bar toggle to show/hide terminals.
 - [ ] **Resizable + collapsible sidebar:** drag the file-explorer/sidebar width; fully
       hide/collapse it and restore. (Persist per user.)
-- [ ] **Comprehensive cross-project search:** search across the whole workspace (and all roots);
-      richer results UI; jump-to-match.
+- [ ] **Comprehensive search (VS Code-grade):** across the whole workspace + all roots;
+      content search (ripgrep) AND a files-by-name filter; results grouped by file with
+      surrounding-line context + per-match highlight; click → open at exact line/col;
+      toggles for case-sensitive / whole-word / regex; include/exclude globs; replace-across-
+      files with preview + undo; result count + busy state; keyboard nav of results.
 - [ ] **Multi-root workspaces:** add multiple folders to one workspace/room — backend
       `Room.Roots[]` (files/git/search/tree span roots, path resolution per-root); UI to
       add/remove folders in the workspace switcher.
-- [ ] **VS Code-grade git graph:** show ALL branches with lanes, refs/tags, author/date —
-      overhaul GitPanel's graph to approximate the VS Code Git Graph extension.
+- [ ] **VS Code-grade git GRAPH (robust):** render the full commit DAG like the VS Code Git
+      Graph extension — ALL branches + remotes + tags + stashes, colored swim-lanes with
+      correct edge routing for merges/branches, HEAD highlighted, ref badges (local/remote/
+      tag) on each commit, author + relative date + short hash + subject per row; virtualized
+      for large histories; click a commit → details + changed files + diff; right-click →
+      checkout / branch from here / cherry-pick / revert / reset / copy hash; load-more paging.
+      Backend: extend `git.Log` to emit parents (for lane layout) + refs per commit.
+- [ ] **Comprehensive git TOOLS (un-deferred from Wave 6):** branch + tag management (create/
+      checkout/delete/merge/rename), `git blame` gutter with commit hover, side-by-side diff
+      view (toggle vs inline), stage by line (extend per-hunk), 3-way merge-conflict view +
+      conflict navigation, cherry-pick / revert / reset, richer remote + ahead/behind status,
+      fetch/pull/push with progress. Backend endpoints + Go tests for each; surface in GitPanel.
 - [ ] **Responsive + mobile-friendly:** every new surface (windowed terminals, resizable
       sidebar, graph, multi-root) degrades gracefully on small screens.
 - NOTE: large wave; sequence AFTER Waves 9/11 integrate (shares IDE.jsx). Split into slices:
@@ -495,3 +509,13 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   left as-is (ygo's term). Full check green; pushed to origin/feat/collab-ide (upstream set).
   WORKFLOW now: commit+push each green slice; NO backwards compat (remove legacy unscoped
   routes once frontend migrates in the unify wave).
+
+## Quality bar (maintainer, 2026-06-26)
+Everything must be **perfect, tested, and robust** before "done":
+- UI/UX right and consistent (the "Workspace" model; windowed terminals; resizable/collapsible
+  sidebar; responsive + mobile).
+- Git GRAPH + git TOOLS comprehensive and **like VS Code** (all branches/refs/tags, lanes,
+  blame, side-by-side diff, merge/cherry-pick/revert/reset, robust on large histories).
+- Search comprehensive (content + filename, context, regex/case/word, include/exclude,
+  replace-with-preview).
+- Extensive automated tests (frontend vitest + backend integration); no thin/minimal slices.
