@@ -524,3 +524,14 @@ Everything must be **perfect, tested, and robust** before "done":
 - Search comprehensive (content + filename, context, regex/case/word, include/exclude,
   replace-with-preview).
 - Extensive automated tests (frontend vitest + backend integration); no thin/minimal slices.
+
+## Finalization (run ONCE, when every wave is complete)
+1. `bash scripts/check.sh` + `go test ./... -cover` green; `npm run build:all` (rebuild binary).
+2. Redo all screenshots (light + dark, finished UI) per Wave 8.
+3. **Merge `feat/collab-ide` → `main`** (no backwards compat, so just fast-forward/merge the
+   finished work), `git push origin main`.
+4. **Delete the feature branches** (local + remote): `feat/collab-ide`, `testbranch`,
+   `vulos-rebrand-and-improvements`. Everything lives in `main`.
+5. Restart the local server (kill old `wede` on :9090, relaunch `./wede /tmp/wede-demo`).
+6. Post a prominent '✅ ALL WAVES COMPLETE' message (how to run + how to invite a user).
+NOTE: .claude/ and .cursor/ are scrubbed from history + gitignored — keep it that way.
