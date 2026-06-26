@@ -7,13 +7,29 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
-// sessionEntry holds a token's creation timestamp for idle-TTL enforcement.
+// sessionEntry holds a token's creation timestamp for idle-TTL enforcement and
+// the display username chosen at (or after) login, for collaboration presence.
 type sessionEntry struct {
 	CreatedAt time.Time `json:"created_at"`
+	Username  string    `json:"username,omitempty"`
+}
+
+// maxUsernameLen bounds a stored username.
+const maxUsernameLen = 32
+
+// sanitizeUsername trims and length-caps a chosen username. An empty result is
+// allowed; the presence layer substitutes a default ("anon").
+func sanitizeUsername(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > maxUsernameLen {
+		s = s[:maxUsernameLen]
+	}
+	return s
 }
 
 // SessionTTL is the idle lifetime of a session token (24 hours).
@@ -146,6 +162,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Password string `json:"password"`
+		Username string `json:"username"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -184,13 +201,58 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	token := make([]byte, 32)
 	rand.Read(token)
 	sessionToken := hex.EncodeToString(token)
-	h.sessions[sessionToken] = sessionEntry{CreatedAt: time.Now()}
+	username := sanitizeUsername(body.Username)
+	h.sessions[sessionToken] = sessionEntry{CreatedAt: time.Now(), Username: username}
 	h.pruneExpired()
 	h.saveSessions()
 
 	json.NewEncoder(w).Encode(map[string]string{
-		"token": sessionToken,
+		"token":    sessionToken,
+		"username": username,
 	})
+}
+
+// SetUsername updates the display username on the caller's session. Mounted
+// behind the auth middleware (POST /api/auth/username).
+func (h *Handler) SetUsername(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+
+	var body struct {
+		Username string `json:"username"`
+	}
+	json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck — empty body => empty name
+	name := sanitizeUsername(body.Username)
+
+	h.mu.Lock()
+	e, ok := h.sessions[token]
+	if ok {
+		e.Username = name
+		h.sessions[token] = e
+		h.saveSessions()
+	}
+	h.mu.Unlock()
+
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"username": name})
+}
+
+// Username returns the username for a valid session token, or "" if the token is
+// unknown/expired. Used by the collab layer to attribute presence.
+func (h *Handler) Username(token string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if e, ok := h.sessions[token]; ok && time.Since(e.CreatedAt) < SessionTTL {
+		return e.Username
+	}
+	return ""
 }
 
 // Logout revokes the caller's session token server-side.
@@ -219,11 +281,16 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	valid := h.validSession(token)
 	locked := h.locked
+	username := ""
+	if valid {
+		username = h.sessions[token].Username
+	}
 	h.mu.Unlock()
 
 	json.NewEncoder(w).Encode(map[string]any{
 		"authenticated": valid,
 		"locked":        locked,
+		"username":      username,
 	})
 }
 

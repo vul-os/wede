@@ -90,6 +90,7 @@ func main() {
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 	mux.HandleFunc("GET /api/auth/check", authHandler.Check)
 	mux.Handle("DELETE /api/auth/logout", authHandler.Middleware(http.HandlerFunc(authHandler.Logout)))
+	mux.Handle("POST /api/auth/username", authHandler.Middleware(http.HandlerFunc(authHandler.SetUsername)))
 
 	// Protected API routes
 	protected := http.NewServeMux()

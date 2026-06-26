@@ -119,7 +119,11 @@ No new user features — prove isolation.
       work meanwhile) — deferred polish; tracked under Wave 7
 
 ### Wave 2 — Identity & presence  🚧
-- [ ] Username at join; extend session record with `username`, `rooms[]`
+- [x] Username at join: `sessionEntry.Username` (backward-compatible), accepted on
+      `POST /api/auth/login`, returned from `GET /api/auth/check`, updatable via
+      `POST /api/auth/username`, `Username(token)` helper (5 auth tests). Frontend:
+      Login display-name field → `useAuth` stores `wede_username` + exposes `username`,
+      threaded to `IDE`. (`rooms[]` on session deferred — not needed yet)
 - [x] `internal/presence`: per-room hub, roster, join/leave/update events (transport-agnostic
       outbound channels); wired into `Room.Presence()` + torn down in `shutdown()`
 - [x] Single **collab WebSocket** `/api/rooms/{id}/collab` (`internal/collab`): auth-subprotocol
@@ -242,5 +246,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   (mirrors terminal), write-pump (roster + 30s ping) / read-pump (`parseCursor` →
   `Hub.Update`), prompt teardown via stop chan + `hub.Leave`. `Room.Collab()` (lazy, avoids
   mutex reentrancy) + `/api/rooms/{id}/collab` route. parseCursor table test; vet clean;
-  check green. Next: username-at-join (auth session record + /api/auth/check), then frontend
-  roster avatars + per-file presence dots.
+  check green.
+- 2026-06-26: Wave 2 slice 3 — username-at-join. Backend: `sessionEntry.Username`
+  (backward-compatible), login accepts + returns it, `/api/auth/check` echoes it,
+  `POST /api/auth/username` + `Username(token)` helper; 5 auth tests. Frontend: Login
+  display-name field, `useAuth` persists `wede_username` + exposes `username`, threaded to
+  `IDE`. Check green. Next: `useCollab` hook (open `/api/rooms/{id}/collab`, send cursor,
+  expose roster) + presence roster UI + per-file dots in FileExplorer.

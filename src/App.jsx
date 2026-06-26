@@ -9,7 +9,7 @@ import FolderPicker from './components/FolderPicker'
 import IDE from './components/IDE'
 
 function App() {
-  const { token, login, logout, error, locked, remaining, authFetch } = useAuth()
+  const { token, username, login, logout, error, locked, remaining, authFetch } = useAuth()
   const { theme, setTheme } = useTheme()
   const roomsApi = useRooms(token, authFetch)
   const [workspace, setWorkspace] = useState(null)
@@ -74,6 +74,7 @@ function App() {
       onWorkspaceChange={(path) => setWorkspace({ ...workspace, current: path, hasWorkspace: true })}
       roomId={roomsApi.activeRoomId}
       roomsApi={roomsApi}
+      username={username}
     />
   )
 }

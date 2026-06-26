@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Lock, AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { Lock, AlertTriangle, Eye, EyeOff, User } from 'lucide-react'
 import Logo from './Logo'
 
 export default function Login({ onLogin, error, locked, remaining }) {
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(() => localStorage.getItem('wede_username') || '')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -11,7 +12,7 @@ export default function Login({ onLogin, error, locked, remaining }) {
     e.preventDefault()
     if (locked || !password) return
     setLoading(true)
-    await onLogin(password)
+    await onLogin(password, username.trim())
     setLoading(false)
     setPassword('')
   }
@@ -44,6 +45,24 @@ export default function Login({ onLogin, error, locked, remaining }) {
             </div>
           ) : (
             <>
+              <div className="mb-4">
+                <label className="block text-[12px] font-semibold text-text-secondary mb-1.5 uppercase tracking-widest">
+                  Display name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-bg-input border border-border rounded-md pl-9 pr-3 py-2.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/15 transition-colors"
+                    placeholder="Your name (for collaboration)"
+                    maxLength={32}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
               <div className="mb-4">
                 <label className="block text-[12px] font-semibold text-text-secondary mb-1.5 uppercase tracking-widest">
                   Password
