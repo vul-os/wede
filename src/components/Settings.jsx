@@ -3,8 +3,9 @@ import { Moon, Sun, FolderOpen, Info, Minus, Plus, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 import TunnelSettings from './TunnelSettings'
+import WedeLocation from './WedeLocation'
 
-export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role }) {
+export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role, workspaceId }) {
   const { setTheme, isDark } = useTheme()
 
   // Close on Escape.
@@ -229,6 +230,13 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
             </button>
           </div>
         </div>
+
+        {/* Workspace data location (owner only) */}
+        {role === 'owner' && authFetch && workspaceId && (
+          <div>
+            <WedeLocation workspaceId={workspaceId} authFetch={authFetch} />
+          </div>
+        )}
 
         {/* Public access (owner only) */}
         {role === 'owner' && authFetch && (

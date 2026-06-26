@@ -24,6 +24,14 @@ const blankRequest = () => ({
   body: { type: 'none', content: '', form: [] },
 })
 
+// The server returns a saved request as a JSON object (RawMessage); tolerate a
+// string too in case of older/hand-written files.
+function parseReq(raw) {
+  if (!raw) return {}
+  if (typeof raw === 'object') return raw
+  try { return JSON.parse(raw) } catch { return {} }
+}
+
 function subst(str, vars) {
   return (str || '').replace(/\{\{([^}]+)\}\}/g, (_, k) => {
     const key = k.trim()
@@ -109,8 +117,7 @@ function TreeNode({ node, depth, onOpen, onDelete, readOnly, activePath }) {
       </div>
     )
   }
-  let m = 'GET'
-  try { m = JSON.parse(node.request || '{}').method || 'GET' } catch { /* ignore */ }
+  const m = parseReq(node.request).method || 'GET'
   return (
     <div className={`flex items-center gap-1.5 px-1 py-1 rounded cursor-pointer group ${activePath === node.path ? 'bg-bg-active' : 'hover:bg-bg-hover'}`}
       style={{ paddingLeft: depth * 12 + 16 }} onClick={() => onOpen(node)}>
@@ -175,7 +182,7 @@ export default function ApiClient({ workspaceId, authFetch, readOnly = false }) 
     }
     await authFetch(`${base}/item`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'request', path, request: JSON.stringify({ ...req, name: path.split('/').pop() }) }),
+      body: JSON.stringify({ type: 'request', path, request: { ...req, name: path.split('/').pop() } }),
     })
     load()
   }
@@ -191,12 +198,9 @@ export default function ApiClient({ workspaceId, authFetch, readOnly = false }) 
   }
 
   const openRequest = (node) => {
-    try {
-      const r = JSON.parse(node.request || '{}')
-      setReq({ ...blankRequest(), ...r })
-      setSavePath(node.path.replace(/\.json$/, ''))
-      setResp(null); setErr(null)
-    } catch { /* ignore */ }
+    setReq({ ...blankRequest(), ...parseReq(node.request) })
+    setSavePath(node.path.replace(/\.json$/, ''))
+    setResp(null); setErr(null)
   }
 
   const deleteItem = async (node) => {

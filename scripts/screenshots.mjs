@@ -100,7 +100,26 @@ function setupDemoWorkspaceGit() {
     '\n// rateLimiter stub — TODO: implement with golang.org/x/time/rate\nfunc rateLimiter(next http.HandlerFunc, _ int) http.HandlerFunc {\n\treturn next\n}\n',
   );
 
-  console.log('  demo-workspace ready (8 commits, feat/web merged, 1 unstaged change)');
+  // Seed saved API requests + an environment so the API-client demo is populated.
+  const reqDir = resolve(DEMO_WORKSPACE, '.wede', 'requests', 'Tasks');
+  mkdirSync(reqDir, { recursive: true });
+  writeFileSync(resolve(reqDir, 'list-tasks.json'), JSON.stringify({
+    name: 'list-tasks', method: 'GET', url: '{{base}}/api/tasks',
+    headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
+    params: [], auth: { type: 'none' }, body: { type: 'none' },
+  }, null, 2));
+  writeFileSync(resolve(reqDir, 'create-task.json'), JSON.stringify({
+    name: 'create-task', method: 'POST', url: '{{base}}/api/tasks',
+    headers: [], params: [], auth: { type: 'bearer', token: '{{token}}' },
+    body: { type: 'json', content: '{\n  "title": "Ship wede",\n  "priority": "high"\n}' },
+  }, null, 2));
+  const envDir = resolve(DEMO_WORKSPACE, '.wede', 'environments');
+  mkdirSync(envDir, { recursive: true });
+  writeFileSync(resolve(envDir, 'Local.json'), JSON.stringify({
+    name: 'Local', variables: { base: 'http://localhost:8080', token: 'dev-token' },
+  }, null, 2));
+
+  console.log('  demo-workspace ready (8 commits, feat/web merged, seeded API requests)');
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -433,6 +452,24 @@ async function run() {
     await sleep(900);
   }
   await shot(page, 'chat');
+
+  // ── 11. API client — Postman-style request + response ──────────────────────
+  console.log('Capturing: API client...');
+  await clickSidebar(/explorer/i); // move sidebar off chat so chat's "Send" unmounts
+  await sleep(300);
+  await clickSidebar(/api client/i); // top-bar "API Client (Postman-style)" button
+  await sleep(1200);
+  const apiUrl = page.locator('input[placeholder*="api.example" i]').first();
+  if (await apiUrl.count() > 0) {
+    await apiUrl.fill('https://api.github.com/repos/vul-os/wede');
+    await sleep(200);
+    const sendBtn = page.locator('button:has-text("Send")').first();
+    if (await sendBtn.count() > 0) {
+      await sendBtn.click({ timeout: 5000 }).catch(() => {});
+      await sleep(3500); // wait for the response
+    }
+  }
+  await shot(page, 'apiclient');
 
   await browser.close();
   stopWede();

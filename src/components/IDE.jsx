@@ -737,6 +737,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 onClose={() => setShowSettings(false)}
                 authFetch={authFetch}
                 role={role}
+                workspaceId={workspaceId}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}
@@ -967,6 +968,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 onClose={() => setShowSettings(false)}
                 authFetch={authFetch}
                 role={role}
+                workspaceId={workspaceId}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}

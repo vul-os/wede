@@ -42,14 +42,14 @@ One host serves many people: open multiple projects as **workspaces**, invite ot
 </tr>
 <tr>
 <td><img src="docs/screenshots/git_graph.png" alt="wede visual git commit graph with branches and merges" width="400"><br><em>Git commit graph — branches, merges &amp; refs</em></td>
+<td><img src="docs/screenshots/apiclient.png" alt="wede built-in Postman-style API client" width="400"><br><em>Built-in API client (Postman-style)</em></td>
+</tr>
+<tr>
 <td><img src="docs/screenshots/terminals.png" alt="wede multiple terminals per workspace" width="400"><br><em>Multiple terminals per workspace</em></td>
-</tr>
-<tr>
 <td><img src="docs/screenshots/chat.png" alt="wede live workspace chat with public and private channels" width="400"><br><em>Live chat — public &amp; private channels</em></td>
-<td><img src="docs/screenshots/search.png" alt="wede workspace search panel" width="400"><br><em>Comprehensive search (regex, globs, replace)</em></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/terminal.png" alt="wede terminal panel" width="400"><br><em>Full PTY terminal</em></td>
+<td><img src="docs/screenshots/search.png" alt="wede workspace search panel" width="400"><br><em>Comprehensive search (regex, globs, replace)</em></td>
 <td><img src="docs/screenshots/settings.png" alt="wede settings panel" width="400"><br><em>Settings — editor, LSP, themes, tunnel</em></td>
 </tr>
 <tr>
@@ -93,6 +93,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Git Client** | VS Code-grade: visual commit graph with branches &amp; merges, blame, side-by-side diff, staging + per-hunk staging, cherry-pick / revert / reset / merge, tags, branch management, push/pull/fetch, stash, merge-conflict resolution. |
 | **Comprehensive Search** | Workspace-wide search with regex, case &amp; whole-word toggles, include/exclude globs, context lines, and a filename mode — plus search &amp; replace across files. |
 | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
+| **API Client** | Postman-style HTTP client: methods, params, headers, auth (bearer/basic/api-key), JSON/form/raw bodies, environments with `{{variables}}`, and a server-side send (no CORS). Requests are saved as files under `.wede/requests/` — committable and shareable. |
 | **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Supports gopls, typescript-language-server, pylsp, rust-analyzer. |
 | **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python. |
 | **Image & Binary Preview** | Images render inline with a checkerboard background; other binary files show a size notice instead of garbled editor content. |
