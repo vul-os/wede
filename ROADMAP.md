@@ -138,13 +138,15 @@ No new user features — prove isolation.
       dots + viewer-name tooltip on each file row)
 - [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
 
-### Wave 3 — Shared terminal  ⬜
-- [ ] `terminal.Hub` per room: one PTY, N subscribers, output fan-out
-- [ ] Multi-writer input + "X is typing"; optional soft driver-lock
-- [ ] Resize policy (fixed / smallest-client-wins) + UI dims affordance
-- [ ] Late-joiner scrollback replay (reuse 64 KB buffer)
-- [ ] Tests: two clients same output; input interleaving; reconnect replay
-- [ ] Frontend: shared indicator + participant list per terminal
+### Wave 3 — Shared terminal  🚧
+- [x] One PTY, N subscribers, **output fan-out** (`session.subs` set; `broadcast` snapshots
+      under lock then writes outside it; dead subs pruned). Per-room already via `Room.Terminal()`.
+- [x] **Multi-writer input** — any subscriber writes to the pty (serialized via `s.pmu`)
+- [x] **Resize policy**: last-writer-wins on the shared pty (documented in HandleWS)
+- [x] **Late-joiner scrollback replay** — every (re)joining subscriber gets the 64 KB buffer
+- [x] Tests: subscriber set add/remove, ring-buffer tail+copy; race-clean (`go test -race`)
+- [ ] "X is typing" indicator / optional soft driver-lock (deferred — frontend slice)
+- [ ] Frontend: shared indicator + participant list per terminal (next slice)
 
 ### Wave 4 — Collaborative editing (ygo)  ⬜
 - [ ] Add `reearth/ygo`; verify wire round-trip vs pinned `yjs`
@@ -266,3 +268,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   as `presenceMap`; colored dots + tooltips per file row). Tidied a stale eslint-disable;
   lint fully clean. **Wave 2 COMPLETE** — the app is now visibly collaborative (roster +
   who-views-what). Next: Wave 3 — shared terminal (terminal.Hub output fan-out to N subscribers).
+- 2026-06-26: Wave 3 slice 1 — shared terminal backend. Converted a session from one active
+  conn to a subscriber SET: pty output fans out to all (`broadcast` snapshots subs under the
+  lock, writes outside it, prunes dead); every (re)joining viewer replays the 64KB scrollback;
+  any viewer can type (pty writes serialized via `s.pmu`); resize is last-writer-wins. Added
+  subscriber-set + ring-buffer tests; `go test -race` clean; full check green. Existing
+  single-user terminal still works (one subscriber). Next: frontend shared indicator +
+  participant list, then "X is typing".

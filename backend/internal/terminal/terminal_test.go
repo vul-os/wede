@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,6 +77,66 @@ func TestCheckOrigin(t *testing.T) {
 				t.Errorf("checkOrigin(origin=%q, host=%q) = %v, want %v", tt.origin, tt.host, got, tt.want)
 			}
 		})
+	}
+}
+
+// newTestSession builds a session with no pty/cmd, sufficient for exercising the
+// subscriber-set bookkeeping (which never dereferences conns).
+func newTestSession() *session {
+	return &session{
+		subs: make(map[*subscriber]struct{}),
+		buf:  newRingBuffer(8),
+		done: make(chan struct{}),
+	}
+}
+
+func TestSubscriberSetAddRemove(t *testing.T) {
+	s := newTestSession()
+	if s.subCount() != 0 {
+		t.Fatalf("new session subCount = %d, want 0", s.subCount())
+	}
+
+	a := s.addSub(nil)
+	b := s.addSub(nil)
+	if s.subCount() != 2 {
+		t.Fatalf("after 2 adds subCount = %d, want 2", s.subCount())
+	}
+	if a == b {
+		t.Fatal("addSub returned the same subscriber twice")
+	}
+
+	s.removeSub(a)
+	if s.subCount() != 1 {
+		t.Fatalf("after remove subCount = %d, want 1", s.subCount())
+	}
+	// Removing an already-removed subscriber is a no-op.
+	s.removeSub(a)
+	if s.subCount() != 1 {
+		t.Fatalf("double remove changed count: %d, want 1", s.subCount())
+	}
+
+	s.removeSub(b)
+	if s.subCount() != 0 {
+		t.Fatalf("after removing all subCount = %d, want 0", s.subCount())
+	}
+}
+
+func TestRingBufferRetainsTail(t *testing.T) {
+	rb := newRingBuffer(4)
+	rb.Write([]byte("ab"))
+	if got := rb.Bytes(); !bytes.Equal(got, []byte("ab")) {
+		t.Errorf("after 'ab' Bytes = %q, want ab", got)
+	}
+	// Overflow: only the last 4 bytes are retained.
+	rb.Write([]byte("cdef"))
+	if got := rb.Bytes(); !bytes.Equal(got, []byte("cdef")) {
+		t.Errorf("after overflow Bytes = %q, want cdef", got)
+	}
+	// Bytes returns a copy — mutating it must not corrupt the buffer.
+	out := rb.Bytes()
+	out[0] = 'X'
+	if got := rb.Bytes(); !bytes.Equal(got, []byte("cdef")) {
+		t.Errorf("Bytes did not return an independent copy: %q", got)
 	}
 }
 
