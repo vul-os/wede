@@ -150,7 +150,7 @@ No new user features — prove isolation.
 - [ ] "shared • N viewers" indicator + "X is typing" (needs a terminal-WS control message
       for the viewer count) — deferred to Wave 7 polish
 
-### Wave 4 — Collaborative editing (ygo)  🚧
+### Wave 4 — Collaborative editing (ygo)  ✅ implemented end-to-end; collab gated OFF pending live verification
 - [x] Add `reearth/ygo` (v1.29.0, pure-Go); `internal/collabdoc` smoke tests prove the API
       (`crdt.New`/`GetText`/`Transact`/`Insert`/`ToString`) **and** an encode-update →
       apply-to-fresh-doc round-trip (the basis of server↔client sync). NOTE: ygo ships a
@@ -177,9 +177,14 @@ No new user features — prove isolation.
       room=`b64urlPath(path)` (UTF-8-safe, matches Go RawURLEncoding), `params:{token}`,
       awareness user{name,color}; exposes `ytext`/`provider`/`awareness`; defensive + disposes
       on unmount/file change. (not integrated into Editor yet)
-- [ ] Integrate `yCollab` from `y-codemirror.next` into `Editor.jsx` for the active file
-      (collab owns text → skip prop-seeded initial content); remote cursors/selections
-- [ ] Tests: two-client convergence; external-edit reconciliation; reconnect
+- [x] Integrate `yCollab` into `Editor.jsx`: when `collab.ytext`+awareness present, yCollab
+      owns the doc (seeded from Y.Text, not the prop), remote cursors via awareness; Editor
+      skips onChange (so IDE never auto-saves/marks-modified) + content-sync; Mod-s no-op.
+      IDE calls `useYDoc` for the active text file, stable per-user color. **Gated OFF by
+      default** (`editorSettings.collab ?? false`) pending live WS verification — see note.
+- [ ] LIVE-VERIFY the doc WS round-trip (provider connect + sync + write-back) against a
+      running server, then default collab ON + add a Settings toggle (Wave 7)
+- [ ] Tests: two-client convergence; external-edit reconciliation; reconnect (needs live/integration harness)
 
 ### Wave 5 — VS Code parity (mostly polish on existing)  ⬜
 - [ ] Quick Open `Cmd+P` fuzzy file finder
@@ -338,3 +343,12 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   on unmount/file change; fully defensive (nulls when inactive). `b64urlPath` is UTF-8-safe
   and matches Go RawURLEncoding. Not integrated into Editor yet. Check green. Next: yCollab
   in Editor.jsx.
+- 2026-06-26: Wave 4 frontend slice C — yCollab integrated into Editor.jsx. When collab is
+  active, yCollab owns the doc (seeded from Y.Text), remote cursors via awareness; Editor
+  skips onChange/content-sync/Mod-s so IDE's REST auto-save never fights the CRDT write-back
+  (tab never becomes "modified" → manual save also no-ops naturally). IDE calls `useYDoc` for
+  the active text file. **Wave 4 is implemented end-to-end but collab is gated OFF by default**
+  (`editorSettings.collab ?? false`) because the loop can't runtime-test the WS round-trip and
+  a failed connect would hide on-disk content; opt-in via the setting. Non-collab editing is
+  byte-for-byte unchanged. Live verification + default-on + Settings toggle deferred to Wave 7.
+  Check green.

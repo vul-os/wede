@@ -22,6 +22,15 @@ import CommandPalette from './CommandPalette'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 import { useCollab } from '../hooks/useCollab'
+import { useYDoc } from '../hooks/useYDoc'
+
+// colorFromName derives a stable per-user color for collaboration cursors.
+const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
+function colorFromName(name) {
+  let h = 0
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
+  return COLLAB_PALETTE[Math.abs(h) % COLLAB_PALETTE.length]
+}
 
 let browserIdCounter = 0
 
@@ -513,6 +522,19 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     lspEnabled: editorSettings.lsp ?? true,
   })
 
+  // Collaborative editing for the active text file (CRDT via the doc WS).
+  // Gated on a room + a text file (no browser/image/binary) and the `collab`
+  // setting. DEFAULT OFF: the full path (provider connect + y-protocols sync +
+  // disk write-back) hasn't been verified against a live server yet, and a failed
+  // connection would hide on-disk content. Opt in via editorSettings.collab=true;
+  // a Settings toggle + live verification land in Wave 7. Single-user editing is
+  // the safe default and is completely unaffected when this is off.
+  const collabEnabled = (editorSettings.collab ?? false)
+  const collabPath = (collabEnabled && currentTab && currentTab.type !== 'browser' && currentTab.fileType == null)
+    ? currentTab.path
+    : null
+  const collab = useYDoc({ roomId, path: collabPath, token, username, color: colorFromName(username) })
+
   const renderTabContent = () => {
     if (!currentTab) {
       return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} settings={editorSettings} />
@@ -545,6 +567,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         settings={editorSettings}
         lspExtension={lspExtension}
         onRegisterActions={handleRegisterEditorActions}
+        collab={collab}
       />
     )
   }

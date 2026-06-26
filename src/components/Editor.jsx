@@ -14,6 +14,8 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { showMinimap } from '@replit/codemirror-minimap'
+import * as Y from 'yjs'
+import { yCollab } from 'y-codemirror.next'
 import { useTheme } from '../hooks/useTheme'
 import { Code } from 'lucide-react'
 
@@ -126,7 +128,7 @@ function GoToLineWidget({ viewRef, onClose }) {
   )
 }
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions }) {
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions, collab = null }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
@@ -169,9 +171,22 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
 
     const minimapEnabled = settings.minimap ?? false
 
+    // Collaboration: when a synced Y.Text + awareness are provided, yCollab owns
+    // the document text (binds CodeMirror <-> Y.Text and renders remote cursors).
+    // The doc is seeded from the Y.Text (empty until the provider syncs, then the
+    // server's disk-backed content); we must NOT also seed from the `content`
+    // prop or the editor would double-insert.
+    const yt = collab?.ytext
+    const aw = collab?.awareness
+    const collabOn = !!(yt && aw)
+    const collabExt = collabOn
+      ? [yCollab(yt, aw, { undoManager: new Y.UndoManager(yt) })]
+      : []
+
     const state = EditorState.create({
-      doc: content || '',
+      doc: collabOn ? yt.toString() : (content || ''),
       extensions: [
+        ...collabExt,
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightActiveLine(),
@@ -202,11 +217,15 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
           ...searchKeymap, ...historyKeymap, indentWithTab,
         ]),
         keymap.of([
-          { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
+          // When collab owns the doc, the backend CRDT write-back persists edits;
+          // a manual REST save would fight it, so Mod-s is a no-op here.
+          { key: 'Mod-s', run: () => { if (!collabOn) onSaveRef.current?.(); return true } },
           { key: 'Ctrl-g', run: () => { setShowGoToLine(true); return true } },
         ]),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) onChangeRef.current?.(update.state.doc.toString())
+          // Skip onChange under collab so IDE never marks the tab modified or
+          // triggers its debounced REST auto-save (the doc WS handles sync+persist).
+          if (!collabOn && update.docChanged) onChangeRef.current?.(update.state.doc.toString())
           if (update.selectionSet || update.docChanged) {
             const pos = update.state.selection.main.head
             const line = update.state.doc.lineAt(pos)
@@ -223,7 +242,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     const view = new EditorView({ state, parent: containerRef.current })
     viewRef.current = view
     return () => view.destroy()
-  }, [file?.path]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [file?.path, collab?.ytext]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live theme switch (dark ↔ light).
   useEffect(() => {
@@ -275,14 +294,17 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
   }, [lspExtension])
 
   // Sync external content changes (e.g. auto-save feedback or file reload).
+  // Disabled under collab: yCollab owns the document, so pushing the `content`
+  // prop here would clobber the synced text.
   useEffect(() => {
+    if (collab?.ytext) return
     const view = viewRef.current
     if (!view) return
     const current = view.state.doc.toString()
     if (content !== undefined && content !== current) {
       view.dispatch({ changes: { from: 0, to: current.length, insert: content || '' } })
     }
-  }, [content])
+  }, [content, collab?.ytext])
 
   // Scroll to a specific line (used by search result navigation).
   useEffect(() => {
