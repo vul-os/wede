@@ -550,3 +550,30 @@ working on the repo can read it.
       differently), input, live updates; mount as a sidebar tab or panel.
 - [ ] `.wede/chat.md` is committable in the USER's repo (NOT gitignored there) so agents see it.
 - [ ] Tests: hub append/replay/broadcast; chat.md format round-trip; git-activity dedup.
+
+### Wave 14 — Security audit & hardening  ⬜  (run AFTER all features, BEFORE Finalization)
+A dedicated adversarial pass over the FINISHED surface (not just Wave 9):
+- [ ] Auth/session/token: constant-time compares, hashed-at-rest, expiry, revocation, redemption
+      lockout, no token leakage in logs/URLs (prefer cookie/subprotocol); role checks on EVERY
+      mutating/terminal/collab-doc/chat route (no gaps).
+- [ ] Path safety: per-workspace `safePath` confinement + `~/.wede` deny-list across files/search/
+      chat/collab-doc; multi-root traversal; symlink escape.
+- [ ] Command-exec surfaces: git arg-injection (`--` guards), terminal/PTY, search (ripgrep args),
+      blame/cherry-pick/etc — fuzz/validate inputs.
+- [ ] WS origin checks on every socket (terminal/lsp/collab/doc/chat); CSP/security headers.
+- [ ] Dependency vulns: `npm audit` + `govulncheck ./...`; address criticals.
+- [ ] Chat/`.wede/chat.md`: no injection via message content; size caps.
+- [ ] Document the security model + residual risks in docs/COLLABORATION.md. Add tests for fixes.
+- [ ] Consider running this as an adversarial multi-agent review (findings → verify → fix).
+
+### Wave 15 — UI/UX audit & deep visual polish  ⬜  (make it look amazing; run near the end)
+Comprehensive design pass — deep CSS/Tailwind, cohesive + beautiful:
+- [ ] Design tokens: refine color palette, spacing scale, typography rhythm, radii, shadows,
+      elevation; full **dark (Midnight) + light (Daylight) parity** and contrast (a11y AA).
+- [ ] Cohesive styling across ALL surfaces incl. the new ones: chat, share modal, git graph,
+      search, windowed terminals, workspace switcher, presence — consistent components.
+- [ ] Micro-interactions: smooth transitions, hover/focus states, loading/empty/error states,
+      toasts, subtle animation (respect prefers-reduced-motion).
+- [ ] Polished top bar / sidebar / panels; refined icons; empty-workspace + first-run delight.
+- [ ] Accessibility: focus rings, ARIA labels, keyboard nav throughout.
+- [ ] Fully responsive + mobile-friendly. Verify both themes look amazing via screenshots (Wave 8).
