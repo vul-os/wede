@@ -156,9 +156,12 @@ No new user features — prove isolation.
       apply-to-fresh-doc round-trip (the basis of server↔client sync). NOTE: ygo ships a
       `provider/websocket` server speaking y-protocols sync+awareness — candidate to reuse
       instead of hand-rolling the protocol.
-- [ ] `internal/collab` `DocStore`: one server-authoritative `Y.Doc` per open file
-- [ ] Sync handshake + awareness over collab WS
-- [ ] Open → seed doc from disk; edit → observe `YText` → debounced write to disk
+- [x] `internal/collabdoc.DocStore`: server-authoritative `crdt.Doc` per open file (keyed by
+      room-relative path), seed-on-open, `Text`/`Encode`/`ApplyUpdate`/`Close`; 6 unit tests
+      incl. peer convergence. Wired into `Room.Docs()` (lazy) + torn down in `shutdown()`.
+- [ ] Sync handshake + awareness over collab WS (reuse ygo `provider/websocket` —
+      `Server` + `PersistenceAdapter` LoadDoc seeds from disk, StoreUpdate persists)
+- [ ] Open → seed doc from disk (via `PersistenceAdapter.LoadDoc`); edit → debounced write to disk
 - [ ] Reconcile: watcher detects external change → re-seed as CRDT update (cursors survive) + UX
 - [ ] Doc persistence under `~/.wede/rooms/{id}/docs/`; flush-on-last-disconnect
 - [ ] Frontend: `y-codemirror.next`; remote cursors/selections with names
@@ -290,5 +293,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   cgo). New `internal/collabdoc` with 2 smoke tests: Doc/GetText/Transact/Insert/ToString,
   and EncodeStateAsUpdateV1 → ApplyUpdateV1 round-trip (fresh doc converges). go.mod at repo
   root. Discovered ygo's `provider/websocket` does the full y-protocols sync+awareness server
-  — strong candidate to reuse for the collab WS doc channel. Check green. Next: DocStore
-  (Doc per open file, seeded from disk).
+  — strong candidate to reuse for the collab WS doc channel. Check green.
+- 2026-06-26: Wave 4 slice 2 — `collabdoc.DocStore`: server-authoritative `crdt.Doc` per open
+  file (seed-on-open, Text/Encode/ApplyUpdate/Close, single-mutex serialized). 6 unit tests
+  incl. encode→apply peer convergence. Wired `Room.Docs()` (lazy) + CloseAll on shutdown.
+  Explored ygo `provider/websocket`: `Server` + `PersistenceAdapter{LoadDoc,StoreUpdate}` is
+  the seam — LoadDoc seeds from disk, StoreUpdate persists; mount next slice. Check green.

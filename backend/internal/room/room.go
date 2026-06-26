@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"wede/backend/internal/collab"
+	"wede/backend/internal/collabdoc"
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
@@ -51,6 +52,7 @@ type Room struct {
 	lsp      *lsp.Handler
 	presence *presence.Hub
 	collab   *collab.Handler
+	docs     *collabdoc.DocStore
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -146,6 +148,17 @@ func (r *Room) Collab() *collab.Handler {
 	return r.collab
 }
 
+// Docs returns this room's collaborative document store (server-authoritative
+// CRDT doc per open file), lazily created on first use.
+func (r *Room) Docs() *collabdoc.DocStore {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.docs == nil {
+		r.docs = collabdoc.NewDocStore()
+	}
+	return r.docs
+}
+
 // shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
 func (r *Room) shutdown() {
 	r.mu.Lock()
@@ -165,6 +178,10 @@ func (r *Room) shutdown() {
 	if r.presence != nil {
 		r.presence.Close()
 		r.presence = nil
+	}
+	if r.docs != nil {
+		r.docs.CloseAll()
+		r.docs = nil
 	}
 }
 
