@@ -4,8 +4,8 @@
 
 # wede
 
-**A lightweight, open-source, self-hosted web IDE.**<br>
-**Code editor, terminal, git, and file explorer — all in your browser.**
+**A self-hosted, collaborative web IDE in a single Go binary.**<br>
+**Real-time multi-user editing, shared terminals, VS Code-grade git, and chat — all in your browser.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
@@ -25,9 +25,9 @@
 
 ## Overview
 
-wede is a single ~10 MB Go binary that serves a full web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser.
+wede is a single ~10 MB Go binary that serves a full **collaborative** web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser, alone or with your whole team.
 
-It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
+One host serves many people: open multiple projects as **workspaces**, invite others with **share links**, edit the same files with **multiplayer cursors**, share the same **terminals**, and talk in per-workspace **chat** — all with no accounts and no external services. It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
 
 [Website](https://wede.vulos.org/) · [Quick start](#quick-start) · [Docs](#documentation) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
@@ -41,16 +41,20 @@ It runs standalone or embedded as a first-class app in the [Vulos OS](https://vu
 <td><img src="docs/screenshots/git.png" alt="wede git panel with diff" width="400"><br><em>Git panel — staging with inline diff</em></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/git_graph.png" alt="wede visual git commit graph" width="400"><br><em>Git commit graph (SVG DAG)</em></td>
-<td><img src="docs/screenshots/terminal.png" alt="wede terminal panel" width="400"><br><em>Full PTY terminal</em></td>
+<td><img src="docs/screenshots/git_graph.png" alt="wede visual git commit graph with branches and merges" width="400"><br><em>Git commit graph — branches, merges &amp; refs</em></td>
+<td><img src="docs/screenshots/terminals.png" alt="wede multiple terminals per workspace" width="400"><br><em>Multiple terminals per workspace</em></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/search.png" alt="wede workspace search panel" width="400"><br><em>Workspace search + replace</em></td>
-<td><img src="docs/screenshots/settings.png" alt="wede settings panel" width="400"><br><em>Settings — editor, LSP, themes</em></td>
+<td><img src="docs/screenshots/chat.png" alt="wede live workspace chat with public and private channels" width="400"><br><em>Live chat — public &amp; private channels</em></td>
+<td><img src="docs/screenshots/search.png" alt="wede workspace search panel" width="400"><br><em>Comprehensive search (regex, globs, replace)</em></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/terminal.png" alt="wede terminal panel" width="400"><br><em>Full PTY terminal</em></td>
+<td><img src="docs/screenshots/settings.png" alt="wede settings panel" width="400"><br><em>Settings — editor, LSP, themes, tunnel</em></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/command_palette.png" alt="wede command palette" width="400"><br><em>Command palette (Ctrl+Shift+P)</em></td>
-<td><img src="docs/screenshots/browser.png" alt="wede built-in browser preview showing wikipedia.org" width="400"><br><em>Built-in browser preview (wikipedia.org)</em></td>
+<td><img src="docs/screenshots/browser.png" alt="wede built-in browser preview showing wikipedia.org" width="400"><br><em>Built-in browser preview</em></td>
 </tr>
 </table>
 
@@ -58,17 +62,36 @@ See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the full gallery and how to r
 
 ---
 
+## Collaboration
+
+wede turns one machine into a shared workspace for your whole team — no accounts, no cloud, no external services.
+
+- **Share links + roles** — the owner mints invite links (`?invite=…`) scoped to a role: **editor** (full access, including terminals) or **viewer** (read-only — no terminal, file writes, or git mutations). Tokens are hashed at rest and compared in constant time; the owner can list and revoke them anytime.
+- **Workspaces** — open multiple independent projects on one host and switch between them from the top bar. Everyone connected sees the same set of workspaces.
+- **Multiplayer presence & cursors** — see who else is in a workspace and which file they're viewing, with live cursors. Collaborative editing is CRDT-backed (pure-Go [reearth/ygo](https://github.com/reearth/ygo), Yjs-compatible).
+- **Shared terminals** — everyone in a workspace shares the same PTY sessions: open a terminal and your teammates see the same output in real time.
+- **Workspace chat** — per-workspace chat with two channels: **public** (committed to `.wede/chat.md` so the repo — and any LLM working on it — can read the conversation) and **private** (stored in `.wede/private/`, which wede auto-gitignores). Git activity (commits, uncommitted-change counts) is posted into the chat automatically.
+- **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* [frp](https://github.com/fatedier/frp) relay (owner-only). wede detects `frpc`, generates its config, runs it, and shows the live public URL — no inbound ports or static IP needed.
+
+---
+
 ## Features
 
 | Feature | Description |
 |---------|-------------|
+| **Real-time Collaboration** | Multi-user editing with multiplayer cursors and presence ("who's viewing what"), CRDT-backed via pure-Go reearth/ygo (Yjs-compatible). |
+| **Workspaces** | Open multiple independent projects on one host and switch between them; everyone connected shares the same set. |
+| **Share Links + Roles** | Owner mints invite links scoped to **editor** (full) or **viewer** (read-only) roles. Tokens hashed at rest, constant-time compare, listable and revocable. |
+| **Workspace Chat** | Per-workspace chat with **public** (committed `.wede/chat.md`, LLM-readable) and **private** (auto-gitignored) channels, plus automatic git-activity messages. |
+| **Public Tunnel (frp)** | One-click expose wede to the internet via your own frp relay (owner-only) — auto-detects `frpc`, generates config, shows the live URL. No inbound ports or static IP. |
 | **File Explorer** | VS Code-style project tree with git status colours. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
 | **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
 | **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
 | **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Replace across files. Results grouped by file; click to jump to exact line. |
 | **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
-| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. Multiple tabs. Run shell commands, SSH, Docker — anything. |
-| **Git Client** | Visual commit graph (SVG DAG), staging area, per-hunk staging, branch management, git push/pull/fetch, create branch, stash, merge-conflict resolution. |
+| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. **Multiple terminals per workspace**, shared live with collaborators. Run shell commands, SSH, Docker — anything. |
+| **Git Client** | VS Code-grade: visual commit graph with branches &amp; merges, blame, side-by-side diff, staging + per-hunk staging, cherry-pick / revert / reset / merge, tags, branch management, push/pull/fetch, stash, merge-conflict resolution. |
+| **Comprehensive Search** | Workspace-wide search with regex, case &amp; whole-word toggles, include/exclude globs, context lines, and a filename mode — plus search &amp; replace across files. |
 | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
 | **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Supports gopls, typescript-language-server, pylsp, rust-analyzer. |
 | **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python. |
@@ -76,7 +99,7 @@ See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the full gallery and how to r
 | **Editor Settings** | Font size, tab width, word wrap, minimap, auto-save — all live-applied without reopening files, persisted to `localStorage`. |
 | **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes with Space Grotesk / Inter / JetBrains Mono font stack. |
 | **Mobile Friendly** | Fully responsive UI for tablets and phones. |
-| **Secure Access** | Password authentication with 3-attempt lockout (persisted across restarts). Session TTL, server-side logout, WS token in subprotocol (not URL). |
+| **Secure Access** | Owner password with 3-attempt lockout (persisted across restarts). Per-user share tokens with viewer/editor roles, hashed at rest + constant-time compare. Session TTL, server-side logout, WebSocket token in subprotocol (not URL), WS origin checks. |
 | **Single binary** | Go embeds the entire frontend — one ~10 MB file to deploy anywhere. |
 
 ---
@@ -227,9 +250,10 @@ Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`) befor
 
 <br>
 
-<sub>wede is a free, open-source, self-hosted web IDE and remote development environment.<br>
+<sub>wede is a free, open-source, self-hosted <strong>collaborative</strong> web IDE and remote development environment.<br>
 Built as an alternative to code-server, VS Code Server, Gitpod, and GitHub Codespaces.<br>
-Keywords: web IDE, self-hosted IDE, browser code editor, remote development, online terminal,<br>
-git client, open source IDE, developer tools, Go web server, single binary IDE.</sub>
+Keywords: collaborative web IDE, self-hosted IDE, real-time pair programming, multiplayer code editor,<br>
+shared terminal, browser code editor, remote development, online terminal, git client,<br>
+open source IDE, developer tools, Go web server, single binary IDE.</sub>
 
 </div>
