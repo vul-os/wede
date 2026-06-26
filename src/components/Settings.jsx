@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { Moon, Sun, FolderOpen, Info, Minus, Plus, X } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
+import TunnelSettings from './TunnelSettings'
 
-export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable }) {
+export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role }) {
   const { setTheme, isDark } = useTheme()
 
   // Close on Escape.
@@ -228,6 +229,13 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
             </button>
           </div>
         </div>
+
+        {/* Public access (owner only) */}
+        {role === 'owner' && authFetch && (
+          <div>
+            <TunnelSettings authFetch={authFetch} />
+          </div>
+        )}
 
         {/* About */}
         <div>

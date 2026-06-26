@@ -714,6 +714,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div className="h-full animate-fade-in">
               <Settings
                 onClose={() => setShowSettings(false)}
+                authFetch={authFetch}
+                role={role}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}
@@ -937,6 +939,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div style={{ width: settingsWidth }} className="shrink-0 border-l border-border bg-bg-secondary">
               <Settings
                 onClose={() => setShowSettings(false)}
+                authFetch={authFetch}
+                role={role}
                 visible
                 onOpenFolder={() => setShowFolderPicker(true)}
                 workspace={workspace}

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
@@ -13,6 +15,7 @@ import (
 	"wede/backend/internal/git"
 	"wede/backend/internal/workspace"
 	"wede/backend/internal/search"
+	"wede/backend/internal/tunnel"
 	"wede/backend/internal/folder"
 )
 
@@ -80,6 +83,7 @@ func main() {
 	defaultWorkspace := wsMgr.Register("default", rootFolder)
 
 	authHandler := auth.New(cfg.Password)
+	tunnelMgr := tunnel.New(cfg.Port) // optional frp public tunnel (owner-only)
 	fileHandler := files.New(rootFolder)
 	gitHandler := git.New(rootFolder)
 	searchHandler := search.New(rootFolder)
@@ -103,6 +107,14 @@ func main() {
 	protected.Handle("POST /api/auth/tokens", ro(http.HandlerFunc(authHandler.HandleMintToken)))
 	protected.Handle("GET /api/auth/tokens", ro(http.HandlerFunc(authHandler.HandleListTokens)))
 	protected.Handle("DELETE /api/auth/tokens/{id}", ro(http.HandlerFunc(authHandler.HandleRevokeToken)))
+
+	// Public-tunnel (frp) management — owner-only. Lets an owner expose a
+	// loopback-bound wede via their own frps relay; wede auto-detects frpc,
+	// generates its config, runs it, and reports the live public URL.
+	protected.Handle("GET /api/tunnel", ro(http.HandlerFunc(tunnelMgr.HandleGet)))
+	protected.Handle("PUT /api/tunnel/config", ro(http.HandlerFunc(tunnelMgr.HandleSetConfig)))
+	protected.Handle("POST /api/tunnel/start", ro(http.HandlerFunc(tunnelMgr.HandleStart)))
+	protected.Handle("POST /api/tunnel/stop", ro(http.HandlerFunc(tunnelMgr.HandleStop)))
 
 	protected.HandleFunc("GET /api/folder", rootFolder.HandleGet)
 	protected.HandleFunc("POST /api/folder/open", rootFolder.HandleOpen)
@@ -268,6 +280,16 @@ func main() {
 	if len(os.Args) == 1 {
 		log.Printf("tip: run with a path to open directly: ./wede /path/to/project")
 	}
+
+	// Stop the frp tunnel on shutdown so we don't leave a public tunnel open to
+	// a dead local port.
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+		<-sig
+		tunnelMgr.Close()
+		os.Exit(0)
+	}()
 
 	if err := http.ListenAndServe(addr, securityHeaders(cfg, mux)); err != nil {
 		log.Fatal(err)
