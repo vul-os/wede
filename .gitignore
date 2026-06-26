@@ -17,3 +17,6 @@ wede.config.json
 # Local AI tool config (never commit)
 .claude/
 .cursor/
+
+# screenshotter runtime artifacts in the demo workspace
+scripts/demo-workspace/.wede/
