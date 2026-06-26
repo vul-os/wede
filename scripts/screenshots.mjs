@@ -323,15 +323,25 @@ async function run() {
 
   // ── 6. Terminal panel — show a real command ───────────────────────────────
   console.log('Capturing: terminal...');
-  // Terminal is already docked at the bottom; click into it and run a command
-  // (do NOT toggle the terminal button — that would hide it).
-  const termArea = page.locator('.xterm-screen, .xterm').first();
+  // Show the file tree in the sidebar (cleaner than a blank search panel),
+  // then focus the terminal and run a command that produces visible output.
+  // (Do NOT toggle the terminal button — that would hide the panel.)
+  await clickSidebar(/explorer/i);
+  await sleep(400);
+  // Wait for the shell prompt to render (PTY connected) before typing.
+  await page.waitForFunction(() => {
+    const r = document.querySelector('.xterm-rows');
+    return r && r.textContent && r.textContent.trim().length > 0;
+  }, { timeout: 8000 }).catch(() => {});
+  const termArea = page.locator('.xterm').first();
   if (await termArea.count() > 0) {
-    await termArea.click().catch(() => {});
-    await sleep(300);
-    await page.keyboard.type('git log --oneline -5');
+    await termArea.click({ force: true }).catch(() => {});
+    // xterm routes keystrokes through a hidden textarea; focus it explicitly.
+    await page.locator('.xterm-helper-textarea').focus().catch(() => {});
+    await sleep(400);
+    await page.keyboard.type('git log --oneline -5', { delay: 30 });
     await page.keyboard.press('Enter');
-    await sleep(1000);
+    await sleep(1800);
   }
   await shot(page, 'terminal');
 

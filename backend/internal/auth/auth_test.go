@@ -15,6 +15,7 @@ func newTestHandler(t *testing.T) *Handler {
 	h := New("secret")
 	h.dataDir = t.TempDir()
 	h.sessions = make(map[string]sessionEntry) // discard anything loaded from home
+	h.tokens = make(map[string]shareToken)     // isolate from real ~/.wede/tokens.json
 	h.attempts = 0
 	h.locked = false
 	return h

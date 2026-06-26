@@ -349,6 +349,17 @@ func (h *Handler) Middleware(next http.Handler) http.Handler {
 		if token == "" {
 			token = r.URL.Query().Get("token")
 		}
+		// WebSocket clients (terminal) can't set headers, so they pass the token
+		// as an "auth.<token>" subprotocol in Sec-WebSocket-Protocol. Read it here
+		// so the token never appears in URLs or access logs.
+		if token == "" {
+			for _, p := range strings.Split(r.Header.Get("Sec-WebSocket-Protocol"), ",") {
+				if p = strings.TrimSpace(p); strings.HasPrefix(p, "auth.") {
+					token = strings.TrimPrefix(p, "auth.")
+					break
+				}
+			}
+		}
 
 		h.mu.Lock()
 		valid := h.validSession(token)
