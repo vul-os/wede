@@ -535,3 +535,18 @@ Everything must be **perfect, tested, and robust** before "done":
 5. Restart the local server (kill old `wede` on :9090, relaunch `./wede /tmp/wede-demo`).
 6. Post a prominent '✅ ALL WAVES COMPLETE' message (how to run + how to invite a user).
 NOTE: .claude/ and .cursor/ are scrubbed from history + gitignored — keep it that way.
+
+### Wave 13 — Workspace chat (live + file-backed + git activity)  ⬜  (requested 2026-06-26)
+A simple per-workspace chat that is BOTH live and persisted as a committed file so an LLM
+working on the repo can read it.
+- [ ] Backend `internal/chat`: per-workspace hub (live WS broadcast) that appends every
+      message to `<workspaceRoot>/.wede/chat.md` (human/LLM-readable markdown, parseable
+      line format) and replays history on connect. WS at `/api/workspaces/{id}/chat`
+      (auth via ?token=, like the others; username from the session). `Workspace.Chat()`
+      lazy + torn down in shutdown.
+- [ ] **Git activity in chat:** a poller posts SYSTEM messages on git events — commits
+      (📦 hash + subject) and uncommitted-change-count changes (✏️ N files) — debounced.
+- [ ] Frontend `Chat.jsx` + `useChat.js`: message list (user vs system/git styled
+      differently), input, live updates; mount as a sidebar tab or panel.
+- [ ] `.wede/chat.md` is committable in the USER's repo (NOT gitignored there) so agents see it.
+- [ ] Tests: hub append/replay/broadcast; chat.md format round-trip; git-activity dedup.
