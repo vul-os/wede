@@ -262,6 +262,46 @@ contained tier is **viewer**. Owner password stays in `wede.config.json` (bootst
 - [ ] Tests: unauthorized → 401; viewer → 403 on terminal/write/git-mutate; revoked/expired
       token rejected; constant-time path; deny-list blocks `~/.wede` reads.
 
+### Wave 11 — Unify projects & rooms (nameable)  ⬜  (UX gap found in local testing 2026-06-26)
+"Project" (RoomSwitcher UI) == "Room" (backend) — one concept. Today the migration is
+half-done: the switcher sets `activeRoomId` which only drives collab, while files/git/
+terminal/search/watch still use legacy (default-room) routes, and "Open Folder" changes a
+global workspace behind the switcher's back. Result: switching a project doesn't change the
+content, and the project list doesn't update on folder change. Finish the migration:
+- [ ] **Active room drives everything (frontend):** thread `roomsApi.activeRoomId` into
+      FileExplorer, Editor/IDE file ops, GitPanel, Terminal (already), SearchPanel, and the
+      file-watch SSE; route via `roomUrl(roomId, …)` (legacy fallback only when no room).
+- [ ] **Unify "Open Folder" → "New / Open Project":** opening a folder creates or switches a
+      room (named); the switcher refreshes immediately (fixes "doesn't update on folder change").
+- [ ] **Rename + close projects:** backend rename endpoint (`POST /api/rooms/{id}/rename`
+      {name}, +room-scoped) + inline rename + close in `RoomSwitcher`; Go test.
+- [ ] **Switching a project** re-renders the tree/editor/git/terminal against the new room.
+- [ ] Tests: rename endpoint; switching rooms changes the served root (integration);
+      frontend: switcher reflects create/rename/folder-open.
+
+### Wave 12 — UI/UX expansion: windowing, multi-root, VS Code-grade git, mobile  ⬜  (requested 2026-06-26 during local testing)
+**Naming:** user-facing container = **Workspace** (recommended — it can hold multiple
+folders; "room"/"project" read as single-folder). Keep "room" as the backend term; surface
+"Workspace" in the UI. (Confirm with maintainer.)
+- [ ] **Terminals as movable windows:** keep the default bottom dock, but add an OS-window
+      mode — each terminal can float / drag-reposition / resize, with per-user placement;
+      a focus/maximize mode where one terminal fills the page and the rest go to background;
+      a top-bar toggle to show/hide terminals.
+- [ ] **Resizable + collapsible sidebar:** drag the file-explorer/sidebar width; fully
+      hide/collapse it and restore. (Persist per user.)
+- [ ] **Comprehensive cross-project search:** search across the whole workspace (and all roots);
+      richer results UI; jump-to-match.
+- [ ] **Multi-root workspaces:** add multiple folders to one workspace/room — backend
+      `Room.Roots[]` (files/git/search/tree span roots, path resolution per-root); UI to
+      add/remove folders in the workspace switcher.
+- [ ] **VS Code-grade git graph:** show ALL branches with lanes, refs/tags, author/date —
+      overhaul GitPanel's graph to approximate the VS Code Git Graph extension.
+- [ ] **Responsive + mobile-friendly:** every new surface (windowed terminals, resizable
+      sidebar, graph, multi-root) degrades gracefully on small screens.
+- NOTE: large wave; sequence AFTER Waves 9/11 integrate (shares IDE.jsx). Split into slices:
+  sidebar resize/collapse → terminal windowing → multi-root backend → cross-project search →
+  git graph overhaul → mobile pass. Keep `make check` green each slice.
+
 ### Wave 10 — Test coverage hardening  ⬜  (mandate: extensive testing, 2026-06-26)
 Tests are the safety net the autonomous loop can't replace with runtime checks.
 - [ ] **Frontend test runner:** add `vitest` + jsdom; `npm test` script; wire `vitest run`
