@@ -21,7 +21,9 @@ import (
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
+	"wede/backend/internal/lsp"
 	"wede/backend/internal/search"
+	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
 )
 
@@ -35,11 +37,16 @@ type Room struct {
 
 	ws *workspace.Manager
 
-	mu      sync.Mutex
-	files   *files.Handler
-	git     *git.Handler
-	search  *search.Handler
-	watcher *filewatcher.Handler
+	// frameAncestors is threaded into the terminal/lsp WebSocket origin checks.
+	frameAncestors string
+
+	mu       sync.Mutex
+	files    *files.Handler
+	git      *git.Handler
+	search   *search.Handler
+	watcher  *filewatcher.Handler
+	terminal *terminal.Handler
+	lsp      *lsp.Handler
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -90,6 +97,28 @@ func (r *Room) Watcher() *filewatcher.Handler {
 	return r.watcher
 }
 
+// Terminal returns this room's terminal handler (shared PTY sessions), lazily
+// constructed and bound to the room's root.
+func (r *Room) Terminal() *terminal.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.terminal == nil {
+		r.terminal = terminal.New(r.ws, r.frameAncestors)
+	}
+	return r.terminal
+}
+
+// LSP returns this room's language-server proxy, lazily constructed and bound to
+// the room's root.
+func (r *Room) LSP() *lsp.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.lsp == nil {
+		r.lsp = lsp.New(r.ws, r.frameAncestors)
+	}
+	return r.lsp
+}
+
 // shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
 func (r *Room) shutdown() {
 	r.mu.Lock()
@@ -98,18 +127,29 @@ func (r *Room) shutdown() {
 		r.watcher.Close()
 		r.watcher = nil
 	}
+	if r.terminal != nil {
+		r.terminal.Close()
+		r.terminal = nil
+	}
+	if r.lsp != nil {
+		r.lsp.Close()
+		r.lsp = nil
+	}
 }
 
 // Manager owns the set of live rooms. Safe for concurrent use.
 type Manager struct {
-	mu    sync.RWMutex
-	rooms map[string]*Room
-	order []string // preserves creation order for stable listing
+	mu             sync.RWMutex
+	rooms          map[string]*Room
+	order          []string // preserves creation order for stable listing
+	frameAncestors string   // threaded into per-room terminal/lsp origin checks
 }
 
-// NewManager returns an empty RoomManager.
-func NewManager() *Manager {
-	return &Manager{rooms: make(map[string]*Room)}
+// NewManager returns an empty RoomManager. frameAncestors mirrors the
+// frame_ancestors config and is passed to each room's terminal/lsp handlers for
+// WebSocket origin checking.
+func NewManager(frameAncestors string) *Manager {
+	return &Manager{rooms: make(map[string]*Room), frameAncestors: frameAncestors}
 }
 
 func newID() string {
@@ -136,7 +176,7 @@ func (m *Manager) Register(name string, ws *workspace.Manager) *Room {
 	if name == "" {
 		name = filepath.Base(ws.Current())
 	}
-	r := &Room{ID: newID(), Name: name, ws: ws}
+	r := &Room{ID: newID(), Name: name, ws: ws, frameAncestors: m.frameAncestors}
 	m.register(r)
 	return r
 }
@@ -163,7 +203,7 @@ func (m *Manager) Create(name, root string) (*Room, error) {
 	if name == "" {
 		name = filepath.Base(abs)
 	}
-	r := &Room{ID: newID(), Name: name, ws: ws}
+	r := &Room{ID: newID(), Name: name, ws: ws, frameAncestors: m.frameAncestors}
 	m.register(r)
 	return r, nil
 }

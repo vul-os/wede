@@ -172,6 +172,29 @@ func New(ws WorkspaceProvider, allowedOrigins string) *Handler {
 	return h
 }
 
+// Close terminates every terminal session owned by this handler — closing the
+// active websocket, the PTY, and killing the shell process. Called when the
+// owning room is closed.
+func (h *Handler) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id, s := range h.sessions {
+		s.mu.Lock()
+		if s.conn != nil {
+			s.conn.Close()
+		}
+		if s.ptmx != nil {
+			s.ptmx.Close()
+		}
+		if s.cmd != nil && s.cmd.Process != nil {
+			s.cmd.Process.Kill() //nolint:errcheck
+		}
+		s.closed = true
+		s.mu.Unlock()
+		delete(h.sessions, id)
+	}
+}
+
 func (h *Handler) getOrCreateSession(id string) (*session, bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

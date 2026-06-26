@@ -11,10 +11,8 @@ import (
 	"wede/backend/internal/config"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
-	"wede/backend/internal/lsp"
 	"wede/backend/internal/room"
 	"wede/backend/internal/search"
-	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
 )
 
@@ -78,15 +76,13 @@ func main() {
 	// Room registry: the multi-project backbone. The boot workspace is adopted
 	// as the default room so the solo-user case works with zero setup; additional
 	// projects can be opened as further rooms via /api/rooms.
-	roomMgr := room.NewManager()
+	roomMgr := room.NewManager(cfg.FrameAncestors)
 	defaultRoom := roomMgr.Register("default", ws)
 
 	authHandler := auth.New(cfg.Password)
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
-	termHandler := terminal.New(ws, cfg.FrameAncestors)
 	searchHandler := search.New(ws)
-	lspHandler := lsp.New(ws, cfg.FrameAncestors)
 
 	mux := http.NewServeMux()
 
@@ -154,6 +150,11 @@ func main() {
 	protected.HandleFunc("POST /api/rooms/{id}/search/replace", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplaceApply }))
 	// file-watch SSE (one fsnotify watcher per room)
 	protected.HandleFunc("GET /api/rooms/{id}/watch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Watcher().HandleSSE }))
+	// terminal (shared PTY sessions per room) + lsp (language servers per room)
+	protected.HandleFunc("GET /api/rooms/{id}/terminal/sessions", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().ListSessions }))
+	protected.HandleFunc("GET /api/rooms/{id}/terminal", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().HandleWS }))
+	protected.HandleFunc("GET /api/rooms/{id}/lsp/available", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleAvailable }))
+	protected.HandleFunc("GET /api/rooms/{id}/lsp", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleWS }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
@@ -196,11 +197,11 @@ func main() {
 
 	protected.HandleFunc("GET /api/watch", defaultRoom.Watcher().HandleSSE)
 
-	protected.HandleFunc("GET /api/terminal/sessions", termHandler.ListSessions)
-	protected.HandleFunc("GET /api/terminal", termHandler.HandleWS)
+	protected.HandleFunc("GET /api/terminal/sessions", defaultRoom.Terminal().ListSessions)
+	protected.HandleFunc("GET /api/terminal", defaultRoom.Terminal().HandleWS)
 
-	protected.HandleFunc("GET /api/lsp/available", lspHandler.HandleAvailable)
-	protected.HandleFunc("GET /api/lsp", lspHandler.HandleWS)
+	protected.HandleFunc("GET /api/lsp/available", defaultRoom.LSP().HandleAvailable)
+	protected.HandleFunc("GET /api/lsp", defaultRoom.LSP().HandleWS)
 
 	mux.Handle("/api/", authHandler.Middleware(protected))
 

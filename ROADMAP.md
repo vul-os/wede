@@ -100,9 +100,10 @@ No new user features — prove isolation.
       as the "default" room (solo-user case, zero setup)
 - [x] `internal/files` room-scoped — `Room.Files()` lazily binds a handler to the room's ws
 - [x] `internal/git`, `internal/search` room-scoped (`Room.Git()`, `Room.Search()`)
-- [x] `internal/filewatcher` one-per-room (`Room.Watcher()`, lazy) + `filewatcher.Close()`;
-      `internal/terminal`, `internal/lsp` room-scoping pending
-- [x] Path-scope routes: `/api/rooms/{id}/files|git|search|watch` (via `Manager.Scoped`)
+- [x] `internal/filewatcher` one-per-room (`Room.Watcher()`, lazy) + `filewatcher.Close()`
+- [x] `internal/terminal`, `internal/lsp` room-scoped (`Room.Terminal()`, `Room.LSP()`,
+      lazy) + `Close()` on each; `frameAncestors` threaded via `NewManager(...)`
+- [x] Path-scope routes: `/api/rooms/{id}/files|git|search|watch|terminal|lsp` (via `Manager.Scoped`)
 - [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
 - [x] Teardown on close: `Room.shutdown()` closes the watcher via `Manager.Close`;
       lazy start-on-first-use done. Member-driven start + grace-period teardown pending (Wave 2)
@@ -211,4 +212,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
 - 2026-06-26: Wave 1 slice 3 — filewatcher per-room: `Room.Watcher()` (lazy) + new
   `filewatcher.Close()`; `Room.shutdown()`/`Manager.Close` tear it down. Legacy `/api/watch`
   + new `/api/rooms/{id}/watch` both route through room watchers; standalone watcher removed.
-  7 room tests green; check green. Next: scope terminal + lsp per-room (thread frameAncestors).
+  7 room tests green; check green.
+- 2026-06-26: Wave 1 slice 4 — terminal + lsp per-room: added `terminal.Close()` /
+  `lsp.Close()` (extracted from their OnChange teardown); `Room.Terminal()`/`Room.LSP()`
+  (lazy), `frameAncestors` threaded via `NewManager(fa)`; `Room.shutdown()` reaps PTYs +
+  language servers. Legacy /api/terminal,/api/lsp + new room-scoped routes both flow
+  through the default room; standalone term/lsp handlers removed. Check green. **Backend
+  room-scoping complete.** Next: room-scoped safePath confinement, then Wave 1 frontend.

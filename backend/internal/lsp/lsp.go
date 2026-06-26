@@ -125,6 +125,17 @@ func AvailableServers() map[string]string {
 	return out
 }
 
+// Close kills every language server process owned by this handler. Called when
+// the owning room is closed.
+func (h *Handler) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for k, p := range h.servers {
+		p.kill()
+		delete(h.servers, k)
+	}
+}
+
 // HandleAvailable returns a JSON object listing installed language servers.
 // GET /api/lsp/available
 func (h *Handler) HandleAvailable(w http.ResponseWriter, _ *http.Request) {

@@ -12,7 +12,7 @@ func TestCreateAndIsolation(t *testing.T) {
 	dirA := t.TempDir()
 	dirB := t.TempDir()
 
-	m := NewManager()
+	m := NewManager("")
 	a, err := m.Create("alpha", dirA)
 	if err != nil {
 		t.Fatalf("create alpha: %v", err)
@@ -42,14 +42,14 @@ func TestCreateAndIsolation(t *testing.T) {
 }
 
 func TestCreateRejectsBadPath(t *testing.T) {
-	m := NewManager()
+	m := NewManager("")
 	if _, err := m.Create("x", "/no/such/path/wede-test"); err == nil {
 		t.Fatal("expected error for non-existent path")
 	}
 }
 
 func TestGetListClose(t *testing.T) {
-	m := NewManager()
+	m := NewManager("")
 	r1, _ := m.Create("one", t.TempDir())
 	r2, _ := m.Create("two", t.TempDir())
 
@@ -80,7 +80,7 @@ func TestGetListClose(t *testing.T) {
 }
 
 func TestLazyHandlersAreStable(t *testing.T) {
-	m := NewManager()
+	m := NewManager("")
 	r, _ := m.Create("x", t.TempDir())
 
 	if r.Files() != r.Files() {
@@ -92,10 +92,16 @@ func TestLazyHandlersAreStable(t *testing.T) {
 	if r.Search() != r.Search() {
 		t.Error("Search() should return a stable instance")
 	}
+	if r.Terminal() != r.Terminal() {
+		t.Error("Terminal() should return a stable instance")
+	}
+	if r.LSP() != r.LSP() {
+		t.Error("LSP() should return a stable instance")
+	}
 }
 
 func TestWatcherLifecycle(t *testing.T) {
-	m := NewManager()
+	m := NewManager("")
 	r, _ := m.Create("x", t.TempDir())
 
 	w := r.Watcher()
@@ -106,8 +112,13 @@ func TestWatcherLifecycle(t *testing.T) {
 		t.Error("Watcher() should return a stable instance")
 	}
 
-	// Close tears the room down (incl. its watcher) without panicking, and the
-	// room is gone from the manager afterward.
+	// Bring up terminal + lsp handlers (no PTY/process spawned until a WS
+	// connects) so Close exercises their teardown paths too.
+	_ = r.Terminal()
+	_ = r.LSP()
+
+	// Close tears the room down (watcher + terminal + lsp) without panicking,
+	// and the room is gone from the manager afterward.
 	if !m.Close(r.ID) {
 		t.Fatal("Close returned false")
 	}
@@ -117,7 +128,7 @@ func TestWatcherLifecycle(t *testing.T) {
 }
 
 func TestScopedDispatch(t *testing.T) {
-	m := NewManager()
+	m := NewManager("")
 	r, _ := m.Create("x", t.TempDir())
 
 	called := false
@@ -160,7 +171,7 @@ func TestScopedDispatch(t *testing.T) {
 func TestRegisterAdoptsWorkspace(t *testing.T) {
 	dir := t.TempDir()
 	ws := workspace.New(dir)
-	m := NewManager()
+	m := NewManager("")
 	r := m.Register("seeded", ws)
 
 	if r.Root() != ws.Current() {
