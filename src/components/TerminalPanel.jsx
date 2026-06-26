@@ -1,101 +1,19 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Plus, X, TerminalSquare, Maximize2, Minimize2 } from 'lucide-react'
+import { Plus, X, TerminalSquare, Maximize2, Minimize2, PictureInPicture2 } from 'lucide-react'
 import Terminal from './Terminal'
 import TerminalToolbar from './TerminalToolbar'
 import { useTheme } from '../hooks/useTheme'
-import { workspaceUrl } from '../api'
 
-function loadTerminals() {
-  try {
-    const saved = localStorage.getItem('wede_terminals')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    }
-  } catch { /* ignore */ }
-  return null
-}
-
-function saveTerminals(terminals, activeId) {
-  try {
-    localStorage.setItem('wede_terminals', JSON.stringify(terminals))
-    localStorage.setItem('wede_terminal_active', String(activeId))
-  } catch { /* ignore */ }
-}
-
-let nextId = (() => {
-  const saved = loadTerminals()
-  if (saved) return Math.max(...saved.map(t => t.id)) + 1
-  return 1
-})()
-
-export default function TerminalPanel({ token, authFetch, workspaceId, visible, isFullscreen, onToggleFullscreen, isMobile }) {
+// TerminalPanel — the docked, tabbed terminal panel. Terminal state lives in the
+// shared useTerminals hook (passed in as `term`) so it stays in sync with the
+// floating window manager.
+export default function TerminalPanel({ token, workspaceId, term, visible, isFullscreen, onToggleFullscreen, onPopOut, isMobile }) {
   const { terminalTheme } = useTheme()
-  const [terminals, setTerminals] = useState(() => {
-    const saved = loadTerminals()
-    return saved || [{ id: nextId++, name: 'Terminal 1' }]
-  })
-  const [activeId, setActiveId] = useState(() => {
-    const saved = localStorage.getItem('wede_terminal_active')
-    return saved ? Number(saved) : terminals[0]?.id || 1
-  })
-  const reconciledRef = useRef(false)
-  const termRefs = useRef({})
+  const { terminals, activeId, setActiveId, addTerminal, closeTerminal, termRefs } = term
 
-  // Reconcile with server sessions on mount
-  useEffect(() => {
-    if (reconciledRef.current || !authFetch) return
-    reconciledRef.current = true
-
-    authFetch(workspaceId ? workspaceUrl(workspaceId, '/terminal/sessions') : '/api/terminal/sessions')
-      .then(res => res.json())
-      .then(data => {
-        const serverSessions = new Set(data.sessions || [])
-        if (serverSessions.size === 0) return
-
-        setTerminals(prev => {
-          const alive = prev.filter(t => serverSessions.has(`term-${t.id}`))
-          const knownIds = new Set(prev.map(t => `term-${t.id}`))
-          const orphans = [...serverSessions]
-            .filter(s => s.startsWith('term-') && !knownIds.has(s))
-            .map(s => {
-              const id = Number(s.replace('term-', ''))
-              if (id > nextId) nextId = id + 1
-              return { id, name: `Terminal ${id}` }
-            })
-          if (alive.length > 0 || orphans.length > 0) return [...alive, ...orphans]
-          return prev
-        })
-      })
-      .catch(() => {})
-  }, [authFetch, workspaceId])
-
-  useEffect(() => { saveTerminals(terminals, activeId) }, [terminals, activeId])
-
-  const addTerminal = useCallback(() => {
-    const id = nextId++
-    setTerminals((prev) => [...prev, { id, name: `Terminal ${id}` }])
-    setActiveId(id)
-  }, [])
-
-  const closeTerminal = useCallback((id) => {
-    setTerminals((prev) => {
-      const next = prev.filter((t) => t.id !== id)
-      if (next.length === 0) {
-        const newId = nextId++
-        next.push({ id: newId, name: `Terminal ${newId}` })
-        setActiveId(newId)
-      } else if (activeId === id) {
-        setActiveId(next[next.length - 1].id)
-      }
-      return next
-    })
-  }, [activeId])
-
-  const handleToolbarSend = useCallback((data) => {
+  const handleToolbarSend = (data) => {
     const ref = termRefs.current[activeId]
     if (ref) ref.send(data)
-  }, [activeId])
+  }
 
   if (!visible) return null
 
@@ -143,6 +61,15 @@ export default function TerminalPanel({ token, authFetch, workspaceId, visible, 
           </button>
         </div>
 
+        {onPopOut && (
+          <button
+            onClick={onPopOut}
+            className="p-1.5 mx-0.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors shrink-0"
+            title="Open terminals as floating windows"
+          >
+            <PictureInPicture2 className="w-3.5 h-3.5" />
+          </button>
+        )}
         {onToggleFullscreen && (
           <button
             onClick={onToggleFullscreen}

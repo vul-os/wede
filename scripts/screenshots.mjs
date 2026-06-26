@@ -406,6 +406,17 @@ async function run() {
   }
   await shot(page, 'terminals');
 
+  // ── 6c. Floating terminal windows ──────────────────────────────────────────
+  console.log('Capturing: floating terminals...');
+  const popOut = page.locator('button[title="Open terminals as floating windows"]').first();
+  if (await popOut.count() > 0) {
+    await popOut.click();
+    await sleep(1600); // windows mount + PTYs reconnect
+    await shot(page, 'terminals_floating');
+    const dockBtn = page.getByText('Dock', { exact: true }).first();
+    if (await dockBtn.count() > 0) { await dockBtn.click(); await sleep(600); }
+  }
+
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
   let settingsOpened = await clickSidebar(/settings/i);

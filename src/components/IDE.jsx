@@ -33,6 +33,8 @@ import ApiClient from './ApiClient'
 import ApiCollections from './ApiCollections'
 import { useApiClient } from '../hooks/useApiClient'
 import GitGraphView from './GitGraphView'
+import FloatingTerminals from './FloatingTerminals'
+import { useTerminals } from '../hooks/useTerminals'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -61,6 +63,10 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // Built-in API client — shared between the sidebar collections and the editor tab.
   const apiClient = useApiClient(workspaceId, authFetch)
+
+  // Terminal sessions — shared between the docked panel and the floating windows.
+  const terminalsApi = useTerminals(authFetch, workspaceId)
+  const [floatingTerminals, setFloatingTerminals] = useState(false)
   useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
@@ -769,7 +775,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           )}
           {role !== 'viewer' && (
             <div className={termFullscreen ? 'fixed inset-0 z-50' : 'absolute inset-0 z-10'} style={{ display: mobilePanel === 'terminal' ? 'block' : 'none' }}>
-              <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={mobilePanel === 'terminal'}
+              <TerminalPanel key={terminalKey} token={token} workspaceId={workspaceId} term={terminalsApi} visible={mobilePanel === 'terminal'}
                 isFullscreen={termFullscreen} onToggleFullscreen={() => setTermFullscreen(!termFullscreen)} isMobile />
             </div>
           )}
@@ -961,6 +967,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             active={sidebarTab === 'api' && showSidebar}
             onClick={() => { toggleSidebarTab('api'); openApiClient() }}
           />
+          {role !== 'viewer' && (
+            <ActivityBtn
+              icon={TerminalSquare}
+              title={floatingTerminals ? 'Dock terminals' : 'Float terminals as windows'}
+              active={floatingTerminals}
+              onClick={() => setFloatingTerminals((v) => !v)}
+            />
+          )}
         </div>
 
         {/* Sidebar */}
@@ -1001,14 +1015,21 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             {currentTab && currentTab.type !== 'browser' && currentTab.type !== 'apiclient' && currentTab.type !== 'gitgraph' && currentTab.fileType == null && (
               <Breadcrumbs path={currentTab.path} />
             )}
-            <div className="flex-1 min-h-0">{renderTabContent()}</div>
+            <div className="flex-1 min-h-0 relative">
+              {renderTabContent()}
+              {/* Floating terminal windows overlay the editor area. */}
+              {floatingTerminals && role !== 'viewer' && (
+                <FloatingTerminals token={token} workspaceId={workspaceId} term={terminalsApi} onDock={() => setFloatingTerminals(false)} />
+              )}
+            </div>
           </div>
 
-          {showTerminal && role !== 'viewer' && (
+          {showTerminal && !floatingTerminals && role !== 'viewer' && (
             <>
               <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
               <div style={{ height: terminalHeight }} className="shrink-0">
-                <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={showTerminal} />
+                <TerminalPanel key={terminalKey} token={token} workspaceId={workspaceId} term={terminalsApi} visible={showTerminal}
+                  onPopOut={() => setFloatingTerminals(true)} />
               </div>
             </>
           )}
