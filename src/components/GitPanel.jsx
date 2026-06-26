@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   GitBranch, Plus, Minus, RefreshCw, Check,
-  ChevronDown, ChevronRight, Copy, GitCommit,
+  ChevronDown, ChevronRight, ChevronLeft, Copy, GitCommit,
   GitMerge, Clock, User, Hash, Upload, Download, CloudDownload,
   AlertCircle, X, Trash2, Eye, EyeOff, Package,
   Tag, RotateCcw, Scissors, Columns, AlignLeft, ArrowRightLeft,
@@ -1283,9 +1283,6 @@ const LOG_PAGE_SIZE = 50
 
 export default function GitPanel({ authFetch, visible, readOnly = false, onOpenGraph }) {
   const [status, setStatus]     = useState({ branch: '', files: [], isRepo: true })
-  const [log, setLog]           = useState([])
-  const [logCount, setLogCount] = useState(LOG_PAGE_SIZE)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [branches, setBranches] = useState([])
   const [remotes, setRemotes]   = useState([])
   const [stashes, setStashes]   = useState([])
@@ -1308,41 +1305,30 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
     setToast({ message, type })
   }, [])
 
-  const refresh = useCallback(async (quiet = false, count = null) => {
+  const refresh = useCallback(async (quiet = false) => {
     if (!visible) return
     if (!quiet) setRefreshing(true)
-    const n = count ?? logCount
     try {
-      const [sRes, lRes, bRes, rRes, stRes] = await Promise.all([
+      const [sRes, bRes, rRes, stRes] = await Promise.all([
         authFetch('/api/git/status'),
-        authFetch(`/api/git/log?count=${n}`),
         authFetch('/api/git/branches'),
         authFetch('/api/git/remotes'),
         authFetch('/api/git/stash'),
       ])
-      const [sData, lData, bData, rData, stData] = await Promise.all([
-        sRes.json(), lRes.json(), bRes.json(), rRes.json(), stRes.json(),
+      const [sData, bData, rData, stData] = await Promise.all([
+        sRes.json(), bRes.json(), rRes.json(), stRes.json(),
       ])
       setStatus(sData)
-      setLog(lData.entries || [])
       setBranches(bData.branches || [])
       setRemotes(rData.remotes || [])
       setStashes(stData.stashes || [])
     } catch { /* ignore */ }
     setRefreshing(false)
-  }, [authFetch, visible, logCount])
+  }, [authFetch, visible])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { refresh(true) }, [refresh])
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  const handleLoadMore = async () => {
-    const next = logCount + LOG_PAGE_SIZE
-    setLoadingMore(true)
-    setLogCount(next)
-    await refresh(true, next)
-    setLoadingMore(false)
-  }
 
   const handleStage   = async (path) => {
     if (readOnly) return
@@ -1431,75 +1417,6 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
     setMergingBranch(null)
   }
 
-  const handleCommitAction = async (action, hash, extra) => {
-    if (readOnly) return
-    switch (action) {
-      case 'checkout': {
-        const res = await authFetch('/api/git/checkout', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ branch: hash }),
-        })
-        const data = await res.json()
-        if (data.error) showToast(data.error, 'error')
-        else refresh(true)
-        break
-      }
-      case 'branchHere': {
-        const name = extra
-        const res = await authFetch('/api/git/branch', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, checkout: true }),
-        })
-        const data = await res.json()
-        if (data.error) showToast(data.error, 'error')
-        else { showToast(`Switched to new branch "${name}"`, 'success'); refresh(true) }
-        break
-      }
-      case 'cherryPick': {
-        const res = await authFetch('/api/git/cherry-pick', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hash }),
-        })
-        const data = await res.json()
-        if (data.error) showToast('Cherry-pick failed: ' + data.error, 'error')
-        else { showToast('Cherry-picked ' + hash.slice(0, 7), 'success'); refresh(true) }
-        break
-      }
-      case 'revert': {
-        const res = await authFetch('/api/git/revert', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hash }),
-        })
-        const data = await res.json()
-        if (data.error) showToast('Revert failed: ' + data.error, 'error')
-        else { showToast('Reverted ' + hash.slice(0, 7), 'success'); refresh(true) }
-        break
-      }
-      case 'resetSoft': {
-        const res = await authFetch('/api/git/reset', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hash, mode: 'soft' }),
-        })
-        const data = await res.json()
-        if (data.error) showToast('Reset failed: ' + data.error, 'error')
-        else { showToast('Soft reset to ' + hash.slice(0, 7), 'success'); refresh(true) }
-        break
-      }
-      case 'resetHard': {
-        if (!window.confirm('Hard reset? Uncommitted changes will be lost.')) break
-        const res = await authFetch('/api/git/reset', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hash, mode: 'hard' }),
-        })
-        const data = await res.json()
-        if (data.error) showToast('Reset failed: ' + data.error, 'error')
-        else { showToast('Hard reset to ' + hash.slice(0, 7), 'success'); refresh(true) }
-        break
-      }
-      default:
-        break
-    }
-  }
 
   const runRemoteOp = async (op) => {
     if (readOnly) return
@@ -1592,7 +1509,6 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
   const conflicted = status.files?.filter((f) => f.conflicted) || []
   const staged     = status.files?.filter((f) => f.staged && !f.conflicted)  || []
   const unstaged   = status.files?.filter((f) => !f.staged && !f.conflicted) || []
-  const totalChanges = staged.length + unstaged.length + conflicted.length
 
   if (!status.isRepo && status.isRepo !== undefined) {
     return (
@@ -1615,31 +1531,18 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
-      <PanelHeader branch={status.branch} onRefresh={refresh} refreshing={refreshing} readOnly={readOnly} />
+      <PanelHeader onRefresh={refresh} refreshing={refreshing} readOnly={readOnly}
+        section={section} setSection={setSection} onOpenGraph={onOpenGraph} />
 
-      {/* Section tabs */}
-      <div className="flex border-b border-border shrink-0 bg-bg-secondary">
-        {TABS.map(({ key, label }) => {
-          const badge = key === 'changes' ? totalChanges : key === 'branches' ? branches.length : 0
-          const active = section === key
-          return (
-            <button key={key} onClick={() => (key === 'graph' && onOpenGraph ? onOpenGraph() : setSection(key))}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors ${
-                active ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
-              }`}>
-              {label}
-              {badge > 0 && (
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                  active ? 'bg-accent/20 text-accent' : 'bg-bg-active text-text-muted'
-                }`}>
-                  {badge}
-                </span>
-              )}
-              {active && <span className="tab-active-line" />}
-            </button>
-          )
-        })}
-      </div>
+      {/* Sub-view title (when not on the main Changes view) */}
+      {section !== 'changes' && (
+        <button onClick={() => setSection('changes')}
+          className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span className="font-medium capitalize">{section}</span>
+          <span className="ml-auto text-[10px]">back to changes</span>
+        </button>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -1740,20 +1643,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
           </div>
         )}
 
-        {/* ── History (git graph) ── */}
-        {section === 'graph' && (
-          <div className="flex flex-col h-full min-h-0">
-            <GitGraph
-              entries={log}
-              authFetch={authFetch}
-              onCommitAction={handleCommitAction}
-              readOnly={readOnly}
-              totalCount={logCount}
-              onLoadMore={handleLoadMore}
-              loadingMore={loadingMore}
-            />
-          </div>
-        )}
+        {/* History/graph opens full-width in the editor (see onOpenGraph). */}
 
         {/* ── Branches ── */}
         {section === 'branches' && (
@@ -2000,34 +1890,38 @@ function RemoteOpBtn({ icon: Icon, label, desc, loading, disabled, onClick }) {
   )
 }
 
-/* Shared panel header */
-function PanelHeader({ branch, onRefresh, refreshing, readOnly }) {
+function PanelHeader({ onRefresh, refreshing, readOnly, section, setSection, onOpenGraph }) {
+  const btn = 'p-1.5 rounded-md transition-colors shrink-0'
+  const inactive = 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-      <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-        <GitMerge className="w-3.5 h-3.5 text-accent shrink-0" />
-        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest shrink-0">
+    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border shrink-0">
+      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider shrink-0">
           Source Control
         </span>
-        {branch && (
-          <span className="flex items-center gap-1 ml-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold text-accent bg-accent/10 border border-accent/15 truncate">
-            <GitBranch className="w-2.5 h-2.5 shrink-0" />
-            {branch}
-          </span>
-        )}
         {readOnly && (
-          <span className="ml-1 px-1.5 py-px rounded text-[9px] font-bold bg-yellow/10 text-yellow border border-yellow/20 shrink-0">
+          <span className="ml-0.5 px-1.5 py-px rounded text-[9px] font-bold bg-yellow/10 text-yellow border border-yellow/20 shrink-0">
             READ ONLY
           </span>
         )}
       </div>
-      <button
-        onClick={() => onRefresh(false)}
-        className={`p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0 ${refreshing ? 'animate-spin' : ''}`}
-        title="Refresh"
-      >
-        <RefreshCw className="w-3.5 h-3.5" />
-      </button>
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button onClick={onOpenGraph} title="Open Git Graph" className={`${btn} ${inactive}`}>
+          <GitCommit className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => setSection(section === 'branches' ? 'changes' : 'branches')} title="Branches"
+          className={`${btn} ${section === 'branches' ? 'text-accent bg-accent/10' : inactive}`}>
+          <GitBranch className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => setSection(section === 'remotes' ? 'changes' : 'remotes')} title="Remotes"
+          className={`${btn} ${section === 'remotes' ? 'text-accent bg-accent/10' : inactive}`}>
+          <CloudDownload className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => onRefresh(false)} title="Refresh"
+          className={`${btn} ${inactive} ${refreshing ? 'animate-spin' : ''}`}>
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
