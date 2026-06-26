@@ -633,7 +633,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </div>
           )}
           <div className={termFullscreen ? 'fixed inset-0 z-50' : 'absolute inset-0 z-10'} style={{ display: mobilePanel === 'terminal' ? 'block' : 'none' }}>
-            <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} visible={mobilePanel === 'terminal'}
+            <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} roomId={roomId} visible={mobilePanel === 'terminal'}
               isFullscreen={termFullscreen} onToggleFullscreen={() => setTermFullscreen(!termFullscreen)} isMobile />
           </div>
           {mobilePanel === 'git' && (
@@ -832,7 +832,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <>
               <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
               <div style={{ height: terminalHeight }} className="shrink-0">
-                <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} visible={showTerminal} />
+                <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} roomId={roomId} visible={showTerminal} />
               </div>
             </>
           )}

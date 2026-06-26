@@ -138,15 +138,17 @@ No new user features — prove isolation.
       dots + viewer-name tooltip on each file row)
 - [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
 
-### Wave 3 — Shared terminal  🚧
+### Wave 3 — Shared terminal  ✅ (2 polish items → Wave 7)
 - [x] One PTY, N subscribers, **output fan-out** (`session.subs` set; `broadcast` snapshots
       under lock then writes outside it; dead subs pruned). Per-room already via `Room.Terminal()`.
 - [x] **Multi-writer input** — any subscriber writes to the pty (serialized via `s.pmu`)
 - [x] **Resize policy**: last-writer-wins on the shared pty (documented in HandleWS)
 - [x] **Late-joiner scrollback replay** — every (re)joining subscriber gets the 64 KB buffer
 - [x] Tests: subscriber set add/remove, ring-buffer tail+copy; race-clean (`go test -race`)
-- [ ] "X is typing" indicator / optional soft driver-lock (deferred — frontend slice)
-- [ ] Frontend: shared indicator + participant list per terminal (next slice)
+- [x] Frontend: terminal WS room-scoped (`/api/rooms/{id}/terminal`, legacy fallback) so
+      users in a room share one PTY per session id; sessions reconcile is room-scoped too
+- [ ] "shared • N viewers" indicator + "X is typing" (needs a terminal-WS control message
+      for the viewer count) — deferred to Wave 7 polish
 
 ### Wave 4 — Collaborative editing (ygo)  ⬜
 - [ ] Add `reearth/ygo`; verify wire round-trip vs pinned `yjs`
@@ -273,5 +275,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   lock, writes outside it, prunes dead); every (re)joining viewer replays the 64KB scrollback;
   any viewer can type (pty writes serialized via `s.pmu`); resize is last-writer-wins. Added
   subscriber-set + ring-buffer tests; `go test -race` clean; full check green. Existing
-  single-user terminal still works (one subscriber). Next: frontend shared indicator +
-  participant list, then "X is typing".
+  single-user terminal still works (one subscriber).
+- 2026-06-26: Wave 3 slice 2 — terminal WS room-scoped on the frontend
+  (`/api/rooms/{id}/terminal`, legacy fallback when room id unresolved); `roomId` threaded
+  IDE→TerminalPanel→Terminal; sessions-reconcile room-scoped. Now users in a room actually
+  share one PTY per `term-N` id. Minimal change — auth mechanism (auth.<token> subprotocol)
+  untouched. **Wave 3 functionally COMPLETE**; viewer-count/"X is typing" indicator deferred
+  to Wave 7 (needs a terminal-WS control message). Check green. Next: Wave 4 — ygo collab editing.

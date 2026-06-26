@@ -3,7 +3,7 @@ import { Terminal as XTerminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 
-export default forwardRef(function Terminal({ token, sessionId, visible, terminalTheme, fontSize = 13 }, ref) {
+export default forwardRef(function Terminal({ token, roomId, sessionId, visible, terminalTheme, fontSize = 13 }, ref) {
   const containerRef = useRef(null)
   const termRef = useRef(null)
   const wsRef = useRef(null)
@@ -70,8 +70,14 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
       // Pass auth token as a WebSocket subprotocol ("auth.<token>") so it never
       // appears in server access logs or browser history. The session ID is a
       // non-secret resumption handle passed as a query param.
+      //
+      // Room-scoped path so everyone in a room shares one PTY per session id;
+      // falls back to the legacy default-room route until the room id resolves.
+      const path = roomId
+        ? `/api/rooms/${encodeURIComponent(roomId)}/terminal`
+        : '/api/terminal'
       const ws = new WebSocket(
-        `${protocol}//${host}/api/terminal?session=${encodeURIComponent(sid)}`,
+        `${protocol}//${host}${path}?session=${encodeURIComponent(sid)}`,
         [`auth.${token}`]
       )
       ws.binaryType = 'arraybuffer'
@@ -143,7 +149,7 @@ export default forwardRef(function Terminal({ token, sessionId, visible, termina
       wsRef.current = null
       fitRef.current = null
     }
-  }, [token, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, sessionId, roomId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update theme dynamically
   useEffect(() => {

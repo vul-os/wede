@@ -3,6 +3,7 @@ import { Plus, X, TerminalSquare, Maximize2, Minimize2 } from 'lucide-react'
 import Terminal from './Terminal'
 import TerminalToolbar from './TerminalToolbar'
 import { useTheme } from '../hooks/useTheme'
+import { roomUrl } from '../api'
 
 function loadTerminals() {
   try {
@@ -28,7 +29,7 @@ let nextId = (() => {
   return 1
 })()
 
-export default function TerminalPanel({ token, authFetch, visible, isFullscreen, onToggleFullscreen, isMobile }) {
+export default function TerminalPanel({ token, authFetch, roomId, visible, isFullscreen, onToggleFullscreen, isMobile }) {
   const { terminalTheme } = useTheme()
   const [terminals, setTerminals] = useState(() => {
     const saved = loadTerminals()
@@ -46,7 +47,7 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
     if (reconciledRef.current || !authFetch) return
     reconciledRef.current = true
 
-    authFetch('/api/terminal/sessions')
+    authFetch(roomId ? roomUrl(roomId, '/terminal/sessions') : '/api/terminal/sessions')
       .then(res => res.json())
       .then(data => {
         const serverSessions = new Set(data.sessions || [])
@@ -67,7 +68,7 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
         })
       })
       .catch(() => {})
-  }, [authFetch])
+  }, [authFetch, roomId])
 
   useEffect(() => { saveTerminals(terminals, activeId) }, [terminals, activeId])
 
@@ -160,6 +161,7 @@ export default function TerminalPanel({ token, authFetch, visible, isFullscreen,
             key={t.id}
             ref={(r) => { if (r) termRefs.current[t.id] = r; else delete termRefs.current[t.id] }}
             token={token}
+            roomId={roomId}
             sessionId={`term-${t.id}`}
             visible={activeId === t.id && visible}
             terminalTheme={terminalTheme}
