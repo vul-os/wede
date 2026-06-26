@@ -192,7 +192,8 @@ No new user features — prove isolation.
       opens it; Enter/↑/↓ navigate.
 - [x] Editor tabs + dirty indicators (`EditorTabs.jsx`: `tab.modified` dot, close button) —
       already present. (split editor: deferred)
-- [ ] Breadcrumbs path bar
+- [x] Breadcrumbs path bar (`Breadcrumbs.jsx` — segmented file path above the editor,
+      desktop layout, text files only; display-only)
 - [ ] Problems/Diagnostics panel from LSP; references/rename/hover surfaced in UI
       (hover/definition/diagnostics already work in-editor via `codemirror-languageserver`)
 - [ ] Symbol outline (`Cmd+Shift+O`) + workspace symbols
@@ -367,3 +368,6 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   minimap, LSP hover/def/diagnostics, format-on-save, go-to-line, image preview, command
   palette, search+replace all already present (ticked). Remaining gaps: breadcrumbs,
   Problems panel, symbol outline, markdown preview. Check green.
+- 2026-06-26: Wave 5 slice 2 — Breadcrumbs path bar (`Breadcrumbs.jsx`): segmented
+  room-relative path shown above the editor in the desktop layout for text files;
+  display-only, defensive (nulls → renders nothing). Check green.

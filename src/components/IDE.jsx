@@ -20,6 +20,7 @@ import SearchPanel from './SearchPanel'
 import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
 import QuickOpen from './QuickOpen'
+import Breadcrumbs from './Breadcrumbs'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 import { useCollab } from '../hooks/useCollab'
@@ -856,6 +857,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 flex flex-col min-w-0 bg-bg-primary">
           <div className="flex-1 flex flex-col min-h-0">
             <EditorTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onClose={closeTab} />
+            {currentTab && currentTab.type !== 'browser' && currentTab.fileType == null && (
+              <Breadcrumbs path={currentTab.path} />
+            )}
             <div className="flex-1 min-h-0">{renderTabContent()}</div>
           </div>
 
