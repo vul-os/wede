@@ -934,7 +934,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             icon={Webhook}
             title="API Client"
             active={sidebarTab === 'api' && showSidebar}
-            onClick={() => toggleSidebarTab('api')}
+            onClick={() => { toggleSidebarTab('api'); openApiClient() }}
           />
         </div>
 

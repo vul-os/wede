@@ -28,12 +28,13 @@ function TreeNode({ node, depth, onOpen, onDelete, readOnly, activePath }) {
       </div>
     )
   }
-  const m = parseReq(node.request).method || 'GET'
+  const parsed = parseReq(node.request)
+  const m = parsed.method || 'GET'
   return (
     <div className={`flex items-center gap-1.5 px-1 py-1 rounded cursor-pointer group ${activePath === node.path ? 'bg-bg-active' : 'hover:bg-bg-hover'}`}
       style={{ paddingLeft: depth * 12 + 16 }} onClick={() => onOpen(node)}>
       <span className={`text-[9px] font-bold w-9 shrink-0 ${METHOD_COLOR[m] || 'text-text-muted'}`}>{m}</span>
-      <span className="text-[12px] text-text-primary truncate flex-1">{node.name}</span>
+      <span className="text-[12px] text-text-primary truncate flex-1">{parsed.name || node.name}</span>
       {!readOnly && <button onClick={(e) => { e.stopPropagation(); onDelete(node) }} className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-red"><Trash2 className="w-3 h-3" /></button>}
     </div>
   )

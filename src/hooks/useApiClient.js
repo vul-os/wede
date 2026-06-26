@@ -49,17 +49,21 @@ export function useApiClient(workspaceId, authFetch) {
 
   const saveRequest = useCallback(async () => {
     if (!base) return
+    const name = (req.name || '').trim() || 'Untitled Request'
+    // New requests get a file path derived from the name (slugified, folders via
+    // "/" preserved); already-saved requests keep their path so renaming the
+    // display name doesn't move the file.
     let path = savePath
     if (!path) {
-      path = prompt('Save request as (e.g. tasks/list):', req.name.toLowerCase().replace(/\s+/g, '-'))
-      if (!path) return
+      path = name.toLowerCase().replace(/[^a-z0-9/]+/g, '-').replace(/(^-+|-+$)/g, '') || 'untitled'
       setSavePath(path)
     }
     await authFetch(`${base}/item`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'request', path, request: { ...req, name: path.split('/').pop() } }),
+      body: JSON.stringify({ type: 'request', path, request: { ...req, name } }),
     })
     load()
+    return true
   }, [base, authFetch, req, savePath, load])
 
   const newFolder = useCallback(async () => {

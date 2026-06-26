@@ -3,7 +3,7 @@
 // useApiClient hook passed in as `api`. Rendered as a full-width editor tab.
 
 import { useState } from 'react'
-import { Send, Plus, Trash2, Save, Loader2 } from 'lucide-react'
+import { Send, Plus, Trash2, Save, Loader2, Check } from 'lucide-react'
 import { buildSend } from '../lib/apiRequest'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -48,6 +48,11 @@ export default function ApiClient({ api, authFetch, readOnly = false }) {
   const [respTab, setRespTab] = useState('body')
   const [sending, setSending] = useState(false)
   const [err, setErr] = useState(null)
+  const [saved, setSaved] = useState(false)
+
+  const doSave = async () => {
+    if (await saveRequest()) { setSaved(true); setTimeout(() => setSaved(false), 1500) }
+  }
 
   const patch = (p) => setReq((r) => ({ ...r, ...p }))
   const setBody = (p) => setReq((r) => ({ ...r, body: { ...r.body, ...p } }))
@@ -78,8 +83,15 @@ export default function ApiClient({ api, authFetch, readOnly = false }) {
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden text-text-primary min-w-0">
+      {/* Request name */}
+      <div className="px-2.5 pt-2 pb-0.5 shrink-0 flex items-center gap-2">
+        <input value={req.name} disabled={readOnly} onChange={(e) => patch({ name: e.target.value })}
+          placeholder="Request name"
+          className="flex-1 bg-transparent text-[13px] font-semibold text-text-primary placeholder:text-text-muted focus:outline-none min-w-0" />
+        {api.savePath && <span className="text-[10px] text-text-muted font-mono shrink-0">{api.savePath}.json</span>}
+      </div>
       {/* URL bar */}
-      <div className="flex items-center gap-1.5 px-2.5 py-2 border-b border-border shrink-0">
+      <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-2 border-b border-border shrink-0">
         <select value={req.method} disabled={readOnly} onChange={(e) => patch({ method: e.target.value })}
           className={`bg-bg-input border border-border rounded px-1.5 py-1.5 text-[11px] font-bold focus:outline-none focus:border-accent/60 ${METHOD_COLOR[req.method] || ''}`}>
           {METHODS.map((m) => <option key={m} value={m} className="text-text-primary">{m}</option>)}
@@ -93,7 +105,11 @@ export default function ApiClient({ api, authFetch, readOnly = false }) {
           {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send
         </button>
         {!readOnly && (
-          <button onClick={saveRequest} title="Save request" className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded shrink-0"><Save className="w-4 h-4" /></button>
+          <button onClick={doSave} title="Save request to .wede/requests/"
+            className="flex items-center gap-1 px-2 py-1.5 text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover rounded shrink-0">
+            {saved ? <Check className="w-4 h-4 text-green" /> : <Save className="w-4 h-4" />}
+            <span className="hidden sm:inline">{saved ? 'Saved' : 'Save'}</span>
+          </button>
         )}
       </div>
 
