@@ -30,6 +30,8 @@ import { useYDoc } from '../hooks/useYDoc'
 import ShareModal from './ShareModal'
 import Chat from './Chat'
 import ApiClient from './ApiClient'
+import ApiCollections from './ApiCollections'
+import { useApiClient } from '../hooks/useApiClient'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -55,6 +57,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // Collaboration presence: who else is in this workspace and what they're viewing.
   const { roster: collabRoster, setViewing: setCollabViewing } = useCollab(workspaceId, token, username)
+
+  // Built-in API client — shared between the sidebar collections and the editor tab.
+  const apiClient = useApiClient(workspaceId, authFetch)
   useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
@@ -601,7 +606,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       )
     }
     if (currentTab.type === 'apiclient') {
-      return <ApiClient workspaceId={workspaceId} authFetch={authFetch} readOnly={role === 'viewer'} />
+      return <ApiClient api={apiClient} authFetch={authFetch} readOnly={role === 'viewer'} />
     }
     if (currentTab.fileType === 'image') {
       return <ImagePreview dataUrl={currentTab.dataUrl} filename={currentTab.name} />
@@ -925,6 +930,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             active={sidebarTab === 'chat' && showSidebar}
             onClick={() => toggleSidebarTab('chat')}
           />
+          <ActivityBtn
+            icon={Webhook}
+            title="API Client"
+            active={sidebarTab === 'api' && showSidebar}
+            onClick={() => toggleSidebarTab('api')}
+          />
         </div>
 
         {/* Sidebar */}
@@ -948,6 +959,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               }} />}
               {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} />}
               {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
+              {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
             </div>
             {/* Drag handle */}
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('sidebar')} />

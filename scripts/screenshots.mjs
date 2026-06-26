@@ -457,12 +457,15 @@ async function run() {
   }
   await shot(page, 'chat');
 
-  // ── 11. API client — Postman-style request + response ──────────────────────
+  // ── 11. API client — collections in the sidebar + request/response editor ──
   console.log('Capturing: API client...');
-  await clickSidebar(/explorer/i); // move sidebar off chat so chat's "Send" unmounts
-  await sleep(300);
-  await clickSidebar(/api client/i); // top-bar "API Client (Postman-style)" button
-  await sleep(1200);
+  // Open the API collections in the sidebar (activity-bar button, exact title).
+  await page.locator('button[title="API Client"]').first().click().catch(() => {});
+  await sleep(900);
+  // Open a saved request from the collections → request editor tab.
+  await page.getByText('list-tasks', { exact: true }).first().click().catch(() => {});
+  await sleep(1000);
+  // Point it at a real API and send.
   const apiUrl = page.locator('input[placeholder*="api.example" i]').first();
   if (await apiUrl.count() > 0) {
     await apiUrl.fill('https://api.github.com/repos/vul-os/wede');
