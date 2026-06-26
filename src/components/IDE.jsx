@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
   Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
-  Share2, MessageSquare,
+  Share2, MessageSquare, Webhook,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -29,6 +29,7 @@ import { useCollab } from '../hooks/useCollab'
 import { useYDoc } from '../hooks/useYDoc'
 import ShareModal from './ShareModal'
 import Chat from './Chat'
+import ApiClient from './ApiClient'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -363,6 +364,23 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (isMobile) setMobilePanel('code')
   }, [tabs, isMobile])
 
+  // Open the built-in API client (Postman-style) as a full-width editor tab.
+  const openApiClient = useCallback(() => {
+    const existing = tabs.find((t) => t.type === 'apiclient')
+    if (existing) {
+      setActiveTab(existing.path)
+      if (isMobile) setMobilePanel('code')
+      return
+    }
+    const id = 'apiclient:1'
+    setTabs((prev) => [...prev, {
+      path: id, name: 'API Client', type: 'apiclient',
+      content: '', originalContent: '', modified: false,
+    }])
+    setActiveTab(id)
+    if (isMobile) setMobilePanel('code')
+  }, [tabs, isMobile])
+
   // Capture link clicks → open in preview browser
   useEffect(() => {
     const handler = (e) => {
@@ -573,6 +591,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           }}
         />
       )
+    }
+    if (currentTab.type === 'apiclient') {
+      return <ApiClient workspaceId={workspaceId} authFetch={authFetch} readOnly={role === 'viewer'} />
     }
     if (currentTab.fileType === 'image') {
       return <ImagePreview dataUrl={currentTab.dataUrl} filename={currentTab.name} />
@@ -808,6 +829,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title="Open Browser Preview">
             <Globe className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => openApiClient()}
+            className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+            title="API Client (Postman-style)">
+            <Webhook className="w-3.5 h-3.5" />
           </button>
           <button onClick={() => setShowSettings(!showSettings)}
             className={`flex items-center px-2 py-1 rounded-md text-[12px] transition-colors ${
