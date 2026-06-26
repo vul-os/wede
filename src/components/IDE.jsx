@@ -71,8 +71,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const [showSidebar, setShowSidebar] = useState(true)
   const [sidebarTab, setSidebarTab] = useState('files')
-
-  const [showTerminal, setShowTerminal] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
 
   const [mobilePanel, setMobilePanel] = useState('files')
@@ -133,7 +131,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   }, [])
 
   const [sidebarWidth, setSidebarWidth] = useState(260)
-  const [terminalHeight, setTerminalHeight] = useState(250)
   const [settingsWidth, setSettingsWidth] = useState(320)
   const [terminalKey, setTerminalKey] = useState(0)
 
@@ -441,13 +438,10 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     resizingRef.current = { type, startX: e.clientX, startY: e.clientY }
     const handleMouseMove = (e) => {
       if (!resizingRef.current) return
-      const { type, startX, startY } = resizingRef.current
+      const { type, startX } = resizingRef.current
       if (type === 'sidebar') {
         setSidebarWidth((w) => Math.max(180, Math.min(500, w + (e.clientX - startX))))
         resizingRef.current.startX = e.clientX
-      } else if (type === 'terminal') {
-        setTerminalHeight((h) => Math.max(100, Math.min(600, h + (startY - e.clientY))))
-        resizingRef.current.startY = e.clientY
       } else if (type === 'settings') {
         setSettingsWidth((w) => Math.max(200, Math.min(500, w + (startX - e.clientX))))
         resizingRef.current.startX = e.clientX
@@ -874,18 +868,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          {/* Panel toggles */}
-          {role !== 'viewer' && (
-            <button onClick={() => setShowTerminal(!showTerminal)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors ${
-                showTerminal
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-              }`}
-              title="Toggle Terminal">
-              <TerminalSquare className="w-3.5 h-3.5" />
-            </button>
-          )}
           <button onClick={() => openBrowser()}
             className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title="Open Browser Preview">
@@ -972,7 +954,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           {role !== 'viewer' && (
             <ActivityBtn
               icon={TerminalSquare}
-              title={floatingTerminals ? 'Dock terminals' : 'Float terminals as windows'}
+              title={floatingTerminals ? 'Hide terminals' : 'Open terminals'}
               active={floatingTerminals}
               onClick={() => setFloatingTerminals((v) => !v)}
             />
@@ -1026,15 +1008,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </div>
           </div>
 
-          {showTerminal && !floatingTerminals && role !== 'viewer' && (
-            <>
-              <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
-              <div style={{ height: terminalHeight }} className="shrink-0">
-                <TerminalPanel key={terminalKey} token={token} workspaceId={workspaceId} term={terminalsApi} visible={showTerminal}
-                  onPopOut={() => setFloatingTerminals(true)} />
-              </div>
-            </>
-          )}
         </div>
 
         {/* Right panel: settings */}
@@ -1071,7 +1044,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onNewFile={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFile() }}
         onNewFolder={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFolder() }}
         onOpenFolder={() => setShowFolderPicker(true)}
-        onToggleTerminal={() => setShowTerminal((v) => !v)}
+        onToggleTerminal={() => role !== 'viewer' && setFloatingTerminals((v) => !v)}
         onOpenSettings={() => setShowSettings((v) => !v)}
         onFocusExplorer={() => toggleSidebarTab('files')}
         onFocusGit={() => toggleSidebarTab('git')}

@@ -4,7 +4,7 @@
 // server-side PTYs.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { TerminalSquare, X, Plus, PinOff } from 'lucide-react'
+import { TerminalSquare, X, Plus, Minimize2 } from 'lucide-react'
 import Terminal from './Terminal'
 import { useTheme } from '../hooks/useTheme'
 
@@ -74,7 +74,7 @@ export default function FloatingTerminals({ token, workspaceId, term, onDock }) 
       <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1 bg-bg-secondary border border-border rounded-lg shadow-lg px-1.5 py-1" style={{ zIndex: topZ + 1 }}>
         <button onClick={addTerminal} title="New terminal" className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><Plus className="w-3.5 h-3.5" /></button>
         <div className="w-px h-4 bg-border" />
-        <button onClick={onDock} title="Dock terminals to the bottom" className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><PinOff className="w-3.5 h-3.5" /> Dock</button>
+        <button onClick={onDock} title="Hide terminals (toggle from the activity bar)" className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><Minimize2 className="w-3.5 h-3.5" /> Hide</button>
       </div>
       {terminals.map((t) => {
         const geo = geos[t.id]
