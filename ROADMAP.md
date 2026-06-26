@@ -236,7 +236,12 @@ No new user features — prove isolation.
 - [ ] Rewrite `README.md` for collaborative, multi-project model
 - [ ] Update `docs/ARCHITECTURE.md` (Rooms, ygo, presence, shared terminal)
 - [ ] New `docs/COLLABORATION.md` (concepts, security model, limits)
-- [ ] Refresh Playwright screenshots to show collaboration; changelog + version bump
+- [ ] **Redo ALL screenshots** (current ones are not good) via the Playwright screenshotter
+      (`scripts/screenshots.mjs`) — capture each in **BOTH light (Daylight) and dark (Midnight)
+      themes**, high quality, on the FINISHED UI (run AFTER Wave 12 UI overhaul). Cover: editor
+      + file tree, git graph, search, terminal, workspace switcher, presence/collaboration,
+      share/invite. Seed a realistic demo workspace; verify images render before committing.
+- [ ] Changelog + version bump
 
 ### Wave 9 — Security & auth hardening  ⬜  (decided 2026-06-26; see security-auth-model memory)
 Threat anchor: editor = shared terminal = shell on host. Editors are trusted; the only
