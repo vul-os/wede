@@ -118,7 +118,7 @@ No new user features — prove isolation.
 - [ ] Migrate component fetches to `roomUrl(roomId, …)` (legacy default-room paths still
       work meanwhile) — deferred polish; tracked under Wave 7
 
-### Wave 2 — Identity & presence  🚧
+### Wave 2 — Identity & presence  ✅
 - [x] Username at join: `sessionEntry.Username` (backward-compatible), accepted on
       `POST /api/auth/login`, returned from `GET /api/auth/check`, updatable via
       `POST /api/auth/username`, `Username(token)` helper (5 auth tests). Frontend:
@@ -134,7 +134,8 @@ No new user features — prove isolation.
       (?token= auth like useLSP), parses roster, throttled `setViewing(file,line)`; defensive.
 - [x] Frontend: avatar roster (`PresenceRoster` in IDE top bar); IDE publishes active tab via
       `setViewing`
-- [ ] Per-file presence dots in FileExplorer (pass roster down) — next sub-slice
+- [x] Per-file presence dots in FileExplorer (roster → `presenceMap` path→members; colored
+      dots + viewer-name tooltip on each file row)
 - [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
 
 ### Wave 3 — Shared terminal  ⬜
@@ -260,4 +261,8 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   `?token=` like useLSP, parses roster, throttled `setViewing`, fully defensive);
   `PresenceRoster` avatars in the IDE top bar; IDE publishes the active tab via `setViewing`.
   Confirmed the auth middleware authenticates WS via `?token=` (not the subprotocol). Check
-  green. Next: per-file presence dots in FileExplorer → closes Wave 2; then Wave 3 shared terminal.
+  green.
+- 2026-06-26: Wave 2 slice 5 — per-file presence dots in FileExplorer (roster threaded down
+  as `presenceMap`; colored dots + tooltips per file row). Tidied a stale eslint-disable;
+  lint fully clean. **Wave 2 COMPLETE** — the app is now visibly collaborative (roster +
+  who-views-what). Next: Wave 3 — shared terminal (terminal.Hub output fan-out to N subscribers).

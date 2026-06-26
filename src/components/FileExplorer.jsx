@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
   FilePlus, FolderPlus, RefreshCw, Copy, Clipboard, Trash2, Pencil
@@ -123,7 +123,7 @@ function InlineInput({ placeholder, value, onChange, onSubmit, onBlur }) {
 /* ── Tree node ── */
 function TreeNode({
   entry, depth, onSelect, onToggle, expanded, authFetch,
-  onRefresh, selectedPath, gitMap, clipboard, setClipboard,
+  onRefresh, selectedPath, gitMap, presenceMap, clipboard, setClipboard,
   onPaste, onDelete, onRename, onFocusDir,
 }) {
   const [children, setChildren] = useState(null)
@@ -131,6 +131,7 @@ function TreeNode({
   const isOpen     = expanded.has(entry.path)
   const isSelected = selectedPath === entry.path
   const gitStatus  = gitMap?.[entry.path]
+  const viewers    = presenceMap?.[entry.path]
   const nameColor  = gitStatus ? GIT_COLOR[gitStatus] : 'text-text-primary'
   const badge      = gitStatus ? GIT_BADGE[gitStatus] : null
 
@@ -218,6 +219,21 @@ function TreeNode({
         {/* Filename */}
         <span className={`truncate flex-1 leading-tight ${nameColor}`}>{entry.name}</span>
 
+        {/* Presence dots — who is viewing this file */}
+        {viewers && viewers.length > 0 && (
+          <span
+            className="flex items-center -space-x-1 mr-2 shrink-0"
+            title={viewers.map((v) => v.username || 'anon').join(', ')}>
+            {viewers.slice(0, 3).map((v) => (
+              <span
+                key={v.id}
+                className="w-2 h-2 rounded-full ring-1 ring-bg-secondary"
+                style={{ backgroundColor: v.color || '#888' }}
+              />
+            ))}
+          </span>
+        )}
+
         {/* Git badge */}
         {badge && (
           <span className={`text-[10px] font-bold mr-2.5 shrink-0 ${badge.cls}`}>{badge.label}</span>
@@ -233,7 +249,7 @@ function TreeNode({
               key={child.path} entry={child} depth={depth + 1}
               onSelect={onSelect} onToggle={onToggle} expanded={expanded}
               authFetch={authFetch} onRefresh={onRefresh} selectedPath={selectedPath}
-              gitMap={gitMap} clipboard={clipboard} setClipboard={setClipboard}
+              gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
               onPaste={onPaste} onDelete={onDelete} onRename={onRename}
               onFocusDir={onFocusDir}
             />
@@ -270,7 +286,16 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 }
 
 /* ── Main explorer ── */
-export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, onRegisterActions }) {
+export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, onRegisterActions, roster = [] }) {
+  // Map file path -> members currently viewing it (for presence dots).
+  const presenceMap = useMemo(() => {
+    const m = {}
+    for (const mem of roster) {
+      if (!mem.file) continue
+      ;(m[mem.file] ||= []).push(mem)
+    }
+    return m
+  }, [roster])
   const [files, _setFiles] = useState([])
   const setFiles = (v) => _setFiles(Array.isArray(v) ? v : [])
   const [expanded, setExpanded] = useState(new Set())
@@ -301,7 +326,6 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     } catch { /* ignore */ }
   }, [authFetch])
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setFiles([])
     setExpanded(new Set())
@@ -310,7 +334,6 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     const interval = setInterval(loadGitStatus, 8000)
     return () => clearInterval(interval)
   }, [loadRoot, loadGitStatus, workspace])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Register refresh + new-file/folder triggers with the parent (for command palette).
   useEffect(() => {
@@ -438,7 +461,7 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
             key={entry.path} entry={entry} depth={0}
             onSelect={onFileSelect} onToggle={toggleExpand} expanded={expanded}
             authFetch={authFetch} onRefresh={loadRoot} selectedPath={selectedPath}
-            gitMap={gitMap} clipboard={clipboard} setClipboard={setClipboard}
+            gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
             onPaste={handlePaste} onDelete={handleDelete} onRename={handleRename}
             onFocusDir={setFocusedDir}
           />

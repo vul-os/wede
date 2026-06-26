@@ -623,7 +623,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 min-h-0 relative">
           {mobilePanel === 'files' && (
             <div className="h-full animate-fade-in">
-              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} />
+              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
             </div>
           )}
           {mobilePanel === 'code' && (
@@ -799,7 +799,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         {showSidebar && (
           <>
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
-              {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} />}
+              {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />}
               {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} onOpenFile={(entry, line) => {
                 openFile(entry).then?.(() => {
                   // targetLine is used by Editor to scroll to the match.
