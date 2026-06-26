@@ -77,10 +77,11 @@ incremental enhancement on top of working features, not greenfield work.
 
 Legend: ⬜ not started · 🚧 in progress · ✅ done (build+test green) · ⏭️ deferred
 
-### Wave 0 — Safety net & scaffolding  ⬜
-- [ ] Confirm baseline build/test/lint all green on `feat/collab-ide`
-- [ ] `Makefile` (or `scripts/check.sh`): `build` / `test` / `lint` / `check`
-- [ ] Backend HTTP-boot smoke test; frontend test runner (vitest) + one smoke test
+### Wave 0 — Safety net & scaffolding  🚧
+- [x] Confirm baseline build/test/lint all green on `feat/collab-ide`
+- [x] `Makefile` + `scripts/check.sh`: `build` / `test` / `lint` / `check`
+- [x] Backend smoke test (`cmd/wede` securityHeaders) — establishes cmd test harness
+- [ ] Frontend test runner (vitest) + one component smoke test
 - [ ] Ensure `check` gates CI; document the dev loop in `docs/CONTRIBUTING.md`
 
 ### Wave 1 — Rooms backbone (the refactor)  ⬜
