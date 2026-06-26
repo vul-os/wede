@@ -1067,6 +1067,14 @@ export default function GitPanel({ authFetch, visible }) {
     })
     refresh(true)
   }
+  const handleDeleteBranch = async (branch) => {
+    if (!window.confirm(`Delete branch "${branch}"? (unmerged branches are kept)`)) return
+    await authFetch('/api/git/branch/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: branch, force: false }),
+    })
+    refresh(true)
+  }
   const handleCommitAction = async (action, hash) => {
     if (action === 'checkout') {
       await authFetch('/api/git/checkout', {
@@ -1356,24 +1364,34 @@ export default function GitPanel({ authFetch, visible }) {
               </div>
             ) : (
               branches.map((b) => (
-                <button
+                <div
                   key={b.name}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => !b.current && handleCheckout(b.name)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 transition-colors text-left overflow-hidden ${
+                  onKeyDown={(e) => { if (!b.current && (e.key === 'Enter' || e.key === ' ')) handleCheckout(b.name) }}
+                  className={`group w-full flex items-center gap-2.5 px-3 py-2 transition-colors text-left overflow-hidden ${
                     b.current
                       ? 'text-text-primary bg-accent/5 cursor-default'
-                      : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                      : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary cursor-pointer'
                   }`}
                 >
                   <GitBranch className={`w-3.5 h-3.5 shrink-0 ${b.current ? 'text-green' : 'text-text-muted'}`} />
                   <span className="truncate text-[12px] font-mono font-medium">{b.name}</span>
-                  {b.current && (
+                  {b.current ? (
                     <span className="ml-auto shrink-0 flex items-center gap-1 text-[10px] text-green font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-green" />
                       current
                     </span>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteBranch(b.name) }}
+                      title={`Delete branch ${b.name}`}
+                      className="ml-auto shrink-0 p-1 rounded text-text-muted opacity-0 group-hover:opacity-100 hover:text-red hover:bg-red/10 transition-all">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </button>
+                </div>
               ))
             )}
           </div>

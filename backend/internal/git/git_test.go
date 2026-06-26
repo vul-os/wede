@@ -200,6 +200,41 @@ func TestCreateBranch_Basic(t *testing.T) {
 	}
 }
 
+func TestDeleteBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// Create a branch, then delete it.
+	if _, err := h.run("branch", "--", "feat/tmp"); err != nil {
+		t.Fatalf("setup branch: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/git/branch/delete",
+		postBody(t, map[string]any{"name": "feat/tmp", "force": false}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.DeleteBranch(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DeleteBranch: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if out, _ := h.run("branch", "--list", "feat/tmp"); out != "" {
+		t.Errorf("branch feat/tmp still present after delete: %q", out)
+	}
+}
+
+func TestDeleteBranch_RejectsFlagName(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodPost, "/api/git/branch/delete",
+		postBody(t, map[string]any{"name": "-D"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.DeleteBranch(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("flag-like branch name should be rejected, got %d", rec.Code)
+	}
+}
+
 func TestCreateBranch_AndCheckout(t *testing.T) {
 	repo := initTestRepo(t)
 	h := New(&staticWS{root: repo})

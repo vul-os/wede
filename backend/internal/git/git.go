@@ -391,6 +391,38 @@ func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
 }
 
+// DeleteBranch deletes a local branch (git branch -d/-D).
+// POST /api/git/branch/delete  {"name":"feature","force":false}
+func (h *Handler) DeleteBranch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	var body struct {
+		Name  string `json:"name"`
+		Force bool   `json:"force"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validBranchName(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+		return
+	}
+
+	flag := "-d" // safe delete (refuses if unmerged)
+	if body.Force {
+		flag = "-D" // force delete
+	}
+	out, err := h.run("branch", flag, "--", body.Name)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
 // Fetch runs git fetch [remote].
 // POST /api/git/fetch  {"remote":"origin"}  (remote is optional)
 func (h *Handler) Fetch(w http.ResponseWriter, r *http.Request) {

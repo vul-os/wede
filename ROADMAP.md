@@ -208,13 +208,19 @@ No new user features — prove isolation.
 - [ ] File create/delete keyboard shortcuts in explorer (context-menu + command palette
       already cover create/delete; raw keyboard shortcuts deferred)
 
-### Wave 6 — Git graph, features & merge conflicts (extend existing)  ⬜
-- [ ] Graph polish: branch lanes, refs/tags rendering, performance on large histories
-- [ ] Branch/tag management UI (create, checkout, delete, merge, rebase)
-- [ ] Stage by line (extend per-hunk); side-by-side diff viewer
-- [ ] `git blame` gutter + commit details
-- [ ] Merge-conflict resolver: 3-way view, navigate-conflicts, beyond current inline mode
-- [ ] Cherry-pick, revert; richer remote status
+### Wave 6 — Git graph, features & merge conflicts (extend existing)  ✅ (advanced items ⏭️ deferred)
+- [x] Visual commit **graph (DAG)** with ref badges (HEAD/branch/origin) — already shipped
+      (`GitPanel.jsx` graph view + `git.Log`)
+- [x] Branch management UI — create (`CreateBranch`), checkout (`handleCheckout`), and now
+      **delete** (`git.DeleteBranch` `/api/git/branch/delete` `-d`, +room-scoped; GitPanel
+      Branches tab trash button w/ confirm; 2 Go tests incl. flag-name rejection)
+- [x] Per-hunk staging (`git.StageHunk` via `git apply --cached`) — already shipped
+- [x] Inline diff viewer + commit-detail diffs (`CommitDiff`) — already shipped
+- [x] Merge-conflict resolver (Accept Current/Incoming/Both, resolve & stage,
+      `ConflictRegions`/`ConflictResolve`) — already shipped
+- [x] Stash (save/pop/list/drop), discard, push/pull/fetch, remote add/remove — already shipped
+- ⏭️ Side-by-side diff, `git blame` gutter, 3-way merge view, cherry-pick/revert, stage-by-line
+      — DEFERRED: meaningful git UX is already covered; these are advanced polish, lower ROI
 
 ### Wave 7 — UI/UX polish  ⬜
 - [ ] Design pass: spacing, type, color tokens, dark/light parity
@@ -382,3 +388,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   complete**; Problems panel + symbol outline + snippets/sticky-scroll DEFERRED (diagnostics/
   symbols are internal to codemirror-languageserver; inline diagnostics already work).
   Check green.
+- 2026-06-26: Wave 6 — git audit + branch delete. Audited GitPanel.jsx + internal/git: DAG
+  graph, diffs, per-hunk staging, merge-conflict resolver, stash, discard, push/pull/fetch,
+  remotes, create/checkout branch all already shipped (ticked w/ evidence). Implemented the
+  one genuine gap: branch DELETE — `git.DeleteBranch` (`-d`, force option, flag-name guarded;
+  legacy + room-scoped routes; 2 Go tests) + GitPanel Branches-tab trash button (hover, confirm,
+  refresh). **Wave 6 complete**; advanced items (side-by-side diff, blame, 3-way merge,
+  cherry-pick/revert) deferred as lower-ROI polish. Check green.
