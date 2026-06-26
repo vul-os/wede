@@ -91,7 +91,7 @@ Legend: ⬜ not started · 🚧 in progress · ✅ done (build+test green) · �
 - [ ] Frontend test runner (vitest) + one component smoke test
 - [ ] Ensure `check` gates CI; document the dev loop in `docs/CONTRIBUTING.md`
 
-### Wave 1 — Rooms backbone (the refactor)  🚧
+### Wave 1 — Rooms backbone (the refactor)  ✅ (1 deferred-polish item → Wave 7)
 No new user features — prove isolation.
 - [x] `internal/room`: `Room` + `RoomManager`, lifecycle (create/get/list/close); each
       Room owns an isolated `workspace.Manager` (satisfies the WorkspaceProvider ifaces).
@@ -113,8 +113,10 @@ No new user features — prove isolation.
 - [x] Frontend API foundation: `src/api.js` (`roomUrl`/`roomsUrl`) + `useRooms` hook
       (live: fetches `/api/rooms`, tracks active room, `createRoom`); wired into `App`,
       `roomId` threaded to `IDE`
-- [ ] Frontend: visible room switcher UI (list/create) in IDE header + migrate component
-      fetches to `roomUrl(roomId, …)` (legacy default-room paths still work meanwhile)
+- [x] Frontend: visible room switcher UI in IDE header (`RoomSwitcher.jsx` — list/switch/
+      create projects via `roomsApi`)
+- [ ] Migrate component fetches to `roomUrl(roomId, …)` (legacy default-room paths still
+      work meanwhile) — deferred polish; tracked under Wave 7
 
 ### Wave 2 — Identity & presence  ⬜
 - [ ] Username at join; extend session record with `username`, `rooms[]`
@@ -226,5 +228,8 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   room-scoping complete.** Next: room-scoped safePath confinement, then Wave 1 frontend.
 - 2026-06-26: Wave 1 slice 5 — room-scoped safePath confinement proven
   (`TestCrossRoomConfinement`). Frontend API foundation: `src/api.js` + `useRooms` hook
-  wired live into `App`; `roomId` threaded to `IDE`. Check green. Next: visible room
-  switcher UI in IDE header + migrate component fetches to `roomUrl`. Then Wave 2.
+  wired live into `App`; `roomId` threaded to `IDE`. Check green.
+- 2026-06-26: Wave 1 slice 6 — `RoomSwitcher.jsx` in the IDE top bar: lists/switches
+  rooms and opens new projects via `roomsApi`. **Wave 1 complete** (call-site fetch
+  migration deferred to Wave 7 polish; legacy default-room routes work). Check green.
+  Next: Wave 2 — identity + presence.

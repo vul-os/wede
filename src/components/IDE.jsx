@@ -12,6 +12,7 @@ import EditorTabs from './EditorTabs'
 import TerminalPanel from './TerminalPanel'
 import GitPanel from './GitPanel'
 import FolderPicker from './FolderPicker'
+import RoomSwitcher from './RoomSwitcher'
 import Browser from './Browser'
 import Settings from './Settings'
 import SearchPanel from './SearchPanel'
@@ -22,7 +23,7 @@ import { useLSP } from '../hooks/useLSP'
 
 let browserIdCounter = 0
 
-export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange }) {
+export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, roomsApi }) {
   const isMobile = useMobile()
   const { isDark, toggle: toggleTheme } = useTheme()
 
@@ -698,6 +699,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <FolderOpen className="w-3.5 h-3.5 text-yellow" />
             <span className="max-w-36 truncate font-medium">{folderName}</span>
           </button>
+
+          {roomsApi && <RoomSwitcher roomsApi={roomsApi} />}
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
