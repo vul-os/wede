@@ -13,6 +13,7 @@ import TerminalPanel from './TerminalPanel'
 import GitPanel from './GitPanel'
 import FolderPicker from './FolderPicker'
 import RoomSwitcher from './RoomSwitcher'
+import PresenceRoster from './PresenceRoster'
 import Browser from './Browser'
 import Settings from './Settings'
 import SearchPanel from './SearchPanel'
@@ -20,10 +21,11 @@ import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
+import { useCollab } from '../hooks/useCollab'
 
 let browserIdCounter = 0
 
-export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, roomsApi }) {
+export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, roomsApi, roomId, username }) {
   const isMobile = useMobile()
   const { isDark, toggle: toggleTheme } = useTheme()
 
@@ -34,6 +36,10 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     } catch { return [] }
   })
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wede_activeTab') || null)
+
+  // Collaboration presence: who else is in this room and what they're viewing.
+  const { roster: collabRoster, setViewing: setCollabViewing } = useCollab(roomId, token, username)
+  useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
   const [sidebarTab, setSidebarTab] = useState('files')
@@ -701,6 +707,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           </button>
 
           {roomsApi && <RoomSwitcher roomsApi={roomsApi} />}
+
+          {collabRoster.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-border mx-0.5" />
+              <PresenceRoster roster={collabRoster} />
+            </>
+          )}
 
           <div className="w-px h-4 bg-border mx-0.5" />
 

@@ -130,7 +130,11 @@ No new user features — prove isolation.
       upgrade, write-pump drains roster channel + pings, read-pump parses `{type:cursor}` →
       `Hub.Update`; `Room.Collab()` (lazy) + route wired. Doc/file events layer on later.
 - [x] Broadcast "X is viewing `file`" + cursor line (`Hub.Update`); stable per-user color (palette)
-- [ ] Frontend: avatar roster; per-file presence dots in FileExplorer
+- [x] Frontend collab client: `useCollab(roomId, token, username)` — opens the collab WS
+      (?token= auth like useLSP), parses roster, throttled `setViewing(file,line)`; defensive.
+- [x] Frontend: avatar roster (`PresenceRoster` in IDE top bar); IDE publishes active tab via
+      `setViewing`
+- [ ] Per-file presence dots in FileExplorer (pass roster down) — next sub-slice
 - [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
 
 ### Wave 3 — Shared terminal  ⬜
@@ -251,5 +255,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   (backward-compatible), login accepts + returns it, `/api/auth/check` echoes it,
   `POST /api/auth/username` + `Username(token)` helper; 5 auth tests. Frontend: Login
   display-name field, `useAuth` persists `wede_username` + exposes `username`, threaded to
-  `IDE`. Check green. Next: `useCollab` hook (open `/api/rooms/{id}/collab`, send cursor,
-  expose roster) + presence roster UI + per-file dots in FileExplorer.
+  `IDE`. Check green.
+- 2026-06-26: Wave 2 slice 4 — frontend collab client. `useCollab` hook (opens collab WS via
+  `?token=` like useLSP, parses roster, throttled `setViewing`, fully defensive);
+  `PresenceRoster` avatars in the IDE top bar; IDE publishes the active tab via `setViewing`.
+  Confirmed the auth middleware authenticates WS via `?token=` (not the subprotocol). Check
+  green. Next: per-file presence dots in FileExplorer → closes Wave 2; then Wave 3 shared terminal.
