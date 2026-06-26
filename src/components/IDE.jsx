@@ -851,11 +851,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             title="Open Browser Preview">
             <Globe className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => openApiClient()}
-            className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-            title="API Client (Postman-style)">
-            <Webhook className="w-3.5 h-3.5" />
-          </button>
           <button onClick={() => setShowSettings(!showSettings)}
             className={`flex items-center px-2 py-1 rounded-md text-[12px] transition-colors ${
               showSettings
