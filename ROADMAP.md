@@ -577,3 +577,18 @@ Comprehensive design pass — deep CSS/Tailwind, cohesive + beautiful:
 - [ ] Polished top bar / sidebar / panels; refined icons; empty-workspace + first-run delight.
 - [ ] Accessibility: focus rings, ARIA labels, keyboard nav throughout.
 - [ ] Fully responsive + mobile-friendly. Verify both themes look amazing via screenshots (Wave 8).
+
+- 2026-06-26: **Parallel-agent batch + frp landed & integrated** (commits e89bcf3→b405765):
+  SHARE/INVITE + roles (owner mints viewer/editor links, redeem, viewer read-only UI;
+  token endpoints owner-only) · VS Code-grade GIT graph + tools (parents/refs, blame [?file=],
+  side-by-side diff, cherry-pick/revert/reset/merge, tags, context menu) · COMPREHENSIVE
+  search (regex/case/word, include/exclude globs, context, Text/Files modes) · workspace
+  CHAT (live + .wede/chat.md + git activity) · built-in frp TUNNEL (auto-detect frpc,
+  configure, run, live public URL; owner-only; 6 tests) · screenshots redone in LIGHT mode
+  + wikipedia browser preview · Settings X/Esc close. All green, committed+pushed.
+  STILL OPEN (the big ones, best done attended / fresh agents): Wave 11 unify (workspaceId
+  drives all content + remove legacy routes), Wave 12 windowed terminals + multi-root +
+  resizable/collapsible sidebar [partly exists] + responsive/mobile, Wave 14 security audit
+  (comprehensive RequireEditor on ALL mutating routes — currently only new git tools + token
+  mint are gated; viewer UI gating in place), Wave 15 deep visual polish, Wave 10 tests
+  (vitest), Wave 8 docs rewrite. NOTE: blame uses ?file= (works); earlier "bug" was a bad test.
