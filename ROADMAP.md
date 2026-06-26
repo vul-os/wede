@@ -118,13 +118,14 @@ No new user features — prove isolation.
 - [ ] Migrate component fetches to `roomUrl(roomId, …)` (legacy default-room paths still
       work meanwhile) — deferred polish; tracked under Wave 7
 
-### Wave 2 — Identity & presence  ⬜
+### Wave 2 — Identity & presence  🚧
 - [ ] Username at join; extend session record with `username`, `rooms[]`
-- [ ] `internal/presence`: per-room hub, roster, join/leave events
+- [x] `internal/presence`: per-room hub, roster, join/leave/update events (transport-agnostic
+      outbound channels); wired into `Room.Presence()` + torn down in `shutdown()`
 - [ ] Single **collab WebSocket** `/api/rooms/{id}/collab` (presence + later doc + file events)
-- [ ] Broadcast "X is viewing `file`" + cursor line; stable per-user color
+- [x] Broadcast "X is viewing `file`" + cursor line (`Hub.Update`); stable per-user color (palette)
 - [ ] Frontend: avatar roster; per-file presence dots in FileExplorer
-- [ ] Tests: presence join/leave fan-out; roster correctness
+- [x] Tests: presence join/leave fan-out; roster correctness (4 presence tests)
 
 ### Wave 3 — Shared terminal  ⬜
 - [ ] `terminal.Hub` per room: one PTY, N subscribers, output fan-out
@@ -232,4 +233,7 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
 - 2026-06-26: Wave 1 slice 6 — `RoomSwitcher.jsx` in the IDE top bar: lists/switches
   rooms and opens new projects via `roomsApi`. **Wave 1 complete** (call-site fetch
   migration deferred to Wave 7 polish; legacy default-room routes work). Check green.
-  Next: Wave 2 — identity + presence.
+- 2026-06-26: Wave 2 slice 1 — `internal/presence` hub (transport-agnostic: per-member
+  outbound JSON channels, roster broadcast on join/leave/update, palette colors). Wired
+  into `Room.Presence()` (lazy) + torn down in `shutdown()`. 4 hub tests green; check green.
+  Next: collab WebSocket `/api/rooms/{id}/collab` pumping the hub, then username at join.

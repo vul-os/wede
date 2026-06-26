@@ -22,6 +22,7 @@ import (
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
 	"wede/backend/internal/lsp"
+	"wede/backend/internal/presence"
 	"wede/backend/internal/search"
 	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
@@ -47,6 +48,7 @@ type Room struct {
 	watcher  *filewatcher.Handler
 	terminal *terminal.Handler
 	lsp      *lsp.Handler
+	presence *presence.Hub
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -119,6 +121,17 @@ func (r *Room) LSP() *lsp.Handler {
 	return r.lsp
 }
 
+// Presence returns this room's presence hub (who is connected and what they are
+// viewing), lazily created on first use.
+func (r *Room) Presence() *presence.Hub {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.presence == nil {
+		r.presence = presence.NewHub()
+	}
+	return r.presence
+}
+
 // shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
 func (r *Room) shutdown() {
 	r.mu.Lock()
@@ -134,6 +147,10 @@ func (r *Room) shutdown() {
 	if r.lsp != nil {
 		r.lsp.Close()
 		r.lsp = nil
+	}
+	if r.presence != nil {
+		r.presence.Close()
+		r.presence = nil
 	}
 }
 
