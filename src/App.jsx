@@ -9,7 +9,7 @@ import FolderPicker from './components/FolderPicker'
 import IDE from './components/IDE'
 
 function App() {
-  const { token, username, role, login, logout, redeem, error, locked, remaining, authFetch } = useAuth()
+  const { token, username, role, login, logout, redeem, error, locked, remaining, authFetch, updateUsername } = useAuth()
   const { theme, setTheme } = useTheme()
   const workspacesApi = useWorkspaces(token, authFetch)
   const [workspace, setWorkspace] = useState(null)
@@ -89,6 +89,7 @@ function App() {
       workspaceId={workspacesApi.activeWorkspaceId}
       workspacesApi={workspacesApi}
       username={username}
+      onUsernameChange={updateUsername}
       role={role}
     />
   )

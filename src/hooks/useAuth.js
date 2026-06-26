@@ -129,5 +129,14 @@ export function useAuth() {
     return res
   }, [token, logout])
 
-  return { token, username, role, login, logout, redeem, error, locked, remaining, authFetch }
+  const updateUsername = useCallback((name) => {
+    const v = (name || '').trim()
+    setUsername(v)
+    try {
+      if (v) localStorage.setItem('wede_username', v)
+      else localStorage.removeItem('wede_username')
+    } catch { /* ignore */ }
+  }, [])
+
+  return { token, username, role, login, logout, redeem, error, locked, remaining, authFetch, updateUsername }
 }

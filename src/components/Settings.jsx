@@ -1,12 +1,18 @@
-import { useEffect } from 'react'
-import { Moon, Sun, FolderOpen, Info, Minus, Plus, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Moon, Sun, FolderOpen, Info, Minus, Plus, X, Check, User } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 import TunnelSettings from './TunnelSettings'
 import WedeLocation from './WedeLocation'
 
-export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role, workspaceId }) {
+export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role, workspaceId, username, onUsernameChange }) {
   const { setTheme, isDark } = useTheme()
+  const [name, setName] = useState(username || '')
+  const [savedName, setSavedName] = useState(false)
+  const saveName = () => {
+    const v = name.trim()
+    if (v && v !== username) { onUsernameChange?.(v); setSavedName(true); setTimeout(() => setSavedName(false), 1500) }
+  }
 
   // Close on Escape.
   useEffect(() => {
@@ -52,6 +58,34 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
       </div>
 
       <div className="p-4 space-y-6">
+        {/* Profile */}
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Profile</h3>
+          <label className="flex items-center gap-1.5 text-[12px] text-text-secondary mb-1.5">
+            <User className="w-3.5 h-3.5 text-text-muted" /> Display name
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveName() } }}
+              placeholder="Your name"
+              maxLength={40}
+              className="flex-1 bg-bg-input border border-border rounded-md px-3 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+            />
+            <button
+              onClick={saveName}
+              disabled={!name.trim() || name.trim() === username}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+            >
+              {savedName ? <Check className="w-3.5 h-3.5" /> : null}
+              {savedName ? 'Saved' : 'Save'}
+            </button>
+          </div>
+          <p className="text-[11px] text-text-muted mt-1.5">Shown to collaborators in presence, chat, and live cursors.</p>
+        </div>
+
         {/* Theme */}
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Appearance</h3>

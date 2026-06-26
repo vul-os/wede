@@ -46,7 +46,7 @@ function colorFromName(name) {
 
 let browserIdCounter = 0
 
-export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, workspacesApi, workspaceId, username, role }) {
+export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, workspacesApi, workspaceId, username, onUsernameChange, role }) {
   const isMobile = useMobile()
   const { isDark, toggle: toggleTheme } = useTheme()
 
@@ -787,6 +787,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               <Settings
                 onClose={() => setShowSettings(false)}
                 authFetch={authFetch}
+                username={username}
+                onUsernameChange={onUsernameChange}
                 role={role}
                 workspaceId={workspaceId}
                 visible
@@ -1043,6 +1045,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               <Settings
                 onClose={() => setShowSettings(false)}
                 authFetch={authFetch}
+                username={username}
+                onUsernameChange={onUsernameChange}
                 role={role}
                 workspaceId={workspaceId}
                 visible
