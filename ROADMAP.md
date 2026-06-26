@@ -150,8 +150,12 @@ No new user features — prove isolation.
 - [ ] "shared • N viewers" indicator + "X is typing" (needs a terminal-WS control message
       for the viewer count) — deferred to Wave 7 polish
 
-### Wave 4 — Collaborative editing (ygo)  ⬜
-- [ ] Add `reearth/ygo`; verify wire round-trip vs pinned `yjs`
+### Wave 4 — Collaborative editing (ygo)  🚧
+- [x] Add `reearth/ygo` (v1.29.0, pure-Go); `internal/collabdoc` smoke tests prove the API
+      (`crdt.New`/`GetText`/`Transact`/`Insert`/`ToString`) **and** an encode-update →
+      apply-to-fresh-doc round-trip (the basis of server↔client sync). NOTE: ygo ships a
+      `provider/websocket` server speaking y-protocols sync+awareness — candidate to reuse
+      instead of hand-rolling the protocol.
 - [ ] `internal/collab` `DocStore`: one server-authoritative `Y.Doc` per open file
 - [ ] Sync handshake + awareness over collab WS
 - [ ] Open → seed doc from disk; edit → observe `YText` → debounced write to disk
@@ -282,3 +286,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   share one PTY per `term-N` id. Minimal change — auth mechanism (auth.<token> subprotocol)
   untouched. **Wave 3 functionally COMPLETE**; viewer-count/"X is typing" indicator deferred
   to Wave 7 (needs a terminal-WS control message). Check green. Next: Wave 4 — ygo collab editing.
+- 2026-06-26: Wave 4 slice 1 — added reearth/ygo v1.29.0 (network available; pure-Go, no
+  cgo). New `internal/collabdoc` with 2 smoke tests: Doc/GetText/Transact/Insert/ToString,
+  and EncodeStateAsUpdateV1 → ApplyUpdateV1 round-trip (fresh doc converges). go.mod at repo
+  root. Discovered ygo's `provider/websocket` does the full y-protocols sync+awareness server
+  — strong candidate to reuse for the collab WS doc channel. Check green. Next: DocStore
+  (Doc per open file, seeded from disk).
