@@ -237,6 +237,27 @@ No new user features — prove isolation.
 - [ ] New `docs/COLLABORATION.md` (concepts, security model, limits)
 - [ ] Refresh Playwright screenshots to show collaboration; changelog + version bump
 
+### Wave 9 — Security & auth hardening  ⬜  (decided 2026-06-26; see security-auth-model memory)
+Threat anchor: editor = shared terminal = shell on host. Editors are trusted; the only
+contained tier is **viewer**. Owner password stays in `wede.config.json` (bootstrap/admin).
+- [ ] **Roles + share tokens:** per-user tokens carrying `viewer | editor`, revocable,
+      identity-bound (username from token, not self-asserted), optional expiry. Owner mints/
+      revokes via web UI. Backend store under `~/.wede/` (tokens **hashed at rest**, SHA-256).
+- [ ] **Authorization enforcement:** middleware/role gate so `viewer` is blocked (403) from
+      terminal, file writes (create/write/delete/rename/copy/format), git mutations, and
+      collab doc edits (read-only). Editors/owner: full. Tests per protected route.
+- [ ] **Constant-time** password + token comparison (`crypto/subtle`) — replaces `!=`.
+- [ ] **Secrets deny-list:** file/search APIs refuse to serve `~/.wede/**` even if `~` is the
+      open workspace (protects the viewer tier); secrets never inside a workspace.
+- [ ] **TLS posture:** warn loudly (or refuse) when bound to a non-loopback address without
+      TLS — plaintext password/token on the wire is the main residual risk.
+- [ ] **Lockout on token redemption** (extend existing brute-force lockout); keep WS origin
+      checks + per-room `safePath` confinement (already tested).
+- [ ] Frontend: owner "Share / Invite" panel (mint token + role → copy invite link; list +
+      revoke); token-redeem flow → session; role surfaced in UI (viewer sees read-only).
+- [ ] Tests: unauthorized → 401; viewer → 403 on terminal/write/git-mutate; revoked/expired
+      token rejected; constant-time path; deny-list blocks `~/.wede` reads.
+
 ---
 
 ## Execution model
