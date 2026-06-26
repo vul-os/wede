@@ -883,15 +883,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             title="Open Browser Preview">
             <Globe className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => setShowSettings(!showSettings)}
-            className={`flex items-center px-2 py-1 rounded-md text-[12px] transition-colors ${
-              showSettings
-                ? 'bg-accent/10 text-accent'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-            }`}
-            title="Settings">
-            <SettingsIcon className="w-3.5 h-3.5" />
-          </button>
         </div>
 
         {/* Right: save + auto-save status + share + theme + logout */}
@@ -909,13 +900,6 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {saving ? 'Saving…' : 'Save'}
             </button>
           )}
-          {role === 'owner' && (
-            <button onClick={() => setShowShareModal(true)}
-              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-              title="Share / Invite">
-              <Share2 className="w-3.5 h-3.5" />
-            </button>
-          )}
           <button onClick={toggleTheme}
             className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title={isDark ? 'Light mode' : 'Dark mode'}>
@@ -924,6 +908,20 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <button onClick={onLogout}
             className="p-1.5 rounded-md text-text-muted hover:text-red hover:bg-bg-hover transition-colors" title="Logout">
             <LogOut className="w-3.5 h-3.5" />
+          </button>
+          {role === 'owner' && (
+            <button onClick={() => setShowShareModal(true)}
+              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+              title="Share / Invite">
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button onClick={() => setShowSettings(!showSettings)}
+            className={`p-1.5 rounded-md transition-colors ${
+              showSettings ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
+            title="Settings">
+            <SettingsIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
