@@ -18,6 +18,9 @@ step "backend: go test"
 step "frontend: lint"
 npm run lint || fail=1
 
+step "frontend: test"
+npm test || fail=1
+
 step "frontend: build"
 npm run build || fail=1
 
