@@ -87,6 +87,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if (s.minimap === undefined) s.minimap = false
       if (s.lsp === undefined) s.lsp = true
       if (s.formatOnSave === undefined) s.formatOnSave = false
+      if (s.collab === undefined) s.collab = false
       return s
     } catch {
       return { fontSize: 13, tabWidth: 2, wordWrap: false, autoSave: true, minimap: false, lsp: true, formatOnSave: false }

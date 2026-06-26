@@ -183,7 +183,7 @@ No new user features — prove isolation.
       IDE calls `useYDoc` for the active text file, stable per-user color. **Gated OFF by
       default** (`editorSettings.collab ?? false`) pending live WS verification — see note.
 - [ ] LIVE-VERIFY the doc WS round-trip (provider connect + sync + write-back) against a
-      running server, then default collab ON + add a Settings toggle (Wave 7)
+      running server, then default collab ON (Settings toggle DONE in Wave 7 — users can opt in)
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect (needs live/integration harness)
 
 ### Wave 5 — VS Code parity (mostly polish on existing)  ✅ (2 items ⏭️ deferred with reasons)
@@ -222,12 +222,14 @@ No new user features — prove isolation.
 - ⏭️ Side-by-side diff, `git blame` gutter, 3-way merge view, cherry-pick/revert, stage-by-line
       — DEFERRED: meaningful git UX is already covered; these are advanced polish, lower ROI
 
-### Wave 7 — UI/UX polish  ⬜
-- [ ] Design pass: spacing, type, color tokens, dark/light parity
-- [ ] Keyboard nav + a11y (focus rings, ARIA, SR labels)
-- [ ] Loading / empty / error states; toasts
-- [ ] Responsive + persisted panel layout; virtualized file tree & large-file handling
-- [ ] Collaboration onboarding (share-room flow)
+### Wave 7 — UI/UX polish + deferred items  🚧
+- [x] **Collab Settings toggle** — `Settings.jsx` "Collaborative editing" switch bound to
+      `editorSettings.collab` (default false), back-filled in IDE's settings loader. Users can
+      now opt into Wave 4 collab editing without editing localStorage.
+- [ ] Terminal viewer-count ("shared • N") via a terminal-WS control message
+- [ ] Migrate one component's fetches to `roomUrl(roomId, …)` (demonstrative; legacy works)
+- ⏭️ External-disk-change doc re-seed — DEFERRED (feedback-loop risk; needs careful design)
+- ⏭️ Broader design/a11y/toasts/virtualized-tree pass — DEFERRED (large; not blocking)
 
 ### Wave 8 — Docs & README  ⬜
 - [ ] Rewrite `README.md` for collaborative, multi-project model
@@ -395,3 +397,7 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   legacy + room-scoped routes; 2 Go tests) + GitPanel Branches-tab trash button (hover, confirm,
   refresh). **Wave 6 complete**; advanced items (side-by-side diff, blame, 3-way merge,
   cherry-pick/revert) deferred as lower-ROI polish. Check green.
+- 2026-06-26: Wave 7 slice 1 — collab Settings toggle. `Settings.jsx` gains a "Collaborative
+  editing" switch (bound to editorSettings.collab, default false, experimental helper text);
+  `collab` back-filled in IDE's settings loader so it persists. Wave 4 collab editing is now
+  user-enableable from the UI. Check green.

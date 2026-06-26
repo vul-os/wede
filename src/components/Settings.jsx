@@ -15,6 +15,7 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
   const minimap      = s.minimap      ?? false
   const lspOn        = s.lsp          ?? true
   const formatOnSave = s.formatOnSave ?? false
+  const collab       = s.collab       ?? false
 
   // Derive LSP status hint for the user.
   // lspAvailable: null = not yet fetched, {} = fetched (possibly empty), { go: '...' } = servers found
@@ -182,6 +183,15 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
                 <span className="text-[10px] text-text-muted leading-relaxed">{lspHint}</span>
               </div>
             )}
+
+            {/* Collaborative editing */}
+            <label className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-3 py-2.5 cursor-pointer group">
+              <div>
+                <span className="text-xs text-text-secondary group-hover:text-text-primary transition-colors">Collaborative editing</span>
+                <span className="block text-[10px] text-text-muted">Real-time multi-user editing for the active file (experimental)</span>
+              </div>
+              <Toggle checked={collab} onChange={(v) => update({ collab: v })} />
+            </label>
           </div>
         </div>
 
