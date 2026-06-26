@@ -79,6 +79,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState('') // 'saving'|'saved'|''
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -890,29 +891,45 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {saving ? 'Saving…' : 'Save'}
             </button>
           )}
+          {/* Dark / light selector — left of the avatar */}
           <button onClick={toggleTheme}
             className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title={isDark ? 'Light mode' : 'Dark mode'}>
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
-          <button onClick={onLogout}
-            className="p-1.5 rounded-md text-text-muted hover:text-red hover:bg-bg-hover transition-colors" title="Logout">
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-          {role === 'owner' && (
-            <button onClick={() => setShowShareModal(true)}
-              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-              title="Share / Invite">
-              <Share2 className="w-3.5 h-3.5" />
+          {/* User avatar menu — far right */}
+          <div className="relative ml-0.5">
+            <button onClick={() => setShowUserMenu((v) => !v)} title={username || 'Account'}
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm transition-all ${showUserMenu ? 'ring-2 ring-accent/40' : 'hover:opacity-90'}`}
+              style={{ backgroundColor: colorFromName(username || 'user') }}>
+              {(username || '?').charAt(0).toUpperCase()}
             </button>
-          )}
-          <button onClick={() => setShowSettings(!showSettings)}
-            className={`p-1.5 rounded-md transition-colors ${
-              showSettings ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-            }`}
-            title="Settings">
-            <SettingsIcon className="w-3.5 h-3.5" />
-          </button>
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 animate-fade-in">
+                  <div className="px-3 py-2 border-b border-border">
+                    <div className="text-[12px] font-semibold text-text-primary truncate">{username || 'User'}</div>
+                    <div className="text-[10px] text-text-muted capitalize">{role}</div>
+                  </div>
+                  {role === 'owner' && (
+                    <button onClick={() => { setShowShareModal(true); setShowUserMenu(false) }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+                      <Share2 className="w-3.5 h-3.5" /> Share / Invite
+                    </button>
+                  )}
+                  <button onClick={() => { setShowSettings(true); setShowUserMenu(false) }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+                    <SettingsIcon className="w-3.5 h-3.5" /> Settings
+                  </button>
+                  <button onClick={() => { onLogout(); setShowUserMenu(false) }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-text-secondary hover:text-red hover:bg-bg-hover transition-colors">
+                    <LogOut className="w-3.5 h-3.5" /> Sign out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
