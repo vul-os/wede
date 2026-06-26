@@ -13,6 +13,7 @@ import (
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/git"
 	"wede/backend/internal/lsp"
+	"wede/backend/internal/room"
 	"wede/backend/internal/search"
 	"wede/backend/internal/terminal"
 	"wede/backend/internal/workspace"
@@ -75,6 +76,12 @@ func main() {
 
 	ws := workspace.New(defaultPath)
 
+	// Room registry: the multi-project backbone. The boot workspace is adopted
+	// as the default room so the solo-user case works with zero setup; additional
+	// projects can be opened as further rooms via /api/rooms.
+	roomMgr := room.NewManager()
+	roomMgr.Register("default", ws)
+
 	authHandler := auth.New(cfg.Password)
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
@@ -96,6 +103,13 @@ func main() {
 	protected.HandleFunc("GET /api/workspace", ws.HandleGet)
 	protected.HandleFunc("POST /api/workspace/open", ws.HandleOpen)
 	protected.HandleFunc("GET /api/workspace/browse", ws.HandleBrowse)
+
+	// Room registry endpoints (multi-project backbone). Per-room scoping of the
+	// file/git/etc. routes under /api/rooms/{id}/... is layered on in later slices.
+	protected.HandleFunc("GET /api/rooms", roomMgr.HandleList)
+	protected.HandleFunc("POST /api/rooms", roomMgr.HandleCreate)
+	protected.HandleFunc("GET /api/rooms/{id}", roomMgr.HandleGet)
+	protected.HandleFunc("DELETE /api/rooms/{id}", roomMgr.HandleClose)
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
