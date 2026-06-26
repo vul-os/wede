@@ -10,6 +10,13 @@ change **builds and tests pass** (`go build ./...`, `go test ./...`, `npm run bu
 `npm run lint`). Completed milestones are summarised under "Shipped". Honesty rule:
 a wave is ✅ only when its acceptance tests pass — otherwise 🚧 with explicit TODOs.
 
+**Latitude (granted 2026-06-26):** the maintainer is fine with the project being
+*completely re-architected*. So the rebuild goes **room-native from the ground up** —
+no obligation to preserve the old single-workspace API or thread backward-compat shims.
+Two guardrails remain: (1) `make check` stays green **every cycle** so each commit is
+usable; (2) "redone" means re-architected, **not feature-stripped** — carry the working
+features (git graph, merge conflicts, LSP, editor, terminal) forward into the new shape.
+
 **Branch:** `feat/collab-ide`
 
 ---
@@ -93,7 +100,8 @@ No new user features — prove isolation.
 - [ ] Path-scope routes: `/api/rooms`, `/api/rooms/{id}/files|git|search|watch`
 - [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
 - [ ] Lazy lifecycle: start on first member, tear down on empty + grace period
-- [ ] Default-room shim so existing single-user flows keep working
+- [ ] Room-native API (no obligation to preserve the old single-workspace endpoints);
+      a single auto-created room on boot covers the solo-user case
 - [ ] Tests: two rooms / two roots / no cross-talk; lifecycle start/stop
 - [ ] Frontend: room list / create / join UI; thread room id through API calls
 
