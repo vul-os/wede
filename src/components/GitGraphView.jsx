@@ -1,0 +1,75 @@
+// GitGraphView — the commit graph + history opened full-width in the editor area
+// (like VS Code's Git Graph), instead of cramped in the sidebar. It fetches its
+// own log + wires the commit context-menu actions, and reuses the GitGraph
+// renderer from GitPanel (graph lanes, refs, commit detail/diff on click).
+
+import { useState, useEffect, useCallback } from 'react'
+import { GitBranch, RefreshCw } from 'lucide-react'
+import { GitGraph } from './GitPanel'
+
+const PAGE = 100
+
+export default function GitGraphView({ authFetch, readOnly = false }) {
+  const [log, setLog] = useState([])
+  const [count, setCount] = useState(PAGE)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/git/log?count=${count}`)
+      const data = await res.json()
+      setLog(data.entries || [])
+    } catch { /* keep prior */ } finally {
+      setLoadingMore(false)
+      setRefreshing(false)
+    }
+  }, [authFetch, count])
+
+  useEffect(() => { load() }, [load])
+
+  const onLoadMore = () => { setLoadingMore(true); setCount((c) => c + PAGE) }
+  const refresh = () => { setRefreshing(true); load() }
+
+  const onCommitAction = async (action, hash, extra) => {
+    if (readOnly) return
+    const post = (url, body) => authFetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const actions = {
+      checkout: () => post('/api/git/checkout', { branch: hash }),
+      branchHere: () => post('/api/git/branch', { name: extra, checkout: true }),
+      cherryPick: () => post('/api/git/cherry-pick', { hash }),
+      revert: () => post('/api/git/revert', { hash }),
+      resetSoft: () => post('/api/git/reset', { hash, mode: 'soft' }),
+      resetHard: () => post('/api/git/reset', { hash, mode: 'hard' }),
+    }
+    if (actions[action]) { await actions[action](); load() }
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-bg-secondary min-w-0">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2 shrink-0">
+        <GitBranch className="w-3.5 h-3.5 text-text-muted" />
+        <span className="text-[12px] font-semibold text-text-secondary">Git Graph</span>
+        <span className="text-[11px] text-text-muted">{log.length} commit{log.length !== 1 ? 's' : ''}</span>
+        <div className="flex-1" />
+        <button onClick={refresh} title="Refresh"
+          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0">
+        <GitGraph
+          entries={log}
+          authFetch={authFetch}
+          onCommitAction={onCommitAction}
+          readOnly={readOnly}
+          totalCount={count}
+          onLoadMore={onLoadMore}
+          loadingMore={loadingMore}
+        />
+      </div>
+    </div>
+  )
+}

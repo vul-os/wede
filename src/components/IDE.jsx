@@ -32,6 +32,7 @@ import Chat from './Chat'
 import ApiClient from './ApiClient'
 import ApiCollections from './ApiCollections'
 import { useApiClient } from '../hooks/useApiClient'
+import GitGraphView from './GitGraphView'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -376,6 +377,16 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (isMobile) setMobilePanel('code')
   }, [tabs, isMobile])
 
+  // Open the git graph + commit history as a full-width editor tab (VS Code-style).
+  const openGitGraph = useCallback(() => {
+    const existing = tabs.find((t) => t.type === 'gitgraph')
+    if (existing) { setActiveTab(existing.path); if (isMobile) setMobilePanel('code'); return }
+    const id = 'gitgraph:1'
+    setTabs((prev) => [...prev, { path: id, name: 'Git Graph', type: 'gitgraph', content: '', originalContent: '', modified: false }])
+    setActiveTab(id)
+    if (isMobile) setMobilePanel('code')
+  }, [tabs, isMobile])
+
   // Open the built-in API client (Postman-style) as a full-width editor tab.
   const openApiClient = useCallback(() => {
     const existing = tabs.find((t) => t.type === 'apiclient')
@@ -601,7 +612,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // a Settings toggle + live verification land in Wave 7. Single-user editing is
   // the safe default and is completely unaffected when this is off.
   const collabEnabled = (editorSettings.collab ?? false)
-  const collabPath = (collabEnabled && currentTab && currentTab.type !== 'browser' && currentTab.fileType == null)
+  const collabPath = (collabEnabled && currentTab && !currentTab.type && currentTab.fileType == null)
     ? currentTab.path
     : null
   const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
@@ -625,6 +636,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     }
     if (currentTab.type === 'apiclient') {
       return <ApiClient api={apiClient} authFetch={authFetch} readOnly={role === 'viewer'} />
+    }
+    if (currentTab.type === 'gitgraph') {
+      return <GitGraphView authFetch={authFetch} readOnly={role === 'viewer'} />
     }
     if (currentTab.fileType === 'image') {
       return <ImagePreview dataUrl={currentTab.dataUrl} filename={currentTab.name} />
@@ -970,7 +984,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                   ))
                 }, 50)
               }} />}
-              {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} />}
+              {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} onOpenGraph={openGitGraph} />}
               {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
               {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
             </div>
@@ -983,7 +997,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 flex flex-col min-w-0 bg-bg-primary">
           <div className="flex-1 flex flex-col min-h-0">
             <EditorTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onClose={closeTab} />
-            {currentTab && currentTab.type !== 'browser' && currentTab.type !== 'apiclient' && currentTab.fileType == null && (
+            {currentTab && currentTab.type !== 'browser' && currentTab.type !== 'apiclient' && currentTab.type !== 'gitgraph' && currentTab.fileType == null && (
               <Breadcrumbs path={currentTab.path} />
             )}
             <div className="flex-1 min-h-0">{renderTabContent()}</div>

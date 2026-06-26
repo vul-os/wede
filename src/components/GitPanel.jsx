@@ -505,7 +505,7 @@ function CommitDetail({ commit, authFetch, onClose }) {
   )
 }
 
-function GitGraph({ entries, authFetch, onCommitAction, readOnly, totalCount, onLoadMore, loadingMore }) {
+export function GitGraph({ entries, authFetch, onCommitAction, readOnly, totalCount, onLoadMore, loadingMore }) {
   const rows = useMemo(() => buildGraph(entries), [entries])
   const [menu, setMenu] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -1281,7 +1281,7 @@ const TABS = [
 
 const LOG_PAGE_SIZE = 50
 
-export default function GitPanel({ authFetch, visible, readOnly = false }) {
+export default function GitPanel({ authFetch, visible, readOnly = false, onOpenGraph }) {
   const [status, setStatus]     = useState({ branch: '', files: [], isRepo: true })
   const [log, setLog]           = useState([])
   const [logCount, setLogCount] = useState(LOG_PAGE_SIZE)
@@ -1623,7 +1623,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false }) {
           const badge = key === 'changes' ? totalChanges : key === 'branches' ? branches.length : 0
           const active = section === key
           return (
-            <button key={key} onClick={() => setSection(key)}
+            <button key={key} onClick={() => (key === 'graph' && onOpenGraph ? onOpenGraph() : setSection(key))}
               className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors ${
                 active ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
               }`}>
