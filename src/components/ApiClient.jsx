@@ -83,11 +83,11 @@ export default function ApiClient({ api, authFetch, readOnly = false }) {
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden text-text-primary min-w-0">
-      {/* Request name */}
+      {/* Request name — click to rename */}
       <div className="px-2.5 pt-2 pb-0.5 shrink-0 flex items-center gap-2">
         <input value={req.name} disabled={readOnly} onChange={(e) => patch({ name: e.target.value })}
-          placeholder="Request name"
-          className="flex-1 bg-transparent text-[13px] font-semibold text-text-primary placeholder:text-text-muted focus:outline-none min-w-0" />
+          placeholder="Untitled request — click to name it" title="Click to rename"
+          className="flex-1 min-w-0 text-[13px] font-semibold text-text-primary placeholder:text-text-muted placeholder:font-normal rounded px-1.5 py-0.5 -ml-1.5 border border-transparent hover:border-border focus:border-accent/60 focus:bg-bg-input focus:outline-none transition-colors" />
         {api.savePath && <span className="text-[10px] text-text-muted font-mono shrink-0">{api.savePath}.json</span>}
       </div>
       {/* URL bar */}

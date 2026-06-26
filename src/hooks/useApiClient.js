@@ -47,21 +47,23 @@ export function useApiClient(workspaceId, authFetch) {
     setSavePath(null)
   }, [])
 
+  // saveRequest persists the request to .wede/requests/, deriving the filename
+  // from the name. It's also a true rename: if the name changes, the file is
+  // moved to the new slug (keeping any folder), so the tree and file stay in sync.
   const saveRequest = useCallback(async () => {
-    if (!base) return
+    if (!base) return false
     const name = (req.name || '').trim() || 'Untitled Request'
-    // New requests get a file path derived from the name (slugified, folders via
-    // "/" preserved); already-saved requests keep their path so renaming the
-    // display name doesn't move the file.
-    let path = savePath
-    if (!path) {
-      path = name.toLowerCase().replace(/[^a-z0-9/]+/g, '-').replace(/(^-+|-+$)/g, '') || 'untitled'
-      setSavePath(path)
-    }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '') || 'untitled'
+    const dir = savePath && savePath.includes('/') ? savePath.slice(0, savePath.lastIndexOf('/') + 1) : ''
+    const newPath = dir + slug
     await authFetch(`${base}/item`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'request', path, request: { ...req, name } }),
+      body: JSON.stringify({ type: 'request', path: newPath, request: { ...req, name } }),
     })
+    if (savePath && savePath !== newPath) {
+      await authFetch(`${base}/item?path=${encodeURIComponent(savePath)}&type=request`, { method: 'DELETE' })
+    }
+    setSavePath(newPath)
     load()
     return true
   }, [base, authFetch, req, savePath, load])

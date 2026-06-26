@@ -970,7 +970,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 flex flex-col min-w-0 bg-bg-primary">
           <div className="flex-1 flex flex-col min-h-0">
             <EditorTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onClose={closeTab} />
-            {currentTab && currentTab.type !== 'browser' && currentTab.fileType == null && (
+            {currentTab && currentTab.type !== 'browser' && currentTab.type !== 'apiclient' && currentTab.fileType == null && (
               <Breadcrumbs path={currentTab.path} />
             )}
             <div className="flex-1 min-h-0">{renderTabContent()}</div>
