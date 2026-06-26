@@ -487,3 +487,11 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   Role; owner-password login → owner. Password + token comparisons are constant-time
   (crypto/subtle). 7 new token tests (12 auth tests total) green. HTTP mint/redeem endpoints
   + viewer authorization enforcement come next. Check green.
+- 2026-06-26: **RENAME room -> workspace (no backwards compat), committed + pushed.**
+  internal/room->internal/workspace (Room->Workspace); old internal/workspace->internal/folder
+  (Workspace owns a folder.Manager); /api/rooms->/api/workspaces, /api/workspace->/api/folder;
+  frontend useWorkspaces/WorkspaceSwitcher/workspaceUrl/workspaceId/workspacesApi/
+  createWorkspace + all 'project'/'room' UI labels -> 'workspace'. ygo `{room...}` doc wildcard
+  left as-is (ygo's term). Full check green; pushed to origin/feat/collab-ide (upstream set).
+  WORKFLOW now: commit+push each green slice; NO backwards compat (remove legacy unscoped
+  routes once frontend migrates in the unify wave).
