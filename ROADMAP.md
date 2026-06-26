@@ -240,9 +240,13 @@ No new user features — prove isolation.
 ### Wave 9 — Security & auth hardening  ⬜  (decided 2026-06-26; see security-auth-model memory)
 Threat anchor: editor = shared terminal = shell on host. Editors are trusted; the only
 contained tier is **viewer**. Owner password stays in `wede.config.json` (bootstrap/admin).
-- [ ] **Roles + share tokens:** per-user tokens carrying `viewer | editor`, revocable,
-      identity-bound (username from token, not self-asserted), optional expiry. Owner mints/
-      revokes via web UI. Backend store under `~/.wede/` (tokens **hashed at rest**, SHA-256).
+- [x] **Roles + share tokens (backend):** `Role` (viewer/editor/owner), `shareToken` store
+      under `~/.wede/tokens.json` **hashed at rest** (SHA-256; raw returned once at mint).
+      `MintToken`/`RedeemToken`/`RevokeToken`/`ListTokens`; owner-password login → owner role;
+      `Role(token)` accessor; sessions carry role. **Constant-time** compare (`crypto/subtle`)
+      for password + token hash. 7 token tests (mint/redeem/role, owner-not-mintable,
+      wrong/empty/expired/revoked rejected, list omits hash, capabilities). HTTP endpoints +
+      enforcement land in the next slices.
 - [ ] **Authorization enforcement:** middleware/role gate so `viewer` is blocked (403) from
       terminal, file writes (create/write/delete/rename/copy/format), git mutations, and
       collab doc edits (read-only). Editors/owner: full. Tests per protected route.
@@ -422,3 +426,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   editing" switch (bound to editorSettings.collab, default false, experimental helper text);
   `collab` back-filled in IDE's settings loader so it persists. Wave 4 collab editing is now
   user-enableable from the UI. Check green.
+- 2026-06-26: Wave 9 slice 1 — share-token + roles backend. New roles.go (Role
+  viewer/editor/owner, CanMutate, MintableRole) + tokens.go (hashed-at-rest share-token store
+  in ~/.wede/tokens.json; Mint/Redeem/Revoke/List; raw token shown once). Sessions now carry
+  Role; owner-password login → owner. Password + token comparisons are constant-time
+  (crypto/subtle). 7 new token tests (12 auth tests total) green. HTTP mint/redeem endpoints
+  + viewer authorization enforcement come next. Check green.

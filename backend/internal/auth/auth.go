@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -12,11 +13,12 @@ import (
 	"time"
 )
 
-// sessionEntry holds a token's creation timestamp for idle-TTL enforcement and
-// the display username chosen at (or after) login, for collaboration presence.
+// sessionEntry holds a token's creation timestamp for idle-TTL enforcement, the
+// display username chosen at (or after) login, and the session's role.
 type sessionEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 	Username  string    `json:"username,omitempty"`
+	Role      Role      `json:"role,omitempty"` // empty (legacy) → owner
 }
 
 // maxUsernameLen bounds a stored username.
@@ -51,6 +53,7 @@ type Handler struct {
 	locked      bool
 	maxAttempts int
 	sessions    map[string]sessionEntry
+	tokens      map[string]shareToken
 	dataDir     string
 }
 
@@ -63,10 +66,12 @@ func New(password string) *Handler {
 		password:    password,
 		maxAttempts: 3,
 		sessions:    make(map[string]sessionEntry),
+		tokens:      make(map[string]shareToken),
 		dataDir:     dataDir,
 	}
 	h.loadSessions()
 	h.loadLockout()
+	h.loadTokens()
 	return h
 }
 
@@ -173,7 +178,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if body.Password != h.password {
+	if subtle.ConstantTimeCompare([]byte(body.Password), []byte(h.password)) != 1 {
 		h.attempts++
 		remaining := h.maxAttempts - h.attempts
 		if remaining <= 0 {
@@ -198,18 +203,42 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	h.attempts = 0
 	h.saveLockout()
 
-	token := make([]byte, 32)
-	rand.Read(token)
-	sessionToken := hex.EncodeToString(token)
+	// Owner-password login → owner role.
 	username := sanitizeUsername(body.Username)
-	h.sessions[sessionToken] = sessionEntry{CreatedAt: time.Now(), Username: username}
-	h.pruneExpired()
-	h.saveSessions()
+	sessionToken := h.newSession(username, RoleOwner)
 
 	json.NewEncoder(w).Encode(map[string]string{
 		"token":    sessionToken,
 		"username": username,
+		"role":     string(RoleOwner),
 	})
+}
+
+// newSession creates, stores, and persists a session, returning its token. The
+// caller must hold h.mu.
+func (h *Handler) newSession(username string, role Role) string {
+	raw := make([]byte, 32)
+	rand.Read(raw)
+	token := hex.EncodeToString(raw)
+	h.sessions[token] = sessionEntry{
+		CreatedAt: time.Now(),
+		Username:  sanitizeUsername(username),
+		Role:      role,
+	}
+	h.pruneExpired()
+	h.saveSessions()
+	return token
+}
+
+// Role returns the role for a valid session token, or "" if unknown/expired.
+// A session with no stored role (created before Wave 9) is treated as owner.
+func (h *Handler) Role(token string) Role {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if e, ok := h.sessions[token]; ok && time.Since(e.CreatedAt) < SessionTTL {
+		return normalizeRole(e.Role)
+	}
+	return ""
 }
 
 // SetUsername updates the display username on the caller's session. Mounted
