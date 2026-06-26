@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
   Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
-  Share2, MessageSquare, Webhook,
+  Share2, MessageSquare, Webhook, PanelLeft,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -292,6 +292,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           e.preventDefault()
           editorActionsRef.current?.goToLine()
         }
+      }
+      // Ctrl/Cmd+B — toggle the sidebar (VS Code parity)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setShowSidebar((s) => !s)
       }
     }
     window.addEventListener('keydown', handler)
@@ -792,6 +797,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       <div className="flex items-center justify-between px-2 h-10 bg-bg-tertiary border-b border-border shrink-0 select-none">
         {/* Left: logo + workspace */}
         <div className="flex items-center gap-1.5">
+          <button onClick={() => setShowSidebar((s) => !s)}
+            className={`flex items-center px-1.5 py-1 rounded-md transition-colors ${
+              showSidebar ? 'text-text-secondary hover:text-text-primary hover:bg-bg-hover' : 'text-accent bg-accent/10'
+            }`}
+            title={showSidebar ? 'Hide sidebar (Ctrl/Cmd+B)' : 'Show sidebar (Ctrl/Cmd+B)'}>
+            <PanelLeft className="w-4 h-4" />
+          </button>
           <div className="flex items-center gap-2 pr-2 mr-0.5 border-r border-border h-6">
             <Logo size={18} showName nameClass="text-[13px] font-semibold text-text-primary tracking-tight" />
           </div>

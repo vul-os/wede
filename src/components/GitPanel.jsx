@@ -349,9 +349,10 @@ function buildGraph(entries) {
   return rows
 }
 
-const LANE_W = 16
-const ROW_H  = 34
-const DOT_R  = 4.5
+const LANE_W = 18
+const ROW_H  = 38
+const DOT_R  = 5
+const STROKE = 2
 
 function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected, onClick }) {
   const laneCount = Math.max(row.laneCount, nextRow?.laneCount || 0, 1)
@@ -368,23 +369,25 @@ function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected, onClick }) 
     const active = row.activeLanes[i] != null
 
     if (i === row.lane) {
-      lines.push(<line key={`t${i}`} x1={x} y1={0} x2={x} y2={cy} stroke={lc} strokeWidth={1.5} opacity={0.5} />)
+      lines.push(<line key={`t${i}`} x1={x} y1={0} x2={x} y2={cy} stroke={lc} strokeWidth={STROKE} strokeLinecap="round" opacity={0.9} />)
       if (row.parents.length > 0 && !isLast) {
-        lines.push(<line key={`b${i}`} x1={x} y1={cy} x2={x} y2={ROW_H} stroke={lc} strokeWidth={1.5} opacity={0.5} />)
+        lines.push(<line key={`b${i}`} x1={x} y1={cy} x2={x} y2={ROW_H} stroke={lc} strokeWidth={STROKE} strokeLinecap="round" opacity={0.9} />)
       }
     } else if (active) {
-      lines.push(<line key={`p${i}`} x1={x} y1={0} x2={x} y2={ROW_H} stroke={lc} strokeWidth={1.5} opacity={0.35} />)
+      lines.push(<line key={`p${i}`} x1={x} y1={0} x2={x} y2={ROW_H} stroke={lc} strokeWidth={STROKE} strokeLinecap="round" opacity={0.7} />)
     }
   }
 
+  // Smooth symmetric S-curves from the merge commit down to each extra parent's lane.
   const curves = row.mergeLines.map(({ from, to }, i) => {
     const fx = 4 + from * LANE_W + LANE_W / 2
     const tx = 4 + to   * LANE_W + LANE_W / 2
+    const midY = (cy + ROW_H) / 2
     return (
       <path key={`m${i}`}
-        d={`M${fx},${cy} C${fx},${cy + 10} ${tx},${cy + 10} ${tx},${ROW_H}`}
+        d={`M${fx},${cy} C${fx},${midY} ${tx},${midY} ${tx},${ROW_H}`}
         stroke={LANE_COLORS[to % LANE_COLORS.length]}
-        strokeWidth={1.5} fill="none" opacity={0.45} />
+        strokeWidth={STROKE} fill="none" strokeLinecap="round" opacity={0.9} />
     )
   })
 
@@ -411,17 +414,18 @@ function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected, onClick }) 
       <svg width={svgW} height={ROW_H} className="shrink-0 opacity-90" style={{ minWidth: svgW }}>
         {lines}
         {curves}
-        <circle cx={cx} cy={cy} r={DOT_R + 2.5} fill="var(--c-bg-primary)" />
+        <circle cx={cx} cy={cy} r={DOT_R + 3} fill="var(--c-bg-primary)" />
         {isMerge ? (
+          // merge commit — hollow ring to distinguish it
           <>
-            <circle cx={cx} cy={cy} r={DOT_R + 1} fill={color} opacity={0.25} />
-            <circle cx={cx} cy={cy} r={DOT_R} fill={color} />
-            <circle cx={cx} cy={cy} r={DOT_R - 2} fill="var(--c-bg-primary)" />
+            <circle cx={cx} cy={cy} r={DOT_R + 1.5} fill={color} opacity={0.18} />
+            <circle cx={cx} cy={cy} r={DOT_R} fill="var(--c-bg-primary)" stroke={color} strokeWidth={2.5} />
           </>
         ) : (
+          // normal commit — filled dot with a crisp bg ring
           <>
-            <circle cx={cx} cy={cy} r={DOT_R + 1} fill={color} opacity={0.2} />
-            <circle cx={cx} cy={cy} r={DOT_R} fill={color} />
+            <circle cx={cx} cy={cy} r={DOT_R + 1.5} fill={color} opacity={0.16} />
+            <circle cx={cx} cy={cy} r={DOT_R} fill={color} stroke="var(--c-bg-primary)" strokeWidth={1.5} />
           </>
         )}
       </svg>

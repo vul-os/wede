@@ -294,13 +294,24 @@ body {
   width: 1px;
   cursor: col-resize;
   background: var(--c-border);
-  transition: background 0.15s, width 0.15s;
+  transition: background 0.15s;
   position: relative;
+  flex-shrink: 0;
+}
+/* Wider invisible hit area so the 1px handle is easy to grab. */
+.resize-handle-h::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+  z-index: 5;
 }
 .resize-handle-h:hover,
 .resize-handle-h:active {
   background: var(--c-accent);
-  width: 2px;
+  box-shadow: 0 0 0 1px var(--c-accent);
 }
 
 .resize-handle-v {
