@@ -36,16 +36,17 @@ function langFromFile(file) {
   return EXT_TO_LANG[extFromPath(file.path)] || null
 }
 
-function buildWsUrl(lang, token) {
+function buildWsUrl(lang, token, workspaceId) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const base = `${proto}//${window.location.host}/api/lsp?lang=${encodeURIComponent(lang)}`
+  const path = workspaceId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/lsp` : '/api/lsp'
+  const base = `${proto}//${window.location.host}${path}?lang=${encodeURIComponent(lang)}`
   // Token passed as ?token= because WebSocket subprotocol approach mirrors
   // the terminal but codemirror-languageserver manages the WS internally.
   // The auth middleware accepts ?token= on WS upgrade requests.
   return `${base}&token=${encodeURIComponent(token)}`
 }
 
-export function useLSP({ file, token, authFetch, lspEnabled }) {
+export function useLSP({ file, token, authFetch, lspEnabled, workspaceId }) {
   const [available, setAvailable] = useState(null) // null = not yet fetched
 
   // Fetch available servers once on mount.
@@ -68,7 +69,7 @@ export function useLSP({ file, token, authFetch, lspEnabled }) {
     const lang = langFromFile({ path: filePath })
     if (!lang || !available[lang]) return null
 
-    const wsUrl = buildWsUrl(lang, token)
+    const wsUrl = buildWsUrl(lang, token, workspaceId)
     const documentUri = `file://${filePath}`
 
     try {
@@ -83,7 +84,7 @@ export function useLSP({ file, token, authFetch, lspEnabled }) {
       console.warn('[lsp] failed to create extension:', err)
       return null
     }
-  }, [filePath, lspEnabled, available, token])
+  }, [filePath, lspEnabled, available, token, workspaceId])
 
   return { extension, available }
 }

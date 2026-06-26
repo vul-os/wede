@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { workspacesUrl } from '../api'
+import { setActiveWorkspaceId as syncActiveWorkspaceId } from '../lib/activeWorkspace'
 
 // useWorkspaces tracks the set of open projects ("workspaces") and the active one.
 //
@@ -9,6 +10,10 @@ import { workspacesUrl } from '../api'
 export function useWorkspaces(token, authFetch) {
   const [workspaces, setWorkspaces] = useState([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
+
+  // Keep the module-level holder (read by authFetch) in sync with the focused
+  // workspace so legacy /api/<service> calls are rewritten to the active one.
+  useEffect(() => { syncActiveWorkspaceId(activeWorkspaceId) }, [activeWorkspaceId])
 
   const refresh = useCallback(async () => {
     if (!token) return

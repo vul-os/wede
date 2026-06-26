@@ -11,10 +11,7 @@ import (
 
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
-	"wede/backend/internal/files"
-	"wede/backend/internal/git"
 	"wede/backend/internal/workspace"
-	"wede/backend/internal/search"
 	"wede/backend/internal/tunnel"
 	"wede/backend/internal/folder"
 )
@@ -80,13 +77,12 @@ func main() {
 	// as the default workspace so the solo-user case works with zero setup; additional
 	// projects can be opened as further workspaces via /api/workspaces.
 	wsMgr := workspace.NewManager(cfg.FrameAncestors)
-	defaultWorkspace := wsMgr.Register("default", rootFolder)
+	// The default workspace must exist so scoped /api/workspaces/{id}/... routes
+	// (and the frontend's auto-selected "default") resolve.
+	wsMgr.Register("default", rootFolder)
 
 	authHandler := auth.New(cfg.Password)
 	tunnelMgr := tunnel.New(cfg.Port) // optional frp public tunnel (owner-only)
-	fileHandler := files.New(rootFolder)
-	gitHandler := git.New(rootFolder)
-	searchHandler := search.New(rootFolder)
 
 	mux := http.NewServeMux()
 
@@ -210,64 +206,10 @@ func main() {
 	protected.Handle("PUT /api/workspaces/{id}/apiclient/environment", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().SaveEnvironment })))
 	protected.Handle("DELETE /api/workspaces/{id}/apiclient/environment", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.APIClient().DeleteEnvironment })))
 
-	protected.HandleFunc("GET /api/files", fileHandler.List)
-	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)
-	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
-	protected.Handle("PUT /api/files/write", re(http.HandlerFunc(fileHandler.Write)))
-	protected.Handle("POST /api/files/create", re(http.HandlerFunc(fileHandler.Create)))
-	protected.Handle("DELETE /api/files/delete", re(http.HandlerFunc(fileHandler.Delete)))
-	protected.Handle("POST /api/files/rename", re(http.HandlerFunc(fileHandler.Rename)))
-	protected.Handle("POST /api/files/copy", re(http.HandlerFunc(fileHandler.Copy)))
-
-	protected.HandleFunc("GET /api/git/status", gitHandler.Status)
-	protected.HandleFunc("GET /api/git/log", gitHandler.Log)
-	protected.HandleFunc("GET /api/git/diff", gitHandler.Diff)
-	protected.Handle("POST /api/git/stage", re(http.HandlerFunc(gitHandler.Stage)))
-	protected.Handle("POST /api/git/unstage", re(http.HandlerFunc(gitHandler.Unstage)))
-	protected.Handle("POST /api/git/commit", re(http.HandlerFunc(gitHandler.Commit)))
-	protected.HandleFunc("GET /api/git/branches", gitHandler.Branches)
-	protected.Handle("POST /api/git/checkout", re(http.HandlerFunc(gitHandler.Checkout)))
-	protected.Handle("POST /api/git/branch", re(http.HandlerFunc(gitHandler.CreateBranch)))
-	protected.Handle("POST /api/git/branch/delete", re(http.HandlerFunc(gitHandler.DeleteBranch)))
-	protected.Handle("POST /api/git/fetch", re(http.HandlerFunc(gitHandler.Fetch)))
-	protected.Handle("POST /api/git/pull", re(http.HandlerFunc(gitHandler.Pull)))
-	protected.Handle("POST /api/git/push", re(http.HandlerFunc(gitHandler.Push)))
-	protected.HandleFunc("GET /api/git/remotes", gitHandler.Remotes)
-	protected.Handle("POST /api/git/discard", re(http.HandlerFunc(gitHandler.Discard)))
-	protected.HandleFunc("GET /api/git/stash", gitHandler.StashList)
-	protected.Handle("POST /api/git/stash", re(http.HandlerFunc(gitHandler.StashPush)))
-	protected.Handle("POST /api/git/stash/pop", re(http.HandlerFunc(gitHandler.StashPop)))
-	protected.Handle("POST /api/git/stash/drop", re(http.HandlerFunc(gitHandler.StashDrop)))
-	protected.HandleFunc("GET /api/git/commit-diff", gitHandler.CommitDiff)
-	protected.Handle("POST /api/files/format", re(http.HandlerFunc(fileHandler.Format)))
-
-	protected.HandleFunc("GET /api/search", searchHandler.Search)
-	protected.HandleFunc("GET /api/search/files", searchHandler.SearchFiles)
-	protected.HandleFunc("GET /api/search/replace-preview", searchHandler.ReplacePreview)
-	protected.Handle("POST /api/search/replace", re(http.HandlerFunc(searchHandler.ReplaceApply)))
-
-	protected.HandleFunc("GET /api/git/conflict", gitHandler.ConflictRegions)
-	protected.Handle("POST /api/git/conflict/resolve", re(http.HandlerFunc(gitHandler.ConflictResolve)))
-	protected.Handle("POST /api/git/remotes/add", re(http.HandlerFunc(gitHandler.RemoteAdd)))
-	protected.Handle("POST /api/git/remotes/remove", re(http.HandlerFunc(gitHandler.RemoteRemove)))
-	protected.Handle("POST /api/git/stage-hunk", re(http.HandlerFunc(gitHandler.StageHunk)))
-	// git tools (legacy default-workspace routes used by the current frontend GitPanel)
-	protected.HandleFunc("GET /api/git/blame", gitHandler.Blame)
-	protected.HandleFunc("GET /api/git/tags", gitHandler.Tags)
-	protected.Handle("POST /api/git/cherry-pick", re(http.HandlerFunc(gitHandler.CherryPick)))
-	protected.Handle("POST /api/git/revert", re(http.HandlerFunc(gitHandler.Revert)))
-	protected.Handle("POST /api/git/reset", re(http.HandlerFunc(gitHandler.Reset)))
-	protected.Handle("POST /api/git/merge", re(http.HandlerFunc(gitHandler.Merge)))
-	protected.Handle("POST /api/git/tag", re(http.HandlerFunc(gitHandler.TagCreate)))
-	protected.Handle("POST /api/git/tag/delete", re(http.HandlerFunc(gitHandler.TagDelete)))
-
-	protected.HandleFunc("GET /api/watch", defaultWorkspace.Watcher().HandleSSE)
-
-	protected.HandleFunc("GET /api/terminal/sessions", defaultWorkspace.Terminal().ListSessions)
-	protected.Handle("GET /api/terminal", re(http.HandlerFunc(defaultWorkspace.Terminal().HandleWS))) // viewers get no shell
-
-	protected.HandleFunc("GET /api/lsp/available", defaultWorkspace.LSP().HandleAvailable)
-	protected.HandleFunc("GET /api/lsp", defaultWorkspace.LSP().HandleWS)
+	// Legacy default-workspace routes (/api/files, /api/git, /api/search,
+	// /api/watch, /api/terminal, /api/lsp) have been removed: the frontend's
+	// authFetch now rewrites them to /api/workspaces/{activeId}/... so every
+	// request follows the focused workspace.
 
 	mux.Handle("/api/", authHandler.Middleware(protected))
 

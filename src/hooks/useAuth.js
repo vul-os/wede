@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { scopedUrl } from '../lib/activeWorkspace'
 
 const API = '/api'
 
@@ -120,7 +121,7 @@ export function useAuth() {
 
   const authFetch = useCallback(async (url, options = {}) => {
     const headers = { ...options.headers, Authorization: token }
-    const res = await fetch(url, { ...options, headers })
+    const res = await fetch(scopedUrl(url), { ...options, headers })
     if (res.status === 401) {
       logout()
       throw new Error('unauthorized')

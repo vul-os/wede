@@ -199,7 +199,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if (!active) return
       // SSE can't use custom headers, so pass the token as a query param.
       // The auth middleware already supports ?token= for WS/SSE routes.
-      const url = `/api/watch?token=${encodeURIComponent(token)}`
+      // Scope to the active workspace so the watcher follows workspace switches.
+      const base = workspaceId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/watch` : '/api/watch'
+      const url = `${base}?token=${encodeURIComponent(token)}`
       es = new EventSource(url)
       es.onmessage = (e) => {
         try {
@@ -226,7 +228,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       active = false
       es?.close()
     }
-  }, [workspace, token]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workspace, token, workspaceId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-save ──
   // After a configurable debounce (1.5 s by default) auto-save dirty tabs.
@@ -565,6 +567,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     token,
     authFetch,
     lspEnabled: editorSettings.lsp ?? true,
+    workspaceId,
   })
 
   // Collaborative editing for the active text file (CRDT via the doc WS).

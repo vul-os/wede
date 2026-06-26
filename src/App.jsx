@@ -53,7 +53,9 @@ function App() {
     return <Login onLogin={login} error={error} locked={locked} remaining={remaining} />
   }
 
-  if (loading) {
+  // Wait for the active workspace to resolve before mounting the IDE, so every
+  // file/git/search request is workspace-scoped from the first render.
+  if (loading || !workspacesApi.activeWorkspaceId) {
     return (
       <div className="min-h-screen bg-bg-tertiary flex items-center justify-center">
         <div className="animate-fade-in text-center">
