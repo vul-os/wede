@@ -25,7 +25,11 @@ import { spawn, spawnSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const OUT_DIR = resolve(ROOT, 'docs', 'screenshots');
+// WEDE_THEME=dark renders the dark (Midnight) theme into docs/screenshots/dark/.
+const THEME = process.env.WEDE_THEME === 'dark' ? 'dark' : 'light';
+const OUT_DIR = THEME === 'dark'
+  ? resolve(ROOT, 'docs', 'screenshots', 'dark')
+  : resolve(ROOT, 'docs', 'screenshots');
 const DEMO_WORKSPACE = resolve(__dirname, 'demo-workspace');
 const WEDE_BIN = resolve(ROOT, 'wede');
 
@@ -255,9 +259,9 @@ async function run() {
     page.on('console', () => {});
     page.on('pageerror', () => {});
     // Seed theme only (so we skip ThemePicker but land on Login)
-    await ctx.addInitScript(() => {
-      localStorage.setItem('wede_theme', 'light');
-    });
+    await ctx.addInitScript((theme) => {
+      localStorage.setItem('wede_theme', theme);
+    }, THEME);
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('input[placeholder="Enter password"]', { timeout: 8000 });
     await sleep(400);
@@ -267,12 +271,12 @@ async function run() {
 
   // ── Create IDE context with pre-seeded auth token ─────────────────────────
   const ctx = await browser.newContext({ viewport: VIEWPORT });
-  await ctx.addInitScript(({ tok }) => {
-    localStorage.setItem('wede_theme', 'light');
+  await ctx.addInitScript(({ tok, theme }) => {
+    localStorage.setItem('wede_theme', theme);
     localStorage.setItem('wede_token', tok);
     localStorage.setItem('wede_username', 'Ava Chen');
     localStorage.setItem('wede_role', 'owner');
-  }, { tok: loginToken });
+  }, { tok: loginToken, theme: THEME });
 
   const page = await ctx.newPage();
   page.on('console', () => {});

@@ -4,6 +4,17 @@ Visual tour of the IDE. All screenshots are captured at 1440×900 against the
 `scripts/demo-workspace/` project (taskboard — Go API + React frontend) so
 every panel shows realistic developer content.
 
+The gallery below is the **light (Daylight)** theme; the matching **dark
+(Midnight)** set lives in [`screenshots/dark/`](screenshots/dark/). Regenerate
+with `npm run screenshots` (light) or `WEDE_THEME=dark npm run screenshots`.
+
+### Both themes at a glance
+
+| Light (Daylight) | Dark (Midnight) |
+|------------------|-----------------|
+| ![Light](screenshots/hero.png) | ![Dark](screenshots/dark/hero.png) |
+| ![Light graph](screenshots/git_graph.png) | ![Dark graph](screenshots/dark/git_graph.png) |
+
 ---
 
 ## Gallery
