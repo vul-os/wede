@@ -173,8 +173,12 @@ No new user features — prove isolation.
 - [x] Path-encoding contract: room name = base64url(relative path); backend `decodeRoom`
       decodes (raw-path fallback) at LoadDoc + write-back; deps added (`yjs`,
       `y-codemirror.next`, `y-protocols`, `y-websocket`); build green. (+2 Go tests)
-- [ ] Frontend: `useYDoc` (y-websocket provider → `/api/rooms/{id}/doc`, room=base64url(path),
-      params {token}, awareness user) + `yCollab` in Editor.jsx; remote cursors/selections
+- [x] `src/hooks/useYDoc.js`: y-websocket `WebsocketProvider` → `/api/rooms/{id}/doc`,
+      room=`b64urlPath(path)` (UTF-8-safe, matches Go RawURLEncoding), `params:{token}`,
+      awareness user{name,color}; exposes `ytext`/`provider`/`awareness`; defensive + disposes
+      on unmount/file change. (not integrated into Editor yet)
+- [ ] Integrate `yCollab` from `y-codemirror.next` into `Editor.jsx` for the active file
+      (collab owns text → skip prop-seeded initial content); remote cursors/selections
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect
 
 ### Wave 5 — VS Code parity (mostly polish on existing)  ⬜
@@ -328,3 +332,9 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   into LoadDoc + write-back; +2 Go tests. Added frontend deps yjs/y-codemirror.next/
   y-protocols/y-websocket; `npm run build` green (not integrated yet). Check green. Next:
   `useYDoc` hook (y-websocket provider + awareness) then `yCollab` in Editor.jsx.
+- 2026-06-26: Wave 4 frontend slice B — `useYDoc.js`: opens a `Y.Doc` + y-websocket
+  `WebsocketProvider` to `/api/rooms/{id}/doc/{b64urlPath(path)}?token=`, sets awareness
+  user{name,color}, exposes `ytext`('content')/`provider`/`awareness`; disposes provider+doc
+  on unmount/file change; fully defensive (nulls when inactive). `b64urlPath` is UTF-8-safe
+  and matches Go RawURLEncoding. Not integrated into Editor yet. Check green. Next: yCollab
+  in Editor.jsx.
