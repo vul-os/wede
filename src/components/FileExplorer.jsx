@@ -156,8 +156,13 @@ function TreeNode({
       if (!isOpen) loadChildren()
       onFocusDir(entry.path)
     } else {
-      onSelect(entry)
+      onSelect(entry) // single click → preview tab
     }
+  }
+
+  // Double-click pins the file as a permanent (non-preview) tab, like VS Code.
+  const handleDoubleClick = () => {
+    if (!entry.isDir) onSelect(entry, { preview: false })
   }
 
   const contextItems = [
@@ -178,6 +183,7 @@ function TreeNode({
     <div>
       <div
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }) }}
         className={`relative flex items-center h-[26px] cursor-pointer text-[12px] transition-colors select-none group ${
           isSelected

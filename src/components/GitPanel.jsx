@@ -945,42 +945,37 @@ function FileRow({ file, action, onAction, onDiscard, authFetch, onRefresh, read
   return (
     <div>
       <div
-        className={`flex items-center px-3 py-1.5 hover:bg-bg-hover transition-colors group overflow-hidden cursor-pointer ${isConflicted ? 'bg-red/5' : ''}`}
+        className={`flex items-center gap-1.5 pl-3 pr-2 py-1 hover:bg-bg-hover transition-colors group overflow-hidden cursor-pointer ${isConflicted ? 'bg-red/5' : ''}`}
         onClick={() => setDiffOpen((v) => !v)}
+        title={file.path}
       >
-        <FileBadge status={file.status} />
-        <div className="flex-1 min-w-0 ml-2.5 overflow-hidden">
-          <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
-            <span className="text-[12px] text-text-primary font-medium truncate leading-tight">{filename}</span>
-            {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-all">
-          <span className="w-4 h-4 flex items-center justify-center text-text-muted">
-            {diffOpen
-              ? <EyeOff className="w-3 h-3" />
-              : <Eye className="w-3 h-3" />
-            }
-          </span>
+        <span className="text-[12px] text-text-primary truncate leading-tight shrink-0 max-w-[62%]">{filename}</span>
+        {dir && <span className="text-[10px] text-text-muted truncate min-w-0">{dir}</span>}
+        <div className="flex-1" />
+        {/* VS Code-style: status letter on the right, swapped for actions on hover */}
+        <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
           {isUnstaged && !isConflicted && onDiscard && !readOnly && (
             <button
               onClick={(e) => { e.stopPropagation(); onDiscard(file.path) }}
-              className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-red/15 text-text-muted hover:text-red transition-all"
+              className="w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-red hover:bg-red/10 transition-colors"
               title="Discard changes"
             >
-              <Trash2 className="w-3 h-3" />
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           )}
           {!isConflicted && !readOnly && (
             <button
               onClick={(e) => { e.stopPropagation(); onAction(file.path) }}
-              className="w-6 h-6 flex items-center justify-center rounded-md bg-bg-active hover:bg-border-active text-text-muted hover:text-text-primary transition-all"
-              title={action === 'stage' ? 'Stage file' : 'Unstage file'}
+              className="w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-active transition-colors"
+              title={action === 'stage' ? 'Stage changes' : 'Unstage changes'}
             >
-              {action === 'stage' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+              {action === 'stage' ? <Plus className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
+        <span className={`group-hover:hidden w-4 text-center text-[12px] font-bold shrink-0 ${(STATUS_META[file.status] || STATUS_META.modified).color}`}>
+          {(STATUS_META[file.status] || STATUS_META.modified).label}
+        </span>
       </div>
 
       {diffOpen && (

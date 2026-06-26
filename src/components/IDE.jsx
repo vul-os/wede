@@ -457,15 +457,25 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     onWorkspaceChange(path)
   }
 
-  const openFile = useCallback(async (entry) => {
+  // openFile follows VS Code's preview-tab model: a single click opens the file
+  // in a reusable "preview" tab (italic) that the next single-click replaces;
+  // editing it — or a double-click ({ preview: false }) — pins it as a real tab.
+  const openFile = useCallback(async (entry, { preview = true } = {}) => {
     if (entry.isDir) return
     const existing = tabs.find((t) => t.path === entry.path)
-    if (existing) { setActiveTab(entry.path); return }
+    if (existing) {
+      if (!preview && existing.preview) {
+        setTabs((prev) => prev.map((t) => (t.path === entry.path ? { ...t, preview: false } : t)))
+      }
+      setActiveTab(entry.path)
+      if (isMobile) setMobilePanel('code')
+      return
+    }
     try {
       const res = await authFetch(`/api/files/read?path=${encodeURIComponent(entry.path)}`)
       const data = await res.json()
       const tab = {
-        path: entry.path, name: entry.name,
+        path: entry.path, name: entry.name, preview,
         content: data.content || '', originalContent: data.content || '', modified: false,
       }
       if (data.fileType === 'image') {
@@ -475,7 +485,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         tab.fileType = 'binary'
         tab.size = data.size
       }
-      setTabs((prev) => [...prev, tab])
+      setTabs((prev) => {
+        // Reuse the existing unedited preview tab so browsing files doesn't pile up tabs.
+        if (preview) {
+          const idx = prev.findIndex((t) => t.preview && !t.modified)
+          if (idx !== -1) { const next = prev.slice(); next[idx] = tab; return next }
+        }
+        return [...prev, tab]
+      })
       setActiveTab(entry.path)
       if (isMobile) setMobilePanel('code')
     } catch { /* ignore */ }
@@ -486,7 +503,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if (t.path !== path) return t
       const modified = newContent !== t.originalContent
       if (modified) triggerAutoSave(path, newContent)
-      return { ...t, content: newContent, modified }
+      // Editing pins the tab (leaves preview mode), like VS Code.
+      return { ...t, content: newContent, modified, preview: modified ? false : t.preview }
     }))
   }, [triggerAutoSave])
 

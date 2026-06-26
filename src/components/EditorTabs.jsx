@@ -30,7 +30,7 @@ export default function EditorTabs({ tabs, activeTab, onSelect, onClose }) {
 
             <span className={`text-[12px] truncate max-w-40 font-medium leading-none ${
               isActive ? 'text-text-primary' : ''
-            }`}>{tab.name}</span>
+            } ${tab.preview && !tab.modified ? 'italic' : ''}`}>{tab.name}</span>
 
             <button
               onClick={(e) => { e.stopPropagation(); onClose(tab.path) }}
