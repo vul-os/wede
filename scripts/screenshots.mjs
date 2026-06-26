@@ -18,7 +18,7 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, existsSync, appendFileSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, appendFileSync, rmSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, spawnSync } from 'child_process';
@@ -40,52 +40,67 @@ mkdirSync(OUT_DIR, { recursive: true });
 // Before running wede we initialise a throwaway git repo there so the git
 // panel, diff view, and commit graph are populated with real content.
 
-function git(args, opts = {}) {
-  return spawnSync('git', args, {
-    cwd: DEMO_WORKSPACE,
+function git(args, env = {}) {
+  return spawnSync('git', ['-C', DEMO_WORKSPACE, ...args], {
     stdio: 'pipe',
-    ...opts,
-    env: {
-      ...process.env,
-      GIT_AUTHOR_NAME: 'Demo Dev',
-      GIT_AUTHOR_EMAIL: 'demo@vulos.org',
-      GIT_COMMITTER_NAME: 'Demo Dev',
-      GIT_COMMITTER_EMAIL: 'demo@vulos.org',
-    },
+    env: { ...process.env, ...env },
   });
 }
 
+// commitAs makes a commit with a specific author + date so the demo history looks
+// like a real multi-person project.
+function commitAs(date, name, email, msg) {
+  git(['commit', '-q', '-m', msg], {
+    GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email,
+    GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date,
+  });
+}
+
+// setupDemoWorkspaceGit rebuilds a throwaway git history in scripts/demo-workspace
+// with a feature branch + merge, so the commit graph shows real branching lanes.
+// The nested .git is auto-ignored by the outer wede repo (git never tracks .git).
 function setupDemoWorkspaceGit() {
-  if (existsSync(resolve(DEMO_WORKSPACE, '.git'))) {
-    console.log('  demo-workspace git already initialised — skipping');
-    return;
-  }
-  console.log('  Initialising demo-workspace git repo...');
+  rmSync(resolve(DEMO_WORKSPACE, '.git'), { recursive: true, force: true });
+  rmSync(resolve(DEMO_WORKSPACE, '.wede'), { recursive: true, force: true }); // fresh chat history
+  console.log('  Building demo-workspace history (feat/web branch + merge)...');
 
-  git(['init', '-b', 'main']);
-  git(['config', 'user.email', 'demo@vulos.org']);
-  git(['config', 'user.name', 'Demo Dev']);
+  git(['init', '-q', '-b', 'main']);
 
-  // Commit 1 — all files except the file we'll leave unstaged
-  git(['add',
-    'README.md', 'package.json',
-    'api/main.go', 'api/handlers.go',
-    'src/App.jsx', 'src/components/TaskList.jsx', 'src/components/TaskForm.jsx',
-    'src/utils/api.js', 'tests/handlers_test.go',
-  ]);
-  git(['commit', '-m', 'feat: initial taskboard scaffold']);
-
-  // Commit 2 — stage middleware.go in its clean state
+  // main — backend
+  git(['add', 'go.mod', 'package.json', 'README.md', 'api/main.go']);
+  commitAs('2026-06-10T09:12:00', 'Ava Chen', 'ava@vulos.org', 'chore: scaffold taskboard (Go API + React UI)');
+  git(['add', 'api/handlers.go']);
+  commitAs('2026-06-12T14:05:00', 'Imran Paruk', 'imran@vulos.org', 'feat(api): task CRUD handlers (list/create/update/delete)');
   git(['add', 'api/middleware.go']);
-  git(['commit', '-m', 'feat: add auth middleware']);
+  commitAs('2026-06-13T10:22:00', 'Sam Rivera', 'sam@vulos.org', 'feat(api): CORS + auth middleware');
 
-  // Unstaged change — append a stub function so the diff view is populated
+  // feat/web — frontend, branched off main
+  git(['checkout', '-q', '-b', 'feat/web']);
+  git(['add', 'src/App.jsx']);
+  commitAs('2026-06-14T16:18:00', 'Ava Chen', 'ava@vulos.org', 'feat(web): app shell + board layout');
+  git(['add', 'src/components/TaskList.jsx', 'src/components/TaskForm.jsx']);
+  commitAs('2026-06-15T12:03:00', 'Ava Chen', 'ava@vulos.org', 'feat(web): task list + create form');
+  git(['add', 'src/utils/api.js']);
+  commitAs('2026-06-16T09:47:00', 'Ava Chen', 'ava@vulos.org', 'feat(web): fetch-based API client');
+
+  // main advances, then merges feat/web (--no-ff keeps the merge commit visible)
+  git(['checkout', '-q', 'main']);
+  git(['add', 'tests/handlers_test.go']);
+  commitAs('2026-06-16T15:30:00', 'Sam Rivera', 'sam@vulos.org', 'test(api): handler unit tests');
+  git(['merge', '--no-ff', 'feat/web', '-q', '-m', "Merge branch 'feat/web': task board UI"], {
+    GIT_AUTHOR_NAME: 'Imran Paruk', GIT_AUTHOR_EMAIL: 'imran@vulos.org',
+    GIT_COMMITTER_NAME: 'Imran Paruk', GIT_COMMITTER_EMAIL: 'imran@vulos.org',
+    GIT_AUTHOR_DATE: '2026-06-17T10:00:00', GIT_COMMITTER_DATE: '2026-06-17T10:00:00',
+  });
+
+  // Unstaged change so the diff view is populated.
   appendFileSync(
     resolve(DEMO_WORKSPACE, 'api/middleware.go'),
     '\n// rateLimiter stub — TODO: implement with golang.org/x/time/rate\nfunc rateLimiter(next http.HandlerFunc, _ int) http.HandlerFunc {\n\treturn next\n}\n',
   );
 
-  console.log('  demo-workspace git ready (2 commits + 1 unstaged change)');
+  console.log('  demo-workspace ready (8 commits, feat/web merged, 1 unstaged change)');
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -236,6 +251,8 @@ async function run() {
   await ctx.addInitScript(({ tok }) => {
     localStorage.setItem('wede_theme', 'light');
     localStorage.setItem('wede_token', tok);
+    localStorage.setItem('wede_username', 'Ava Chen');
+    localStorage.setItem('wede_role', 'owner');
   }, { tok: loginToken });
 
   const page = await ctx.newPage();
@@ -345,6 +362,23 @@ async function run() {
   }
   await shot(page, 'terminal');
 
+  // ── 6b. Multiple terminals — per-project terminal manager (tabs) ───────────
+  console.log('Capturing: multiple terminals...');
+  const newTermBtn = page.locator('button[title="New Terminal"]').first();
+  for (let i = 0; i < 2 && (await newTermBtn.count()) > 0; i++) {
+    await newTermBtn.click();
+    await sleep(900); // let the new PTY connect + render its prompt
+  }
+  const lastTerm = page.locator('.xterm-screen').last();
+  if (await lastTerm.count() > 0) {
+    await lastTerm.click({ force: true }).catch(() => {});
+    await sleep(400);
+    await page.keyboard.type('go build ./... && echo build ok', { delay: 22 });
+    await page.keyboard.press('Enter');
+    await sleep(1400);
+  }
+  await shot(page, 'terminals');
+
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
   let settingsOpened = await clickSidebar(/settings/i);
@@ -384,6 +418,21 @@ async function run() {
     await sleep(4000); // let the page load inside the iframe
   }
   await shot(page, 'browser');
+
+  // ── 10. Chat — public / private channels + git activity ────────────────────
+  console.log('Capturing: chat (public/private)...');
+  await clickSidebar(/chat/i); // "Chat" activity button (MessageSquare)
+  await sleep(1000);
+  const chatInput = page.locator('textarea[placeholder*="Message" i]').first();
+  if (await chatInput.count() > 0) {
+    await chatInput.fill('Pushed the auth fix — terminal works now ✅');
+    await chatInput.press('Enter');
+    await sleep(500);
+    await chatInput.fill('Nice. Reviewing the share links next.');
+    await chatInput.press('Enter');
+    await sleep(900);
+  }
+  await shot(page, 'chat');
 
   await browser.close();
   stopWede();
