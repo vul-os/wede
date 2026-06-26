@@ -22,16 +22,17 @@ import (
 
 	ywebsocket "github.com/reearth/ygo/provider/websocket"
 
+	"wede/backend/internal/chat"
 	"wede/backend/internal/collab"
 	"wede/backend/internal/collabdoc"
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
+	"wede/backend/internal/folder"
 	"wede/backend/internal/git"
 	"wede/backend/internal/lsp"
 	"wede/backend/internal/presence"
 	"wede/backend/internal/search"
 	"wede/backend/internal/terminal"
-	"wede/backend/internal/folder"
 )
 
 // Workspace is one open project. It is rooted at an immutable path on disk, surfaced
@@ -56,6 +57,7 @@ type Workspace struct {
 	lsp      *lsp.Handler
 	presence  *presence.Hub
 	collab    *collab.Handler
+	chat      *chat.Hub
 	docs       *collabdoc.DocStore
 	docServer  *ywebsocket.Server          // ygo sync+awareness WS server (one doc per file)
 	docPersist *collabdoc.DiskPersistence  // seeds from + writes back to disk
@@ -154,6 +156,23 @@ func (r *Workspace) Collab() *collab.Handler {
 	return r.collab
 }
 
+// Chat returns this workspace's per-room chat hub, lazily created on first use.
+// The hub persists messages to <root>/.wede/chat.md and polls git for activity.
+//
+// Route the integrator must wire:
+//
+//	GET /api/workspaces/{id}/chat -> workspace.Chat().HandleWS
+//	(behind auth middleware, public-read OK)
+func (r *Workspace) Chat() *chat.Hub {
+	root := r.Root() // reads ws.Current(); does not take r.mu
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.chat == nil {
+		r.chat = chat.NewHub(root)
+	}
+	return r.chat
+}
+
 // Docs returns this workspace's collaborative document store (server-authoritative
 // CRDT doc per open file), lazily created on first use.
 func (r *Workspace) Docs() *collabdoc.DocStore {
@@ -204,6 +223,10 @@ func (r *Workspace) shutdown() {
 	if r.presence != nil {
 		r.presence.Close()
 		r.presence = nil
+	}
+	if r.chat != nil {
+		r.chat.Close()
+		r.chat = nil
 	}
 	if r.docs != nil {
 		r.docs.CloseAll()

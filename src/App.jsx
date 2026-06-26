@@ -9,7 +9,7 @@ import FolderPicker from './components/FolderPicker'
 import IDE from './components/IDE'
 
 function App() {
-  const { token, username, login, logout, error, locked, remaining, authFetch } = useAuth()
+  const { token, username, role, login, logout, redeem, error, locked, remaining, authFetch } = useAuth()
   const { theme, setTheme } = useTheme()
   const workspacesApi = useWorkspaces(token, authFetch)
   const [workspace, setWorkspace] = useState(null)
@@ -31,6 +31,18 @@ function App() {
     else setLoading(false)
   }, [token, fetchWorkspace])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Handle ?invite=TOKEN in the URL: redeem the token then strip the param so
+  // the invite link isn't reusable by copy-pasting from the address bar.
+   
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const invite = params.get('invite')
+    if (!invite) return
+    history.replaceState({}, '', window.location.pathname)
+    redeem(invite).catch(() => {})
+  }, [redeem])
+   
 
   // First visit - pick theme
   if (!theme) {
@@ -75,6 +87,7 @@ function App() {
       workspaceId={workspacesApi.activeWorkspaceId}
       workspacesApi={workspacesApi}
       username={username}
+      role={role}
     />
   )
 }

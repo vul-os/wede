@@ -679,3 +679,527 @@ func TestStageHunk_EmptyPatch(t *testing.T) {
 		t.Errorf("empty patch: expected 400, got %d", rec.Code)
 	}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Log graph (--date-order + parent hashes)
+═══════════════════════════════════════════════════════════════════════ */
+
+// TestLog_GraphParents verifies that a merge commit appears in the log with
+// two parent hashes, confirming the %P field is populated.
+func TestLog_GraphParents(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Create a branch + diverging commit, then merge it so we get a merge commit.
+	run("checkout", "-b", "graph-branch")
+	if err := os.WriteFile(repo+"/branch.txt", []byte("branch\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "branch.txt")
+	run("commit", "-m", "branch commit")
+	run("checkout", "-")
+	run("merge", "--no-ff", "graph-branch", "-m", "Merge graph-branch")
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodGet, "/api/git/log?count=10", nil)
+	rec := httptest.NewRecorder()
+	h.Log(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Log: expected 200, got %d", rec.Code)
+	}
+
+	var resp struct {
+		Entries []LogEntry `json:"entries"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+
+	var mergeFound bool
+	for _, e := range resp.Entries {
+		if len(e.Parents) == 2 {
+			mergeFound = true
+		}
+		if e.DateISO == "" {
+			t.Errorf("entry %s: DateISO should not be empty", e.Short)
+		}
+	}
+	if !mergeFound {
+		t.Error("expected a merge commit with 2 parents in log output")
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Blame
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestBlame_InvalidPath(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	badPaths := []string{"", "-f", "--file"}
+	for _, p := range badPaths {
+		req := httptest.NewRequest(http.MethodGet, "/api/git/blame?file="+p, nil)
+		rec := httptest.NewRecorder()
+		h.Blame(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("path=%q: expected 400, got %d", p, rec.Code)
+		}
+	}
+}
+
+func TestBlame_ValidFile(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/blame?file=README.md", nil)
+	rec := httptest.NewRecorder()
+	h.Blame(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Blame: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Lines []BlameLineInfo `json:"lines"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Lines) == 0 {
+		t.Fatal("expected at least one blame line for README.md")
+	}
+	for _, l := range resp.Lines {
+		if l.Hash == "" {
+			t.Error("expected non-empty hash in blame line")
+		}
+		if l.Author == "" {
+			t.Errorf("line %d: expected non-empty author", l.LineNo)
+		}
+	}
+}
+
+// TestParseBlameOutput unit-tests the pure parsing function directly.
+func TestParseBlameOutput(t *testing.T) {
+	// Hash is exactly 40 lowercase hex chars.
+	const input = `abc123456789012345678901234567890123456f 1 1 1
+author Alice
+author-mail <alice@example.com>
+author-time 1609459200
+author-tz +0000
+committer Alice
+committer-mail <alice@example.com>
+committer-time 1609459200
+committer-tz +0000
+summary Initial commit
+filename README.md
+	# hello
+abc123456789012345678901234567890123456f 2 2
+	world
+`
+	lines := parseBlameOutput(input)
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 blame lines, got %d", len(lines))
+	}
+	if lines[0].Content != "# hello" {
+		t.Errorf("line 0 content: got %q", lines[0].Content)
+	}
+	if lines[0].Author != "Alice" {
+		t.Errorf("line 0 author: got %q", lines[0].Author)
+	}
+	if lines[0].Date != "2021-01-01" {
+		t.Errorf("line 0 date: got %q", lines[0].Date)
+	}
+	if lines[1].LineNo != 2 {
+		t.Errorf("line 1 lineNo: got %d", lines[1].LineNo)
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CherryPick
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestCherryPick_InvalidHash(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, hash := range []string{"", "HEAD", "--all", "xyz"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/cherry-pick",
+			postBody(t, map[string]string{"hash": hash}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.CherryPick(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("hash=%q: expected 400, got %d", hash, rec.Code)
+		}
+	}
+}
+
+func TestCherryPick_Valid(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Create a feature branch with a unique new file to avoid conflicts.
+	run("checkout", "-b", "feature-cp")
+	if err := os.WriteFile(repo+"/feature.txt", []byte("feature\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "feature.txt")
+	run("commit", "-m", "feature commit")
+	featureHash := run("rev-parse", "HEAD")
+
+	// Return to the original branch.
+	run("checkout", "-")
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodPost, "/api/git/cherry-pick",
+		postBody(t, map[string]string{"hash": featureHash}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.CherryPick(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("CherryPick: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	// Verify the new file exists on the original branch.
+	if _, err := os.Stat(repo + "/feature.txt"); os.IsNotExist(err) {
+		t.Error("cherry-picked file feature.txt not found")
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Revert
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestRevert_InvalidHash(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, hash := range []string{"", "HEAD", "--all"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/revert",
+			postBody(t, map[string]string{"hash": hash}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.Revert(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("hash=%q: expected 400, got %d", hash, rec.Code)
+		}
+	}
+}
+
+func TestRevert_Valid(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Second commit: add a new file so the revert only touches that file.
+	if err := os.WriteFile(repo+"/extra.txt", []byte("extra\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "extra.txt")
+	run("commit", "-m", "second commit")
+	hash := run("rev-parse", "HEAD")
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodPost, "/api/git/revert",
+		postBody(t, map[string]string{"hash": hash}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Revert(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Revert: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	// After revert, extra.txt should no longer exist.
+	if _, err := os.Stat(repo + "/extra.txt"); !os.IsNotExist(err) {
+		t.Error("extra.txt should have been removed by revert")
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Reset
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestReset_InvalidArgs(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// Invalid hash.
+	req := httptest.NewRequest(http.MethodPost, "/api/git/reset",
+		postBody(t, map[string]any{"hash": "HEAD", "mode": "soft"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Reset(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("invalid hash: expected 400, got %d", rec.Code)
+	}
+
+	// Invalid mode — use real hash.
+	hashCmd := exec.Command("git", "rev-parse", "HEAD")
+	hashCmd.Dir = repo
+	rawHash, _ := hashCmd.Output()
+	hash := strings.TrimSpace(string(rawHash))
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/git/reset",
+		postBody(t, map[string]any{"hash": hash, "mode": "brutal"}))
+	req2.Header.Set("Content-Type", "application/json")
+	rec2 := httptest.NewRecorder()
+	h.Reset(rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Errorf("invalid mode: expected 400, got %d", rec2.Code)
+	}
+}
+
+func TestReset_Soft(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Make a second commit to have somewhere to reset to.
+	if err := os.WriteFile(repo+"/file2.txt", []byte("second\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "file2.txt")
+	run("commit", "-m", "second")
+
+	// Soft-reset back to the first (root) commit.
+	firstHash := run("rev-list", "--max-parents=0", "HEAD")
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodPost, "/api/git/reset",
+		postBody(t, map[string]any{"hash": firstHash, "mode": "soft"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Reset(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Reset soft: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	head := run("rev-parse", "HEAD")
+	if head != firstHash {
+		t.Errorf("expected HEAD=%s after soft reset, got %s", firstHash, head)
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Merge
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestMerge_InvalidBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, b := range []string{"", "--evil", "-x"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/merge",
+			postBody(t, map[string]string{"branch": b}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.Merge(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("branch=%q: expected 400, got %d", b, rec.Code)
+		}
+	}
+}
+
+func TestMerge_Valid(t *testing.T) {
+	repo := initTestRepo(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Create a branch with a unique file (no conflicts).
+	run("checkout", "-b", "feature-merge")
+	if err := os.WriteFile(repo+"/merged.txt", []byte("merged\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "merged.txt")
+	run("commit", "-m", "feature commit")
+	run("checkout", "-")
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodPost, "/api/git/merge",
+		postBody(t, map[string]string{"branch": "feature-merge"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.Merge(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Merge: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	// merged.txt should exist on the main branch now.
+	if _, err := os.Stat(repo + "/merged.txt"); os.IsNotExist(err) {
+		t.Error("merged.txt not found after merge")
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Tags
+═══════════════════════════════════════════════════════════════════════ */
+
+func TestTags_Empty(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/tags", nil)
+	rec := httptest.NewRecorder()
+	h.Tags(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Tags: expected 200, got %d", rec.Code)
+	}
+	var resp struct {
+		Tags []TagEntry `json:"tags"`
+	}
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp.Tags == nil {
+		t.Error("expected non-nil tags slice")
+	}
+	if len(resp.Tags) != 0 {
+		t.Errorf("expected 0 tags on fresh repo, got %d", len(resp.Tags))
+	}
+}
+
+func TestTagCreate_InvalidName(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, name := range []string{"", "--evil", "-v1"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/tag",
+			postBody(t, map[string]string{"name": name}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.TagCreate(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("name=%q: expected 400, got %d", name, rec.Code)
+		}
+	}
+}
+
+func TestTagCreate_InvalidHash(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/tag",
+		postBody(t, map[string]any{"name": "v1.0", "hash": "NOTAHEX"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.TagCreate(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("invalid hash: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestTagCreate_And_Delete(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	// Create a lightweight tag.
+	req := httptest.NewRequest(http.MethodPost, "/api/git/tag",
+		postBody(t, map[string]string{"name": "v0.1"}))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.TagCreate(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("TagCreate: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify it appears in the tag list.
+	req2 := httptest.NewRequest(http.MethodGet, "/api/git/tags", nil)
+	rec2 := httptest.NewRecorder()
+	h.Tags(rec2, req2)
+	var resp struct {
+		Tags []TagEntry `json:"tags"`
+	}
+	json.NewDecoder(rec2.Body).Decode(&resp)
+	var found bool
+	for _, tag := range resp.Tags {
+		if tag.Name == "v0.1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("tag v0.1 not found after creation")
+	}
+
+	// Delete the tag.
+	req3 := httptest.NewRequest(http.MethodPost, "/api/git/tag/delete",
+		postBody(t, map[string]string{"name": "v0.1"}))
+	req3.Header.Set("Content-Type", "application/json")
+	rec3 := httptest.NewRecorder()
+	h.TagDelete(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("TagDelete: expected 200, got %d: %s", rec3.Code, rec3.Body.String())
+	}
+
+	// Confirm it is gone.
+	req4 := httptest.NewRequest(http.MethodGet, "/api/git/tags", nil)
+	rec4 := httptest.NewRecorder()
+	h.Tags(rec4, req4)
+	var resp2 struct {
+		Tags []TagEntry `json:"tags"`
+	}
+	json.NewDecoder(rec4.Body).Decode(&resp2)
+	for _, tag := range resp2.Tags {
+		if tag.Name == "v0.1" {
+			t.Error("tag v0.1 still present after deletion")
+		}
+	}
+}
+
+func TestTagDelete_InvalidName(t *testing.T) {
+	repo := initTestRepo(t)
+	h := New(&staticWS{root: repo})
+
+	for _, name := range []string{"", "--evil", "-x"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/tag/delete",
+			postBody(t, map[string]string{"name": name}))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.TagDelete(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("name=%q: expected 400, got %d", name, rec.Code)
+		}
+	}
+}

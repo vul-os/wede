@@ -1,3 +1,22 @@
+// Package git provides git operation handlers for the wede backend.
+//
+// NEW ROUTES — the integrator must wire these in backend/cmd/wede/main.go.
+// Each legacy /api/git/* route also needs a matching
+// /api/workspaces/{id}/git/* workspace-scoped variant (same pattern).
+//
+// Read-only (no RequireEditor restriction):
+//
+//	GET  /api/git/blame       -> Handler.Blame
+//	GET  /api/git/tags        -> Handler.Tags
+//
+// Mutating (RequireEditor):
+//
+//	POST /api/git/cherry-pick -> Handler.CherryPick
+//	POST /api/git/revert      -> Handler.Revert
+//	POST /api/git/reset       -> Handler.Reset
+//	POST /api/git/merge       -> Handler.Merge
+//	POST /api/git/tag         -> Handler.TagCreate
+//	POST /api/git/tag/delete  -> Handler.TagDelete
 package git
 
 import (
@@ -10,6 +29,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type WorkspaceProvider interface {
@@ -141,6 +161,7 @@ type LogEntry struct {
 	Date    string   `json:"date"`
 	Refs    string   `json:"refs,omitempty"`
 	Parents []string `json:"parents"`
+	DateISO string   `json:"dateISO,omitempty"`
 }
 
 func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +181,10 @@ func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
 		count = "50"
 	}
 
-	out, err := h.run("log", "--format=%H|%h|%s|%an|%ar|%D|%P", "-n", count, "--all")
+	// --date-order keeps commits ordered by author date, which produces a
+	// natural visual ordering for the DAG graph (parent always above child).
+	// Format: hash|short|subject|author|reldate|refs|parents|ISO-date (8 fields)
+	out, err := h.run("log", "--date-order", "--format=%H|%h|%s|%an|%ar|%D|%P|%ai", "-n", count, "--all")
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]any{"entries": []any{}})
 		return
@@ -169,15 +193,22 @@ func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
 	entries := []LogEntry{}
 	if out != "" {
 		for _, line := range strings.Split(out, "\n") {
-			parts := strings.SplitN(line, "|", 7)
+			// SplitN 8 so that a pipe in the subject lands in parts[2] and
+			// pushes everything right — the parser is still correct because
+			// hash (parts[0]) and short (parts[1]) never contain pipes.
+			parts := strings.SplitN(line, "|", 8)
 			if len(parts) < 7 {
 				continue
 			}
 			parents := []string{}
 			if parts[6] != "" {
-				parents = strings.Split(parts[6], " ")
+				for _, p := range strings.Split(parts[6], " ") {
+					if p != "" {
+						parents = append(parents, p)
+					}
+				}
 			}
-			entries = append(entries, LogEntry{
+			e := LogEntry{
 				Hash:    parts[0],
 				Short:   parts[1],
 				Message: parts[2],
@@ -185,7 +216,11 @@ func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
 				Date:    parts[4],
 				Refs:    parts[5],
 				Parents: parents,
-			})
+			}
+			if len(parts) >= 8 {
+				e.DateISO = strings.TrimSpace(parts[7])
+			}
+			entries = append(entries, e)
 		}
 	}
 
@@ -1082,4 +1117,392 @@ func (h *Handler) StageHunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Blame
+═══════════════════════════════════════════════════════════════════════ */
+
+// BlameLineInfo holds per-line blame attribution.
+type BlameLineInfo struct {
+	LineNo  int    `json:"lineNo"`
+	Content string `json:"content"`
+	Hash    string `json:"hash"`
+	Short   string `json:"short"`
+	Author  string `json:"author"`
+	Date    string `json:"date"`
+	Summary string `json:"summary"`
+}
+
+// blameMeta tracks metadata collected for a single commit hash while parsing
+// porcelain blame output.
+type blameMeta struct {
+	author  string
+	date    string
+	summary string
+}
+
+// blameLineRe matches the first line of a blame group:
+// <40-hex-hash> <orig-line> <final-line> [<group-count>]
+var blameLineRe = regexp.MustCompile(`^([0-9a-f]{40}) \d+ (\d+)`)
+
+// parseBlameOutput converts the output of "git blame --porcelain" into a
+// slice of BlameLineInfo, one entry per source line.
+func parseBlameOutput(output string) []BlameLineInfo {
+	lines := strings.Split(output, "\n")
+	meta := map[string]*blameMeta{}
+	var curHash string
+	var curLine int
+	var result []BlameLineInfo
+
+	for _, line := range lines {
+		if m := blameLineRe.FindStringSubmatch(line); m != nil {
+			curHash = m[1]
+			curLine, _ = strconv.Atoi(m[2])
+			if _, ok := meta[curHash]; !ok {
+				meta[curHash] = &blameMeta{}
+			}
+			continue
+		}
+		if curHash == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "author "):
+			meta[curHash].author = strings.TrimPrefix(line, "author ")
+		case strings.HasPrefix(line, "author-time "):
+			ts, err := strconv.ParseInt(strings.TrimPrefix(line, "author-time "), 10, 64)
+			if err == nil {
+				meta[curHash].date = time.Unix(ts, 0).UTC().Format("2006-01-02")
+			}
+		case strings.HasPrefix(line, "summary "):
+			meta[curHash].summary = strings.TrimPrefix(line, "summary ")
+		case strings.HasPrefix(line, "\t"):
+			content := line[1:] // strip the leading tab
+			m := meta[curHash]
+			short := curHash
+			if len(short) > 7 {
+				short = short[:7]
+			}
+			result = append(result, BlameLineInfo{
+				LineNo:  curLine,
+				Content: content,
+				Hash:    curHash,
+				Short:   short,
+				Author:  m.author,
+				Date:    m.date,
+				Summary: m.summary,
+			})
+		}
+	}
+	return result
+}
+
+// Blame returns per-line blame attribution for a file.
+// GET /api/git/blame?file=<path>
+func (h *Handler) Blame(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	file := r.URL.Query().Get("file")
+	if file == "" || strings.HasPrefix(file, "-") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid path"})
+		return
+	}
+
+	out, err := h.run("blame", "--porcelain", "--", file)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+
+	lines := parseBlameOutput(out)
+	if lines == nil {
+		lines = []BlameLineInfo{}
+	}
+	json.NewEncoder(w).Encode(map[string]any{"lines": lines})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Cherry-pick
+═══════════════════════════════════════════════════════════════════════ */
+
+// CherryPick applies the changes from the given commit onto the current branch.
+// POST /api/git/cherry-pick  {"hash":"abc1234"}
+func (h *Handler) CherryPick(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Hash string `json:"hash"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if !validCommitHash.MatchString(body.Hash) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid commit hash"})
+		return
+	}
+
+	out, err := h.run("cherry-pick", body.Hash)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Revert
+═══════════════════════════════════════════════════════════════════════ */
+
+// Revert creates a new commit that undoes the changes from the given commit.
+// POST /api/git/revert  {"hash":"abc1234"}
+func (h *Handler) Revert(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Hash string `json:"hash"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if !validCommitHash.MatchString(body.Hash) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid commit hash"})
+		return
+	}
+
+	// --no-edit avoids spawning an editor for the revert commit message.
+	out, err := h.run("revert", "--no-edit", body.Hash)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Reset
+═══════════════════════════════════════════════════════════════════════ */
+
+// validResetMode returns true for the three safe git reset modes.
+func validResetMode(mode string) bool {
+	switch mode {
+	case "soft", "mixed", "hard":
+		return true
+	}
+	return false
+}
+
+// Reset moves HEAD (and optionally the index/working tree) to the given commit.
+// POST /api/git/reset  {"hash":"abc1234","mode":"soft|mixed|hard"}
+func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Hash string `json:"hash"`
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if !validCommitHash.MatchString(body.Hash) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid commit hash"})
+		return
+	}
+
+	if !validResetMode(body.Mode) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid reset mode (use soft, mixed, or hard)"})
+		return
+	}
+
+	out, err := h.run("reset", "--"+body.Mode, body.Hash)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Merge
+═══════════════════════════════════════════════════════════════════════ */
+
+// Merge merges a branch into the current branch.
+// POST /api/git/merge  {"branch":"feature-branch"}
+func (h *Handler) Merge(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Branch string `json:"branch"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validBranchName(body.Branch) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid branch name"})
+		return
+	}
+
+	out, err := h.run("merge", "--", body.Branch)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Tags
+═══════════════════════════════════════════════════════════════════════ */
+
+// TagEntry represents a single git tag.
+type TagEntry struct {
+	Name string `json:"name"`
+	Hash string `json:"hash"`
+	Date string `json:"date"`
+}
+
+// validTagName returns true when name is safe to pass as a git tag argument.
+func validTagName(name string) bool {
+	return name != "" && !strings.HasPrefix(name, "-")
+}
+
+// Tags returns all tags sorted by most-recent creator date.
+// GET /api/git/tags
+func (h *Handler) Tags(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	out, _ := h.run(
+		"for-each-ref",
+		"--sort=-creatordate",
+		"--format=%(refname:short)|%(objectname:short)|%(creatordate:relative)",
+		"refs/tags",
+	)
+
+	tags := []TagEntry{}
+	if out != "" {
+		for _, line := range strings.Split(out, "\n") {
+			parts := strings.SplitN(line, "|", 3)
+			if len(parts) < 3 || parts[0] == "" {
+				continue
+			}
+			tags = append(tags, TagEntry{
+				Name: parts[0],
+				Hash: parts[1],
+				Date: parts[2],
+			})
+		}
+	}
+	json.NewEncoder(w).Encode(map[string]any{"tags": tags})
+}
+
+// TagCreate creates a new tag (annotated when a message is provided, lightweight otherwise).
+// POST /api/git/tag  {"name":"v1.0","hash":"abc1234","message":"Release v1.0"}
+func (h *Handler) TagCreate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Name    string `json:"name"`
+		Hash    string `json:"hash"`
+		Message string `json:"message"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validTagName(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid tag name"})
+		return
+	}
+	if body.Hash != "" && !validCommitHash.MatchString(body.Hash) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid commit hash"})
+		return
+	}
+
+	var args []string
+	if body.Message != "" {
+		// Annotated tag.
+		args = []string{"tag", "-a", body.Name, "-m", body.Message}
+	} else {
+		// Lightweight tag.
+		args = []string{"tag", "--", body.Name}
+	}
+	if body.Hash != "" {
+		args = append(args, body.Hash)
+	}
+
+	out, err := h.run(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// TagDelete deletes a tag by name.
+// POST /api/git/tag/delete  {"name":"v1.0"}
+func (h *Handler) TagDelete(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	if !validTagName(body.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid tag name"})
+		return
+	}
+
+	out, err := h.run("tag", "-d", "--", body.Name)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": out})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "output": out})
 }

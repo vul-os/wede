@@ -89,11 +89,20 @@ func main() {
 	// Public auth routes
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 	mux.HandleFunc("GET /api/auth/check", authHandler.Check)
+	mux.HandleFunc("POST /api/auth/redeem", authHandler.HandleRedeem) // public: exchange an invite token for a session
 	mux.Handle("DELETE /api/auth/logout", authHandler.Middleware(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("POST /api/auth/username", authHandler.Middleware(http.HandlerFunc(authHandler.SetUsername)))
 
 	// Protected API routes
 	protected := http.NewServeMux()
+
+	// Owner-only share-token management (Middleware runs first via the /api/ mount,
+	// so RequireOwner can read the role from context).
+	re := authHandler.RequireEditor // wrap mutating handlers: viewers get 403
+	ro := authHandler.RequireOwner
+	protected.Handle("POST /api/auth/tokens", ro(http.HandlerFunc(authHandler.HandleMintToken)))
+	protected.Handle("GET /api/auth/tokens", ro(http.HandlerFunc(authHandler.HandleListTokens)))
+	protected.Handle("DELETE /api/auth/tokens/{id}", ro(http.HandlerFunc(authHandler.HandleRevokeToken)))
 
 	protected.HandleFunc("GET /api/folder", rootFolder.HandleGet)
 	protected.HandleFunc("POST /api/folder/open", rootFolder.HandleOpen)
@@ -163,6 +172,19 @@ func main() {
 	// CRDT document sync+awareness (ygo provider). {room...} is the file's
 	// workspace-relative path; the provider reads it via r.PathValue("workspace").
 	protected.HandleFunc("GET /api/workspaces/{id}/doc/{room...}", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DocServer().ServeHTTP }))
+	// git tools (blame/tags read-only; cherry-pick/revert/reset/merge/tag mutate -> RequireEditor)
+	protected.HandleFunc("GET /api/workspaces/{id}/git/blame", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Blame }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/tags", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Tags }))
+	protected.Handle("POST /api/workspaces/{id}/git/cherry-pick", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().CherryPick })))
+	protected.Handle("POST /api/workspaces/{id}/git/revert", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Revert })))
+	protected.Handle("POST /api/workspaces/{id}/git/reset", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Reset })))
+	protected.Handle("POST /api/workspaces/{id}/git/merge", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Merge })))
+	protected.Handle("POST /api/workspaces/{id}/git/tag", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().TagCreate })))
+	protected.Handle("POST /api/workspaces/{id}/git/tag/delete", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().TagDelete })))
+	// comprehensive search: filename mode
+	protected.HandleFunc("GET /api/workspaces/{id}/search/files", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().SearchFiles }))
+	// workspace chat (live + .wede/chat.md + git activity)
+	protected.HandleFunc("GET /api/workspaces/{id}/chat", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Chat().HandleWS }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)
@@ -196,6 +218,7 @@ func main() {
 	protected.HandleFunc("POST /api/files/format", fileHandler.Format)
 
 	protected.HandleFunc("GET /api/search", searchHandler.Search)
+	protected.HandleFunc("GET /api/search/files", searchHandler.SearchFiles)
 	protected.HandleFunc("GET /api/search/replace-preview", searchHandler.ReplacePreview)
 	protected.HandleFunc("POST /api/search/replace", searchHandler.ReplaceApply)
 
@@ -204,6 +227,15 @@ func main() {
 	protected.HandleFunc("POST /api/git/remotes/add", gitHandler.RemoteAdd)
 	protected.HandleFunc("POST /api/git/remotes/remove", gitHandler.RemoteRemove)
 	protected.HandleFunc("POST /api/git/stage-hunk", gitHandler.StageHunk)
+	// git tools (legacy default-workspace routes used by the current frontend GitPanel)
+	protected.HandleFunc("GET /api/git/blame", gitHandler.Blame)
+	protected.HandleFunc("GET /api/git/tags", gitHandler.Tags)
+	protected.Handle("POST /api/git/cherry-pick", re(http.HandlerFunc(gitHandler.CherryPick)))
+	protected.Handle("POST /api/git/revert", re(http.HandlerFunc(gitHandler.Revert)))
+	protected.Handle("POST /api/git/reset", re(http.HandlerFunc(gitHandler.Reset)))
+	protected.Handle("POST /api/git/merge", re(http.HandlerFunc(gitHandler.Merge)))
+	protected.Handle("POST /api/git/tag", re(http.HandlerFunc(gitHandler.TagCreate)))
+	protected.Handle("POST /api/git/tag/delete", re(http.HandlerFunc(gitHandler.TagDelete)))
 
 	protected.HandleFunc("GET /api/watch", defaultWorkspace.Watcher().HandleSSE)
 

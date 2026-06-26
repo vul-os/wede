@@ -1,34 +1,78 @@
-import { useState, useCallback, useRef } from 'react'
-import { Search, X, ChevronRight, Loader, AlertCircle, CaseSensitive, Regex, PenLine, RefreshCw } from 'lucide-react'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import {
+  Search, X, ChevronRight, Loader, AlertCircle,
+  CaseSensitive, Regex, PenLine, RefreshCw, WholeWord,
+  FileSearch, SlidersHorizontal,
+} from 'lucide-react'
 
-export default function SearchPanel({ authFetch, onOpenFile }) {
-  const [query, setQuery] = useState('')
+// Context lines requested from the backend on each text search.
+const CONTEXT_LINES = 2
+
+// ── Main panel ────────────────────────────────────────────────────────────────
+
+/**
+ * SearchPanel — VS Code–grade project search.
+ *
+ * Props:
+ *   authFetch  (function)  – authenticated fetch wrapper
+ *   onOpenFile (function)  – called with (entry, line) to open a file
+ *   readOnly   (boolean)   – when true the replace UI is hidden entirely
+ */
+export default function SearchPanel({ authFetch, onOpenFile, readOnly = false }) {
+  // ── search state ────────────────────────────────────────────────────────────
+  const [query, setQuery]               = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
-  const [useRegex, setUseRegex] = useState(false)
-  const [results, setResults] = useState(null) // null = no search yet
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [truncated, setTruncated] = useState(false)
-  const [count, setCount] = useState(0)
+  const [wholeWord, setWholeWord]       = useState(false)
+  const [useRegex, setUseRegex]         = useState(false)
+  const [includeGlob, setIncludeGlob]   = useState('')
+  const [excludeGlob, setExcludeGlob]   = useState('')
+  const [showGlobs, setShowGlobs]       = useState(false)
+  const [searchMode, setSearchMode]     = useState('text') // 'text' | 'files'
 
-  // Replace mode
-  const [replaceMode, setReplaceMode] = useState(false)
-  const [replaceQuery, setReplaceQuery] = useState('')
-  const [replacing, setReplacing] = useState(false)
-  const [replaceResult, setReplaceResult] = useState(null) // {filesChanged, replacements} | null
-  const [replaceError, setReplaceError] = useState('')
+  // ── result state ────────────────────────────────────────────────────────────
+  const [results, setResults]       = useState(null) // null = no search yet; [] = empty
+  const [fileResults, setFileResults] = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+  const [truncated, setTruncated]   = useState(false)
+  const [count, setCount]           = useState(0)
+  const [fileCount, setFileCount]   = useState(0)
+
+  // ── replace state (hidden when readOnly) ────────────────────────────────────
+  const [replaceMode, setReplaceMode]         = useState(false)
+  const [replaceQuery, setReplaceQuery]       = useState('')
+  const [replacing, setReplacing]             = useState(false)
+  const [replaceResult, setReplaceResult]     = useState(null)
+  const [replaceError, setReplaceError]       = useState('')
   const [replacePreviewing, setReplacePreviewing] = useState(false)
-  const [previewResults, setPreviewResults] = useState(null) // preview matches
+  const [previewResults, setPreviewResults]   = useState(null)
 
-  // Group results by file for display
-  const grouped = results ? groupByFile(results) : null
-  const previewGrouped = previewResults ? groupByFile(previewResults) : null
+  // ── refs ────────────────────────────────────────────────────────────────────
+  const abortRef      = useRef(null)
+  const debounceRef   = useRef(null)
+  const queryInputRef = useRef(null)
+  // Flat array of refs to result buttons for keyboard navigation.
+  const resultButtonsRef = useRef([])
 
-  const abortRef = useRef(null)
+  // ── derived ─────────────────────────────────────────────────────────────────
+  const grouped        = useMemo(() => results      ? groupByFile(results)      : null, [results])
+  const previewGrouped = useMemo(() => previewResults ? groupByFile(previewResults) : null, [previewResults])
 
-  const doSearch = useCallback(async (q, cs, rx) => {
+  const displayResults = previewResults ?? results
+  const displayGrouped = previewResults ? previewGrouped : grouped
+  const isPreviewMode  = !!previewResults
+
+  // Flattened matches for keyboard navigation (text mode only).
+  const flatMatches = useMemo(() => {
+    if (!displayResults || searchMode === 'files') return []
+    return displayResults
+  }, [displayResults, searchMode])
+
+  // ── core search ─────────────────────────────────────────────────────────────
+  const doSearch = useCallback(async (q, cs, ww, rx, inc, exc, mode) => {
     if (!q.trim()) {
       setResults(null)
+      setFileResults(null)
       setError('')
       setPreviewResults(null)
       return
@@ -41,19 +85,46 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
     setLoading(true)
     setError('')
     setPreviewResults(null)
+    resultButtonsRef.current = []
+
     try {
-      const params = new URLSearchParams({ q: q.trim() })
-      if (cs) params.set('case', 'true')
-      if (rx) params.set('regex', 'true')
-      const res = await authFetch(`/api/search?${params}`, { signal: ctrl.signal })
-      const data = await res.json()
-      if (data.error) {
-        setError(data.error)
-        setResults(null)
+      if (mode === 'files') {
+        const params = new URLSearchParams({ q: q.trim() })
+        if (cs)  params.set('case',    'true')
+        if (rx)  params.set('regex',   'true')
+        if (inc) params.set('include', inc)
+        if (exc) params.set('exclude', exc)
+        const res  = await authFetch(`/api/search/files?${params}`, { signal: ctrl.signal })
+        const data = await res.json()
+        if (data.error) {
+          setError(data.error)
+          setFileResults(null)
+        } else {
+          setFileResults(data.files || [])
+          setCount(data.count || 0)
+          setTruncated(data.truncated || false)
+          setResults(null)
+        }
       } else {
-        setResults(data.matches || [])
-        setTruncated(data.truncated || false)
-        setCount(data.count || 0)
+        const params = new URLSearchParams({ q: q.trim() })
+        if (cs)  params.set('case',    'true')
+        if (ww)  params.set('word',    'true')
+        if (rx)  params.set('regex',   'true')
+        if (inc) params.set('include', inc)
+        if (exc) params.set('exclude', exc)
+        params.set('context', String(CONTEXT_LINES))
+        const res  = await authFetch(`/api/search?${params}`, { signal: ctrl.signal })
+        const data = await res.json()
+        if (data.error) {
+          setError(data.error)
+          setResults(null)
+        } else {
+          setResults(data.matches || [])
+          setTruncated(data.truncated || false)
+          setCount(data.count || 0)
+          setFileCount(data.fileCount || 0)
+          setFileResults(null)
+        }
       }
     } catch (e) {
       if (e.name !== 'AbortError') setError('Search failed')
@@ -61,44 +132,114 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
     setLoading(false)
   }, [authFetch])
 
-  // Debounce: 350 ms after last keystroke
-  const debounceRef = useRef(null)
-  const triggerSearch = useCallback((q, cs, rx) => {
+  // Debounced trigger — cancels previous timer on each keystroke.
+  const triggerSearch = useCallback((q, cs, ww, rx, inc, exc, mode) => {
     clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(q, cs, rx), 350)
+    debounceRef.current = setTimeout(() => doSearch(q, cs, ww, rx, inc, exc, mode), 350)
   }, [doSearch])
 
+  // ── input handlers ───────────────────────────────────────────────────────────
   const handleQueryChange = (e) => {
     const v = e.target.value
     setQuery(v)
-    triggerSearch(v, caseSensitive, useRegex)
+    triggerSearch(v, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
+  }
+
+  const handleQueryKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      clearTimeout(debounceRef.current)
+      doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const first = resultButtonsRef.current[0]
+      if (first) first.focus()
+    } else if (e.key === 'Escape') {
+      clear()
+    }
   }
 
   const toggleCase = () => {
     const v = !caseSensitive
     setCaseSensitive(v)
-    triggerSearch(query, v, useRegex)
+    triggerSearch(query, v, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
+  }
+
+  const toggleWholeWord = () => {
+    const v = !wholeWord
+    setWholeWord(v)
+    triggerSearch(query, caseSensitive, v, useRegex, includeGlob, excludeGlob, searchMode)
   }
 
   const toggleRegex = () => {
     const v = !useRegex
     setUseRegex(v)
-    triggerSearch(query, caseSensitive, v)
+    triggerSearch(query, caseSensitive, wholeWord, v, includeGlob, excludeGlob, searchMode)
+  }
+
+  const handleIncludeChange = (e) => {
+    const v = e.target.value
+    setIncludeGlob(v)
+    triggerSearch(query, caseSensitive, wholeWord, useRegex, v, excludeGlob, searchMode)
+  }
+
+  const handleExcludeChange = (e) => {
+    const v = e.target.value
+    setExcludeGlob(v)
+    triggerSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, v, searchMode)
+  }
+
+  const switchMode = (mode) => {
+    setSearchMode(mode)
+    setResults(null)
+    setFileResults(null)
+    setPreviewResults(null)
+    setError('')
+    if (query.trim()) {
+      triggerSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, mode)
+    }
   }
 
   const clear = () => {
     setQuery('')
     setResults(null)
+    setFileResults(null)
     setError('')
     setPreviewResults(null)
     setReplaceResult(null)
     setReplaceError('')
+    queryInputRef.current?.focus()
   }
 
+  // ── result click / keyboard ──────────────────────────────────────────────────
   const handleResultClick = (match) => {
     onOpenFile?.({ path: match.file, name: match.file.split('/').pop(), isDir: false }, match.line)
   }
 
+  const handleFileResultClick = (fileMatch) => {
+    onOpenFile?.({ path: fileMatch.path, name: fileMatch.path.split('/').pop(), isDir: false }, 1)
+  }
+
+  // Navigate result buttons with arrow keys; Escape returns focus to query.
+  const handleResultKeyDown = (e, idx) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const next = resultButtonsRef.current[idx + 1]
+      if (next) next.focus()
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (idx === 0) {
+        queryInputRef.current?.focus()
+      } else {
+        const prev = resultButtonsRef.current[idx - 1]
+        if (prev) prev.focus()
+      }
+    } else if (e.key === 'Escape') {
+      queryInputRef.current?.focus()
+    }
+  }
+
+  // ── replace handlers ─────────────────────────────────────────────────────────
   const handleReplacePreview = useCallback(async () => {
     if (!query.trim()) return
     setReplacePreviewing(true)
@@ -106,9 +247,12 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
     setReplaceResult(null)
     try {
       const params = new URLSearchParams({ q: query.trim(), replace: replaceQuery })
-      if (caseSensitive) params.set('case', 'true')
-      if (useRegex) params.set('regex', 'true')
-      const res = await authFetch(`/api/search/replace-preview?${params}`)
+      if (caseSensitive) params.set('case',  'true')
+      if (wholeWord)     params.set('word',  'true')
+      if (useRegex)      params.set('regex', 'true')
+      if (includeGlob)   params.set('include', includeGlob)
+      if (excludeGlob)   params.set('exclude', excludeGlob)
+      const res  = await authFetch(`/api/search/replace-preview?${params}`)
       const data = await res.json()
       if (data.error) {
         setReplaceError(data.error)
@@ -119,7 +263,7 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
       setReplaceError(e.message || 'Preview failed')
     }
     setReplacePreviewing(false)
-  }, [authFetch, query, replaceQuery, caseSensitive, useRegex])
+  }, [authFetch, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob])
 
   const handleReplaceAll = useCallback(async () => {
     if (!query.trim()) return
@@ -128,14 +272,17 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
     setReplaceResult(null)
     setPreviewResults(null)
     try {
-      const res = await authFetch('/api/search/replace', {
-        method: 'POST',
+      const res  = await authFetch('/api/search/replace', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: query.trim(),
-          replace: replaceQuery,
+        body:    JSON.stringify({
+          query:         query.trim(),
+          replace:       replaceQuery,
           caseSensitive,
+          wholeWord,
           useRegex,
+          includeGlob,
+          excludeGlob,
           paths: [],
         }),
       })
@@ -144,14 +291,13 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
         setReplaceError(data.error)
       } else {
         setReplaceResult({ filesChanged: data.filesChanged, replacements: data.replacements })
-        // Re-run search to reflect changes.
-        doSearch(query, caseSensitive, useRegex)
+        doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
       }
     } catch (e) {
       setReplaceError(e.message || 'Replace failed')
     }
     setReplacing(false)
-  }, [authFetch, query, replaceQuery, caseSensitive, useRegex, doSearch])
+  }, [authFetch, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode, doSearch])
 
   const toggleReplaceMode = () => {
     setReplaceMode((v) => !v)
@@ -160,63 +306,164 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
     setReplaceError('')
   }
 
-  const displayResults = previewResults ? previewResults : results
-  const displayGrouped = previewResults ? previewGrouped : grouped
-  const isPreviewMode = !!previewResults
+  // ── summary line ─────────────────────────────────────────────────────────────
+  const summaryText = (() => {
+    if (isPreviewMode) {
+      return `Preview: ${displayResults.length} replacement${displayResults.length !== 1 ? 's' : ''}`
+    }
+    if (searchMode === 'files') {
+      const n = fileResults?.length ?? 0
+      return truncated ? `${n}+ files` : `${n} file${n !== 1 ? 's' : ''}`
+    }
+    const suffix = truncated ? `${count}+ results` : `${count} result${count !== 1 ? 's' : ''}`
+    return fileCount > 0 ? `${suffix} in ${fileCount} file${fileCount !== 1 ? 's' : ''}` : suffix
+  })()
 
+  // Whether there are any results to show a summary for.
+  const hasDisplay = searchMode === 'files'
+    ? fileResults !== null && fileResults.length > 0
+    : displayGrouped !== null
+
+  // ── render ────────────────────────────────────────────────────────────────────
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
-          Search
-        </span>
-        <button
-          onClick={toggleReplaceMode}
-          title="Toggle replace mode"
-          className={`p-1 rounded transition-colors ${replaceMode ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
-        >
-          <PenLine className="w-3.5 h-3.5" />
-        </button>
+
+      {/* ── Header ── */}
+      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between gap-2">
+        {/* Text / Files mode tabs */}
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => switchMode('text')}
+            title="Search file contents"
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+              searchMode === 'text'
+                ? 'text-text-primary bg-bg-hover'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
+          >
+            <Search className="w-3 h-3" />
+            Text
+          </button>
+          <button
+            onClick={() => switchMode('files')}
+            title="Search file names"
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+              searchMode === 'files'
+                ? 'text-text-primary bg-bg-hover'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
+          >
+            <FileSearch className="w-3 h-3" />
+            Files
+          </button>
+        </div>
+
+        <div className="flex items-center gap-0.5 ml-auto">
+          {/* Glob filter toggle */}
+          <button
+            onClick={() => setShowGlobs((v) => !v)}
+            title="Filter by glob patterns"
+            className={`p-1 rounded transition-colors ${
+              showGlobs || includeGlob || excludeGlob
+                ? 'text-accent bg-accent/10'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Replace toggle — hidden in readOnly mode or when in Files mode */}
+          {!readOnly && searchMode === 'text' && (
+            <button
+              onClick={toggleReplaceMode}
+              title="Toggle replace mode"
+              className={`p-1 rounded transition-colors ${
+                replaceMode
+                  ? 'text-accent bg-accent/10'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+              }`}
+            >
+              <PenLine className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Search input */}
-      <div className="px-3 py-2 border-b border-border shrink-0">
+      {/* ── Search input + toggles ── */}
+      <div className="px-3 py-2 border-b border-border shrink-0 space-y-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
           <input
+            ref={queryInputRef}
             type="text"
             value={query}
             onChange={handleQueryChange}
-            placeholder="Search files…"
-            className="w-full pl-8 pr-16 py-1.5 text-[12px] bg-bg-input border border-border rounded-md text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-colors"
+            onKeyDown={handleQueryKeyDown}
+            placeholder={searchMode === 'files' ? 'Search file names…' : 'Search files… (Enter to run)'}
+            className="w-full pl-8 pr-20 py-1.5 text-[12px] bg-bg-input border border-border rounded-md text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-colors"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
             <button
               onClick={toggleCase}
-              title="Match case"
+              title="Match case (Alt+C)"
               className={`p-1 rounded transition-colors ${caseSensitive ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
             >
               <CaseSensitive className="w-3 h-3" />
             </button>
+            {/* Whole-word toggle hidden in Files mode (not meaningful for paths) */}
+            {searchMode === 'text' && (
+              <button
+                onClick={toggleWholeWord}
+                title="Match whole word (Alt+W)"
+                className={`p-1 rounded transition-colors ${wholeWord ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
+              >
+                <WholeWord className="w-3 h-3" />
+              </button>
+            )}
             <button
               onClick={toggleRegex}
-              title="Use regular expression"
+              title="Use regular expression (Alt+R)"
               className={`p-1 rounded transition-colors ${useRegex ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'}`}
             >
               <Regex className="w-3 h-3" />
             </button>
             {query && (
-              <button onClick={clear} className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
+              <button onClick={clear} title="Clear" className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Replace input row */}
-        {replaceMode && (
-          <div className="mt-2 space-y-2">
+        {/* Glob filter rows */}
+        {showGlobs && (
+          <div className="space-y-1">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-text-muted pointer-events-none select-none">incl</span>
+              <input
+                type="text"
+                value={includeGlob}
+                onChange={handleIncludeChange}
+                placeholder="Include glob, e.g. *.go"
+                className="w-full pl-8 pr-2 py-1 text-[11px] bg-bg-input border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+              />
+            </div>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-text-muted pointer-events-none select-none">excl</span>
+              <input
+                type="text"
+                value={excludeGlob}
+                onChange={handleExcludeChange}
+                placeholder="Exclude glob, e.g. *.test.js"
+                className="w-full pl-8 pr-2 py-1 text-[11px] bg-bg-input border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60 transition-colors"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Replace UI — only when not readOnly, text mode, and replace toggle is on */}
+        {!readOnly && searchMode === 'text' && replaceMode && (
+          <div className="space-y-2 pt-0.5">
             <input
               type="text"
               value={replaceQuery}
@@ -249,10 +496,11 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
               </button>
             </div>
 
-            {/* Replace result / error */}
             {replaceResult && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] bg-green/8 border border-green/20 text-green animate-fade-in">
-                <span>Replaced {replaceResult.replacements} match{replaceResult.replacements !== 1 ? 'es' : ''} in {replaceResult.filesChanged} file{replaceResult.filesChanged !== 1 ? 's' : ''}</span>
+                <span>
+                  Replaced {replaceResult.replacements} match{replaceResult.replacements !== 1 ? 'es' : ''} in {replaceResult.filesChanged} file{replaceResult.filesChanged !== 1 ? 's' : ''}
+                </span>
               </div>
             )}
             {replaceError && (
@@ -265,8 +513,9 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
         )}
       </div>
 
-      {/* Results */}
+      {/* ── Results area ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        {/* Busy indicator */}
         {loading && (
           <div className="flex items-center justify-center py-8 gap-2 text-text-muted">
             <Loader className="w-4 h-4 animate-spin" />
@@ -274,6 +523,7 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
           </div>
         )}
 
+        {/* Error */}
         {error && !loading && (
           <div className="flex items-start gap-2 px-3 py-3 text-red">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -281,46 +531,71 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
           </div>
         )}
 
-        {!loading && !error && displayResults !== null && displayResults.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-text-muted px-4">
-            <span className="text-[12px] font-medium">No results</span>
-            <span className="text-[11px] mt-1">Try a different query</span>
-          </div>
+        {/* Empty state after a search */}
+        {!loading && !error && searchMode === 'text' && results !== null && results.length === 0 && (
+          <EmptyResults />
+        )}
+        {!loading && !error && searchMode === 'files' && fileResults !== null && fileResults.length === 0 && (
+          <EmptyResults />
         )}
 
-        {!loading && !error && displayGrouped && (
+        {/* ── Text search results ── */}
+        {!loading && !error && searchMode === 'text' && hasDisplay && (
           <>
-            {/* Summary */}
             <div className="px-3 py-1.5 border-b border-border/40 shrink-0 flex items-center justify-between">
-              <span className="text-[10px] text-text-muted">
-                {isPreviewMode
-                  ? `Preview: ${displayResults.length} replacement${displayResults.length !== 1 ? 's' : ''}`
-                  : (truncated ? `${count}+ results` : `${count} result${count !== 1 ? 's' : ''}`)
-                }
-              </span>
+              <span className="text-[10px] text-text-muted">{summaryText}</span>
               {isPreviewMode && (
                 <span className="text-[10px] text-amber-400 font-medium">preview</span>
               )}
             </div>
 
-            {/* File groups */}
-            {displayGrouped.map(({ file, matches }) => (
+            {displayGrouped && displayGrouped.map(({ file, matches }, groupIdx) => (
               <FileGroup
                 key={file}
                 file={file}
                 matches={matches}
+                groupStartIdx={groupIdx === 0
+                  ? 0
+                  : displayGrouped.slice(0, groupIdx).reduce((acc, g) => acc + g.matches.length, 0)}
                 onResultClick={handleResultClick}
+                onResultKeyDown={handleResultKeyDown}
+                resultButtonsRef={resultButtonsRef}
                 isPreview={isPreviewMode}
+                totalMatches={flatMatches.length}
               />
             ))}
           </>
         )}
 
-        {!loading && !error && displayResults === null && !query && (
+        {/* ── Filename search results ── */}
+        {!loading && !error && searchMode === 'files' && fileResults !== null && fileResults.length > 0 && (
+          <>
+            <div className="px-3 py-1.5 border-b border-border/40 shrink-0">
+              <span className="text-[10px] text-text-muted">{summaryText}</span>
+            </div>
+            {fileResults.map((fm, idx) => (
+              <FileResultRow
+                key={fm.path}
+                fileMatch={fm}
+                idx={idx}
+                query={query}
+                caseSensitive={caseSensitive}
+                onClick={() => handleFileResultClick(fm)}
+                onKeyDown={(e) => handleResultKeyDown(e, idx)}
+                buttonRef={(el) => { resultButtonsRef.current[idx] = el }}
+              />
+            ))}
+          </>
+        )}
+
+        {/* Initial empty state */}
+        {!loading && !error && results === null && fileResults === null && (
           <div className="flex flex-col items-center justify-center py-12 text-text-muted px-4">
             <Search className="w-8 h-8 mb-2 opacity-20" />
-            <span className="text-[12px]">Type to search across files</span>
-            {replaceMode && (
+            <span className="text-[12px]">
+              {searchMode === 'files' ? 'Type to search file names' : 'Type to search across files'}
+            </span>
+            {!readOnly && searchMode === 'text' && replaceMode && (
               <span className="text-[11px] mt-1 text-center">Enter replacement text above, then Preview or Replace All</span>
             )}
           </div>
@@ -330,10 +605,12 @@ export default function SearchPanel({ authFetch, onOpenFile }) {
   )
 }
 
-function FileGroup({ file, matches, onResultClick, isPreview }) {
+// ── FileGroup ─────────────────────────────────────────────────────────────────
+
+function FileGroup({ file, matches, groupStartIdx, onResultClick, onResultKeyDown, resultButtonsRef, isPreview }) {
   const [open, setOpen] = useState(true)
   const filename = file.split('/').pop()
-  const dir = file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : ''
+  const dir      = file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : ''
 
   return (
     <div className="border-b border-border/30">
@@ -351,43 +628,118 @@ function FileGroup({ file, matches, onResultClick, isPreview }) {
       {/* Match lines */}
       {open && (
         <div>
-          {matches.map((m, i) => (
-            <MatchLine key={i} match={m} onClick={() => onResultClick(m)} isPreview={isPreview} />
-          ))}
+          {matches.map((m, i) => {
+            const globalIdx = groupStartIdx + i
+            return (
+              <MatchLine
+                key={i}
+                match={m}
+                globalIdx={globalIdx}
+                onClick={() => onResultClick(m)}
+                onKeyDown={(e) => onResultKeyDown(e, globalIdx)}
+                buttonRef={(el) => { resultButtonsRef.current[globalIdx] = el }}
+                isPreview={isPreview}
+              />
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
 
-function MatchLine({ match, onClick, isPreview }) {
-  const text = match.text
+// ── MatchLine ─────────────────────────────────────────────────────────────────
+
+function MatchLine({ match, onClick, onKeyDown, buttonRef, isPreview }) {
+  const text  = match.text
   const start = match.matchStart
-  const len = match.matchLen
+  const len   = match.matchLen
+
+  return (
+    <div className="group">
+      {/* Before-context lines */}
+      {match.before && match.before.map((ctx, i) => (
+        <div key={`b${i}`} className="flex items-baseline gap-2 px-4 py-0.5 overflow-hidden">
+          <span className="shrink-0 font-mono text-[10px] text-text-muted/40 w-7 text-right select-none">
+            {match.line - match.before.length + i}
+          </span>
+          <span className="text-[11px] text-text-muted/50 font-mono truncate leading-relaxed">{ctx}</span>
+        </div>
+      ))}
+
+      {/* Match line */}
+      <button
+        ref={buttonRef}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        className="w-full flex items-baseline gap-2 px-4 py-1 hover:bg-bg-hover focus:bg-bg-hover focus:outline-none transition-colors text-left overflow-hidden"
+      >
+        <span className="shrink-0 font-mono text-[10px] text-text-muted w-7 text-right">{match.line}</span>
+        <span className="text-[11px] text-text-secondary font-mono truncate leading-relaxed">
+          {isPreview && match.replacedText
+            ? <span className="bg-amber-400/20 text-amber-300 rounded-sm">{match.replacedText}</span>
+            : (
+              <>
+                {text.slice(0, start)}
+                <mark className="bg-yellow/25 text-text-primary not-italic rounded-sm">
+                  {text.slice(start, start + len)}
+                </mark>
+                {text.slice(start + len)}
+              </>
+            )
+          }
+        </span>
+      </button>
+
+      {/* After-context lines */}
+      {match.after && match.after.map((ctx, i) => (
+        <div key={`a${i}`} className="flex items-baseline gap-2 px-4 py-0.5 overflow-hidden">
+          <span className="shrink-0 font-mono text-[10px] text-text-muted/40 w-7 text-right select-none">
+            {match.line + i + 1}
+          </span>
+          <span className="text-[11px] text-text-muted/50 font-mono truncate leading-relaxed">{ctx}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── FileResultRow (filename search) ───────────────────────────────────────────
+
+function FileResultRow({ fileMatch, idx, query, caseSensitive, onClick, onKeyDown, buttonRef }) {
+  const parts = fileMatch.path.split('/')
+  const filename = parts.pop()
+  const dir      = parts.join('/')
+
+  // Highlight the query within the filename portion.
+  const hiFilename = highlightText(filename, query, caseSensitive)
 
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
-      className="w-full flex items-baseline gap-2 px-4 py-1 hover:bg-bg-hover transition-colors text-left group overflow-hidden"
+      onKeyDown={onKeyDown}
+      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover focus:bg-bg-hover focus:outline-none transition-colors text-left overflow-hidden"
     >
-      <span className="shrink-0 font-mono text-[10px] text-text-muted w-7 text-right">{match.line}</span>
-      <span className="text-[11px] text-text-secondary font-mono truncate leading-relaxed">
-        {isPreview && match.replacedText
-          ? (
-            <span className="bg-amber-400/20 text-amber-300 rounded-sm">{match.replacedText}</span>
-          )
-          : (
-            <>
-              {text.slice(0, start)}
-              <mark className="bg-yellow/25 text-text-primary not-italic rounded-sm">{text.slice(start, start + len)}</mark>
-              {text.slice(start + len)}
-            </>
-          )
-        }
-      </span>
+      <span className="text-[10px] text-text-muted font-mono shrink-0 w-5 text-right">{idx + 1}</span>
+      <span className="text-[12px] font-medium text-text-primary truncate">{hiFilename}</span>
+      {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
     </button>
   )
 }
+
+// ── EmptyResults ──────────────────────────────────────────────────────────────
+
+function EmptyResults() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-text-muted px-4">
+      <span className="text-[12px] font-medium">No results</span>
+      <span className="text-[11px] mt-1">Try a different query</span>
+    </div>
+  )
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
 function groupByFile(matches) {
   const map = new Map()
@@ -395,5 +747,26 @@ function groupByFile(matches) {
     if (!map.has(m.file)) map.set(m.file, [])
     map.get(m.file).push(m)
   }
-  return Array.from(map.entries()).map(([file, matches]) => ({ file, matches }))
+  return Array.from(map.entries()).map(([file, ms]) => ({ file, matches: ms }))
+}
+
+/**
+ * Returns a React element with the first occurrence of `query` in `text`
+ * wrapped in a <mark>. Falls back to plain text if query is empty.
+ */
+function highlightText(text, query, caseSensitive) {
+  if (!query) return <>{text}</>
+  const hay    = caseSensitive ? text  : text.toLowerCase()
+  const needle = caseSensitive ? query : query.toLowerCase()
+  const idx    = hay.indexOf(needle)
+  if (idx < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow/25 text-text-primary not-italic rounded-sm">
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
 }

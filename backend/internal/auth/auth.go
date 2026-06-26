@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
@@ -12,6 +13,22 @@ import (
 	"sync"
 	"time"
 )
+
+// ── Context key for session role ──────────────────────────────────────────────
+
+type contextKey int
+
+const roleCtxKey contextKey = iota
+
+// GetRole returns the resolved Role that Middleware attached to the request
+// context. Returns "" if Middleware has not run (shouldn't happen in normal
+// operation — treat it as an unauthenticated call).
+func GetRole(r *http.Request) Role {
+	if v, ok := r.Context().Value(roleCtxKey).(Role); ok {
+		return v
+	}
+	return ""
+}
 
 // sessionEntry holds a token's creation timestamp for idle-TTL enforcement, the
 // display username chosen at (or after) login, and the session's role.
@@ -311,8 +328,10 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 	valid := h.validSession(token)
 	locked := h.locked
 	username := ""
+	role := Role("")
 	if valid {
 		username = h.sessions[token].Username
+		role = normalizeRole(h.sessions[token].Role)
 	}
 	h.mu.Unlock()
 
@@ -320,6 +339,7 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 		"authenticated": valid,
 		"locked":        locked,
 		"username":      username,
+		"role":          string(role),
 	})
 }
 
@@ -332,12 +352,49 @@ func (h *Handler) Middleware(next http.Handler) http.Handler {
 
 		h.mu.Lock()
 		valid := h.validSession(token)
+		role := Role("")
+		if valid {
+			role = normalizeRole(h.sessions[token].Role)
+		}
 		h.mu.Unlock()
 
 		if !valid {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			return
+		}
+		ctx := context.WithValue(r.Context(), roleCtxKey, role)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// RequireEditor rejects requests from viewer-role sessions with 403 Forbidden.
+// Owner and editor sessions pass through. Must be composed after Middleware so
+// that the role is already in the request context.
+func (h *Handler) RequireEditor(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role := GetRole(r)
+		if !role.CanMutate() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": "forbidden: editor or owner role required"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireOwner rejects requests from non-owner sessions with 403 Forbidden.
+// Must be composed after Middleware so that the role is already in the request
+// context.
+func (h *Handler) RequireOwner(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role := GetRole(r)
+		if role != RoleOwner {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": "forbidden: owner role required"})
 			return
 		}
 		next.ServeHTTP(w, r)

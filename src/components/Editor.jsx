@@ -128,7 +128,7 @@ function GoToLineWidget({ viewRef, onClose }) {
   )
 }
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions, collab = null }) {
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions, collab = null, editable = true }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
@@ -143,6 +143,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
   const tabCompRef     = useRef(new Compartment())
   const minimapCompRef = useRef(new Compartment())
   const lspCompRef     = useRef(new Compartment())
+  const editCompRef    = useRef(new Compartment())
 
   const { isDark } = useTheme()
 
@@ -168,6 +169,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     const tabComp     = tabCompRef.current
     const minimapComp = minimapCompRef.current
     const lspComp     = lspCompRef.current
+    const editComp    = editCompRef.current
 
     const minimapEnabled = settings.minimap ?? false
 
@@ -210,6 +212,8 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
         minimapComp.of(showMinimap.of(makeMinimapConfig(minimapEnabled))),
         // LSP compartment — reconfigured when the file or lsp setting changes.
         lspComp.of(lspExtension ? lspExtension : []),
+        // Read-only compartment — viewer role gets EditorState.readOnly + EditorView.editable(false).
+        editComp.of(editable ? [] : [EditorState.readOnly.of(true), EditorView.editable.of(false)]),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         getLang(file?.name || ''),
         keymap.of([
@@ -292,6 +296,17 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
       effects: lspCompRef.current.reconfigure(lspExtension ? lspExtension : []),
     })
   }, [lspExtension])
+
+  // Live editable toggle — viewer role makes the editor read-only without
+  // destroying and rebuilding it.
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: editCompRef.current.reconfigure(
+        editable ? [] : [EditorState.readOnly.of(true), EditorView.editable.of(false)]
+      ),
+    })
+  }, [editable])
 
   // Sync external content changes (e.g. auto-save feedback or file reload).
   // Disabled under collab: yCollab owns the document, so pushing the `content`

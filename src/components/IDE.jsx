@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
   Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
+  Share2, MessageSquare,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -26,6 +27,8 @@ import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 import { useCollab } from '../hooks/useCollab'
 import { useYDoc } from '../hooks/useYDoc'
+import ShareModal from './ShareModal'
+import Chat from './Chat'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -37,7 +40,7 @@ function colorFromName(name) {
 
 let browserIdCounter = 0
 
-export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, workspacesApi, workspaceId, username }) {
+export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, workspacesApi, workspaceId, username, role }) {
   const isMobile = useMobile()
   const { isDark, toggle: toggleTheme } = useTheme()
 
@@ -64,6 +67,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [termFullscreen, setTermFullscreen] = useState(false)
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState('') // 'saving'|'saved'|''
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -554,8 +558,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
 
   const renderTabContent = () => {
+    const editable = role !== 'viewer'
     if (!currentTab) {
-      return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} settings={editorSettings} />
+      return <Editor file={null} content={null} onChange={() => {}} onSave={() => {}} settings={editorSettings} editable={editable} />
     }
     if (currentTab.type === 'browser') {
       return (
@@ -586,6 +591,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         lspExtension={lspExtension}
         onRegisterActions={handleRegisterEditorActions}
         collab={collab}
+        editable={editable}
       />
     )
 
@@ -674,7 +680,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </button>
           </div>
           <div className="flex items-center gap-1">
-            {currentTab?.modified && currentTab.type !== 'browser' && (
+            {role !== 'viewer' && currentTab?.modified && currentTab.type !== 'browser' && (
               <button onClick={saveFile} disabled={saving}
                 className="flex items-center gap-1 px-2.5 py-1 text-xs bg-accent/15 text-accent rounded-lg font-medium hover:bg-accent/25 transition-colors">
                 <Save className="w-3 h-3" />{saving ? '...' : 'Save'}
@@ -695,12 +701,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               <div className="flex-1 min-h-0">{renderTabContent()}</div>
             </div>
           )}
-          <div className={termFullscreen ? 'fixed inset-0 z-50' : 'absolute inset-0 z-10'} style={{ display: mobilePanel === 'terminal' ? 'block' : 'none' }}>
-            <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={mobilePanel === 'terminal'}
-              isFullscreen={termFullscreen} onToggleFullscreen={() => setTermFullscreen(!termFullscreen)} isMobile />
-          </div>
+          {role !== 'viewer' && (
+            <div className={termFullscreen ? 'fixed inset-0 z-50' : 'absolute inset-0 z-10'} style={{ display: mobilePanel === 'terminal' ? 'block' : 'none' }}>
+              <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={mobilePanel === 'terminal'}
+                isFullscreen={termFullscreen} onToggleFullscreen={() => setTermFullscreen(!termFullscreen)} isMobile />
+            </div>
+          )}
           {mobilePanel === 'git' && (
-            <div className="h-full animate-fade-in"><GitPanel authFetch={authFetch} visible isMobile /></div>
+            <div className="h-full animate-fade-in"><GitPanel authFetch={authFetch} visible isMobile readOnly={role === 'viewer'} /></div>
           )}
           {mobilePanel === 'settings' && (
             <div className="h-full animate-fade-in">
@@ -783,15 +791,17 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <div className="w-px h-4 bg-border mx-0.5" />
 
           {/* Panel toggles */}
-          <button onClick={() => setShowTerminal(!showTerminal)}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors ${
-              showTerminal
-                ? 'bg-accent/10 text-accent'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-            }`}
-            title="Toggle Terminal">
-            <TerminalSquare className="w-3.5 h-3.5" />
-          </button>
+          {role !== 'viewer' && (
+            <button onClick={() => setShowTerminal(!showTerminal)}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors ${
+                showTerminal
+                  ? 'bg-accent/10 text-accent'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+              }`}
+              title="Toggle Terminal">
+              <TerminalSquare className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button onClick={() => openBrowser()}
             className="flex items-center px-2 py-1 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title="Open Browser Preview">
@@ -808,7 +818,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           </button>
         </div>
 
-        {/* Right: save + auto-save status + theme + logout */}
+        {/* Right: save + auto-save status + share + theme + logout */}
         <div className="flex items-center gap-1">
           {/* Auto-save status indicator */}
           {autoSaveStatus && (
@@ -816,11 +826,18 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {autoSaveStatus === 'saving' ? 'saving…' : 'saved'}
             </span>
           )}
-          {currentTab?.modified && currentTab.type !== 'browser' && (
+          {role !== 'viewer' && currentTab?.modified && currentTab.type !== 'browser' && (
             <button onClick={saveFile} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-1 text-[12px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium shadow-sm shadow-accent/20">
               <Save className="w-3 h-3" />
               {saving ? 'Saving…' : 'Save'}
+            </button>
+          )}
+          {role === 'owner' && (
+            <button onClick={() => setShowShareModal(true)}
+              className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+              title="Share / Invite">
+              <Share2 className="w-3.5 h-3.5" />
             </button>
           )}
           <button onClick={toggleTheme}
@@ -858,6 +875,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             badge={gitChanges > 0 ? gitChanges : 0}
             onClick={() => toggleSidebarTab('git')}
           />
+          <ActivityBtn
+            icon={MessageSquare}
+            title="Chat"
+            active={sidebarTab === 'chat' && showSidebar}
+            onClick={() => toggleSidebarTab('chat')}
+          />
         </div>
 
         {/* Sidebar */}
@@ -865,7 +888,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <>
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />}
-              {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} onOpenFile={(entry, line) => {
+              {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
                 openFile(entry).then?.(() => {
                   // targetLine is used by Editor to scroll to the match.
                   setTabs((prev) => prev.map((t) =>
@@ -879,7 +902,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                   ))
                 }, 50)
               }} />}
-              {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible />}
+              {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} />}
+              {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
             </div>
             {/* Drag handle */}
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('sidebar')} />
@@ -896,7 +920,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div className="flex-1 min-h-0">{renderTabContent()}</div>
           </div>
 
-          {showTerminal && (
+          {showTerminal && role !== 'viewer' && (
             <>
               <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
               <div style={{ height: terminalHeight }} className="shrink-0">
@@ -952,6 +976,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         hasActiveTab={!!activeTab}
         hasModified={hasModified}
       />
+
+      {/* ── Share modal (owner only) ── */}
+      {showShareModal && role === 'owner' && (
+        <ShareModal authFetch={authFetch} onClose={() => setShowShareModal(false)} />
+      )}
 
       {/* ── Status bar ── */}
       <div className="flex items-center justify-between px-1 h-6 bg-status-bar border-t border-border text-status-text text-[11px] font-medium shrink-0 select-none">
