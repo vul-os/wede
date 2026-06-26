@@ -156,8 +156,11 @@ func main() {
 	protected.HandleFunc("GET /api/rooms/{id}/terminal", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().HandleWS }))
 	protected.HandleFunc("GET /api/rooms/{id}/lsp/available", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleAvailable }))
 	protected.HandleFunc("GET /api/rooms/{id}/lsp", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleWS }))
-	// collaboration socket (presence now; CRDT doc channel later)
+	// collaboration socket (presence: roster + cursors)
 	protected.HandleFunc("GET /api/rooms/{id}/collab", rs(func(rm *room.Room) http.HandlerFunc { return rm.Collab().HandleWS }))
+	// CRDT document sync+awareness (ygo provider). {room...} is the file's
+	// room-relative path; the provider reads it via r.PathValue("room").
+	protected.HandleFunc("GET /api/rooms/{id}/doc/{room...}", rs(func(rm *room.Room) http.HandlerFunc { return rm.DocServer().ServeHTTP }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)

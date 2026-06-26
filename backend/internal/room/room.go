@@ -10,6 +10,7 @@
 package room
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -17,6 +18,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
+
+	ywebsocket "github.com/reearth/ygo/provider/websocket"
 
 	"wede/backend/internal/collab"
 	"wede/backend/internal/collabdoc"
@@ -50,9 +54,10 @@ type Room struct {
 	watcher  *filewatcher.Handler
 	terminal *terminal.Handler
 	lsp      *lsp.Handler
-	presence *presence.Hub
-	collab   *collab.Handler
-	docs     *collabdoc.DocStore
+	presence  *presence.Hub
+	collab    *collab.Handler
+	docs      *collabdoc.DocStore
+	docServer *ywebsocket.Server // ygo sync+awareness WS server (one doc per file)
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -159,6 +164,23 @@ func (r *Room) Docs() *collabdoc.DocStore {
 	return r.docs
 }
 
+// DocServer returns this room's ygo collaboration server (y-protocols sync +
+// awareness), lazily created. The provider "room" name is a file's room-relative
+// path; documents are seeded from disk via DiskPersistence rooted at this room.
+func (r *Room) DocServer() *ywebsocket.Server {
+	root := r.Root() // reads ws.Current(); does not take r.mu
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.docServer == nil {
+		srv := ywebsocket.NewServerWithPersistence(collabdoc.NewDiskPersistence(root))
+		if r.frameAncestors != "" {
+			srv.AllowedOrigins = strings.Fields(r.frameAncestors)
+		}
+		r.docServer = srv
+	}
+	return r.docServer
+}
+
 // shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
 func (r *Room) shutdown() {
 	r.mu.Lock()
@@ -182,6 +204,12 @@ func (r *Room) shutdown() {
 	if r.docs != nil {
 		r.docs.CloseAll()
 		r.docs = nil
+	}
+	if r.docServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		r.docServer.Shutdown(ctx) //nolint:errcheck
+		cancel()
+		r.docServer = nil
 	}
 }
 

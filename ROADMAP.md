@@ -159,9 +159,12 @@ No new user features — prove isolation.
 - [x] `internal/collabdoc.DocStore`: server-authoritative `crdt.Doc` per open file (keyed by
       room-relative path), seed-on-open, `Text`/`Encode`/`ApplyUpdate`/`Close`; 6 unit tests
       incl. peer convergence. Wired into `Room.Docs()` (lazy) + torn down in `shutdown()`.
-- [ ] Sync handshake + awareness over collab WS (reuse ygo `provider/websocket` —
-      `Server` + `PersistenceAdapter` LoadDoc seeds from disk, StoreUpdate persists)
-- [ ] Open → seed doc from disk (via `PersistenceAdapter.LoadDoc`); edit → debounced write to disk
+- [x] Sync + awareness WS mounted: `Room.DocServer()` = ygo `provider/websocket` Server
+      (per room, `AllowedOrigins` from frameAncestors), route `GET /api/rooms/{id}/doc/{room...}`
+      ({room...} = file's relative path). `collabdoc.DiskPersistence.LoadDoc` seeds the doc
+      from disk (path-traversal-guarded); 5 adapter tests. `Shutdown(ctx)` on room close.
+- [ ] Open → seed from disk DONE; edit → debounced write to disk via `StoreUpdate` (currently
+      a no-op TODO) — the reconciliation slice
 - [ ] Reconcile: watcher detects external change → re-seed as CRDT update (cursors survive) + UX
 - [ ] Doc persistence under `~/.wede/rooms/{id}/docs/`; flush-on-last-disconnect
 - [ ] Frontend: `y-codemirror.next`; remote cursors/selections with names
@@ -299,3 +302,11 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   incl. encode→apply peer convergence. Wired `Room.Docs()` (lazy) + CloseAll on shutdown.
   Explored ygo `provider/websocket`: `Server` + `PersistenceAdapter{LoadDoc,StoreUpdate}` is
   the seam — LoadDoc seeds from disk, StoreUpdate persists; mount next slice. Check green.
+- 2026-06-26: Wave 4 slice 3 — mounted ygo sync+awareness WS. `collabdoc.DiskPersistence`
+  (LoadDoc reads file → seeds YText 'content' → EncodeStateAsUpdateV1; traversal-guarded;
+  StoreUpdate no-op TODO); 5 tests. `Room.DocServer()` = `ywebsocket.NewServerWithPersistence`
+  (AllowedOrigins from frameAncestors), `Shutdown(ctx)` on close. Route
+  `GET /api/rooms/{id}/doc/{room...}` via Manager.Scoped (provider reads PathValue("room")).
+  `go mod tidy` pulled provider transitive deps (x/sync, x/time, +indirect miniredis/gopher-lua).
+  Check green. Next: disk<->doc reconciliation (StoreUpdate write-back + watcher re-seed),
+  then frontend yjs + y-codemirror.next.
