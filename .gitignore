@@ -13,3 +13,7 @@ tmp/
 /wede-*
 # Live config (contains password — never commit). Copy from wede.config.example.json.
 wede.config.json
+
+# Local AI tool config (never commit)
+.claude/
+.cursor/
