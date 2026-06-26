@@ -251,7 +251,7 @@ export default function Settings({ visible, onOpenFolder, workspace, editorSetti
               ['Save file', 'Ctrl/Cmd + S'],
               ['Go to line', 'Ctrl + G'],
               ['Search in file', 'Ctrl/Cmd + F'],
-              ['Project search', 'Ctrl/Cmd + Shift + F'],
+              ['Workspace search', 'Ctrl/Cmd + Shift + F'],
               ['Close tab', 'Ctrl/Cmd + W'],
               ['Multi-cursor', 'Alt + Click'],
               ['Column select', 'Alt + Drag'],

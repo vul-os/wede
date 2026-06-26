@@ -1,7 +1,7 @@
 // useYDoc — opens a Yjs document synced to the server's CRDT doc for one file.
 //
 // Connects a y-websocket WebsocketProvider to the ygo doc endpoint
-// /api/rooms/{id}/doc/{room} where {room} is base64url(relative path) (matching
+// /api/workspaces/{id}/doc/{workspace} where {workspace} is base64url(relative path) (matching
 // the Go backend's decodeRoom). The provider speaks the y-protocols sync +
 // awareness wire format that ygo's provider/websocket implements. Exposes the
 // shared Y.Text 'content' plus the provider/awareness so the editor can bind a
@@ -21,21 +21,21 @@ export function b64urlPath(path) {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function docBaseUrl(roomId) {
+function docBaseUrl(workspaceId) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const port = window.location.port
   const host = (port === '5173' || port === '5174')
     ? window.location.hostname + ':9090'
     : window.location.host
-  return `${proto}//${host}/api/rooms/${encodeURIComponent(roomId)}/doc`
+  return `${proto}//${host}/api/workspaces/${encodeURIComponent(workspaceId)}/doc`
 }
 
-export function useYDoc({ roomId, path, token, username, color }) {
+export function useYDoc({ workspaceId, path, token, username, color }) {
   const [state, setState] = useState({ ytext: null, provider: null, awareness: null })
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!roomId || !path || !token) {
+    if (!workspaceId || !path || !token) {
       setState({ ytext: null, provider: null, awareness: null })
       return undefined
     }
@@ -44,10 +44,10 @@ export function useYDoc({ roomId, path, token, username, color }) {
     let provider
     try {
       ydoc = new Y.Doc()
-      // y-websocket builds the socket URL as `${base}/${room}?${params}`, which
-      // matches our route /api/rooms/{id}/doc/{room...} + ?token= (the auth
+      // y-websocket builds the socket URL as `${base}/${workspace}?${params}`, which
+      // matches our route /api/workspaces/{id}/doc/{workspace...} + ?token= (the auth
       // middleware authenticates WS upgrades via ?token=).
-      provider = new WebsocketProvider(docBaseUrl(roomId), b64urlPath(path), ydoc, {
+      provider = new WebsocketProvider(docBaseUrl(workspaceId), b64urlPath(path), ydoc, {
         params: { token },
         connect: true,
       })
@@ -69,7 +69,7 @@ export function useYDoc({ roomId, path, token, username, color }) {
       try { provider.destroy() } catch { /* ignore */ }
       try { ydoc.destroy() } catch { /* ignore */ }
     }
-  }, [roomId, path, token, username, color])
+  }, [workspaceId, path, token, username, color])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   return state

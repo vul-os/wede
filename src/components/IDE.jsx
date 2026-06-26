@@ -12,7 +12,7 @@ import EditorTabs from './EditorTabs'
 import TerminalPanel from './TerminalPanel'
 import GitPanel from './GitPanel'
 import FolderPicker from './FolderPicker'
-import RoomSwitcher from './RoomSwitcher'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 import PresenceRoster from './PresenceRoster'
 import Browser from './Browser'
 import Settings from './Settings'
@@ -37,7 +37,7 @@ function colorFromName(name) {
 
 let browserIdCounter = 0
 
-export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, roomsApi, roomId, username }) {
+export default function IDE({ token, authFetch, onLogout, workspace, recents, onWorkspaceChange, workspacesApi, workspaceId, username }) {
   const isMobile = useMobile()
   const { isDark, toggle: toggleTheme } = useTheme()
 
@@ -49,8 +49,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   })
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wede_activeTab') || null)
 
-  // Collaboration presence: who else is in this room and what they're viewing.
-  const { roster: collabRoster, setViewing: setCollabViewing } = useCollab(roomId, token, username)
+  // Collaboration presence: who else is in this workspace and what they're viewing.
+  const { roster: collabRoster, setViewing: setCollabViewing } = useCollab(workspaceId, token, username)
   useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
@@ -541,7 +541,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   })
 
   // Collaborative editing for the active text file (CRDT via the doc WS).
-  // Gated on a room + a text file (no browser/image/binary) and the `collab`
+  // Gated on a workspace + a text file (no browser/image/binary) and the `collab`
   // setting. DEFAULT OFF: the full path (provider connect + y-protocols sync +
   // disk write-back) hasn't been verified against a live server yet, and a failed
   // connection would hide on-disk content. Opt in via editorSettings.collab=true;
@@ -551,7 +551,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const collabPath = (collabEnabled && currentTab && currentTab.type !== 'browser' && currentTab.fileType == null)
     ? currentTab.path
     : null
-  const collab = useYDoc({ roomId, path: collabPath, token, username, color: colorFromName(username) })
+  const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
 
   const renderTabContent = () => {
     if (!currentTab) {
@@ -696,7 +696,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </div>
           )}
           <div className={termFullscreen ? 'fixed inset-0 z-50' : 'absolute inset-0 z-10'} style={{ display: mobilePanel === 'terminal' ? 'block' : 'none' }}>
-            <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} roomId={roomId} visible={mobilePanel === 'terminal'}
+            <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={mobilePanel === 'terminal'}
               isFullscreen={termFullscreen} onToggleFullscreen={() => setTermFullscreen(!termFullscreen)} isMobile />
           </div>
           {mobilePanel === 'git' && (
@@ -720,7 +720,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onSelect={(id) => { if (id === 'menu') { setMobileMenu(true); return }; setMobilePanel(id) }}
           hasModified={hasModified} />
         {mobileMenu && <MobileMenuOverlay />}
-        <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} roomId={roomId} onOpenFile={openFile} />
+        <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaceId={workspaceId} onOpenFile={openFile} />
         <CommandPalette
           visible={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
@@ -770,7 +770,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <span className="max-w-36 truncate font-medium">{folderName}</span>
           </button>
 
-          {roomsApi && <RoomSwitcher roomsApi={roomsApi} />}
+          {workspacesApi && <WorkspaceSwitcher workspacesApi={workspacesApi} />}
 
           {collabRoster.length > 0 && (
             <>
@@ -899,7 +899,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <>
               <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
               <div style={{ height: terminalHeight }} className="shrink-0">
-                <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} roomId={roomId} visible={showTerminal} />
+                <TerminalPanel key={terminalKey} token={token} authFetch={authFetch} workspaceId={workspaceId} visible={showTerminal} />
               </div>
             </>
           )}
@@ -924,7 +924,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       </div>
 
       {/* ── Command palette ── */}
-      <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} roomId={roomId} onOpenFile={openFile} />
+      <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaceId={workspaceId} onOpenFile={openFile} />
       <CommandPalette
         visible={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}

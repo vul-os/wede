@@ -1,6 +1,6 @@
-// useCollab — connects to a room's collaboration WebSocket for presence.
+// useCollab — connects to a workspace's collaboration WebSocket for presence.
 //
-// Opens /api/rooms/{id}/collab (auth via ?token=, matching useLSP and the auth
+// Opens /api/workspaces/{id}/collab (auth via ?token=, matching useLSP and the auth
 // middleware which reads ?token= on WS upgrades), parses {type:'presence',
 // members:[...]} roster broadcasts, and exposes setViewing(file, line) to publish
 // the local cursor as {type:'cursor', file, line} (throttled). The CRDT document
@@ -11,21 +11,21 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-function buildWsUrl(roomId, token, username) {
+function buildWsUrl(workspaceId, token, username) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   // In dev (Vite on 5173/5174) the WS must hit the backend on :9090 directly.
   const port = window.location.port
   const host = (port === '5173' || port === '5174')
     ? window.location.hostname + ':9090'
     : window.location.host
-  return `${proto}//${host}/api/rooms/${encodeURIComponent(roomId)}/collab`
+  return `${proto}//${host}/api/workspaces/${encodeURIComponent(workspaceId)}/collab`
     + `?token=${encodeURIComponent(token)}`
     + `&username=${encodeURIComponent(username || '')}`
 }
 
 const THROTTLE_MS = 150
 
-export function useCollab(roomId, token, username) {
+export function useCollab(workspaceId, token, username) {
   const [roster, setRoster] = useState([])
   const wsRef = useRef(null)
   const lastSentRef = useRef({ file: null, line: -1 })
@@ -33,11 +33,11 @@ export function useCollab(roomId, token, username) {
   const timerRef = useRef(null)
 
   useEffect(() => {
-    if (!roomId || !token) return undefined
+    if (!workspaceId || !token) return undefined
     let disposed = false
     let ws
     try {
-      ws = new WebSocket(buildWsUrl(roomId, token, username))
+      ws = new WebSocket(buildWsUrl(workspaceId, token, username))
       wsRef.current = ws
       ws.onmessage = (ev) => {
         try {
@@ -62,7 +62,7 @@ export function useCollab(roomId, token, username) {
       try { if (ws) ws.close() } catch { /* ignore */ }
       if (wsRef.current === ws) wsRef.current = null
     }
-  }, [roomId, token, username])
+  }, [workspaceId, token, username])
 
   // setViewing publishes the local cursor, throttled (leading + trailing) so
   // rapid tab/cursor changes don't flood the socket.

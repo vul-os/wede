@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { File, Search } from 'lucide-react'
-import { roomUrl } from '../api'
+import { workspaceUrl } from '../api'
 
 // Fuzzy score: substring match ranks highest, then subsequence; 0 = no match.
 function score(query, path) {
@@ -20,7 +20,7 @@ function score(query, path) {
 // QuickOpen — VS Code-style Cmd+P fuzzy file finder. Fetches a flat file index
 // from the backend and opens the chosen file. Defensive: any fetch failure
 // yields an empty list and the modal still closes cleanly.
-export default function QuickOpen({ visible, onClose, authFetch, roomId, onOpenFile }) {
+export default function QuickOpen({ visible, onClose, authFetch, workspaceId, onOpenFile }) {
   const [files, setFiles] = useState([])
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
@@ -33,13 +33,13 @@ export default function QuickOpen({ visible, onClose, authFetch, roomId, onOpenF
     setQuery('')
     setSel(0)
     let cancelled = false
-    const url = roomId ? roomUrl(roomId, '/files/tree') : '/api/files/tree'
+    const url = workspaceId ? workspaceUrl(workspaceId, '/files/tree') : '/api/files/tree'
     authFetch(url)
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setFiles(Array.isArray(data.files) ? data.files : []) })
       .catch(() => { if (!cancelled) setFiles([]) })
     return () => { cancelled = true }
-  }, [visible, roomId, authFetch])
+  }, [visible, workspaceId, authFetch])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => { if (visible) inputRef.current?.focus() }, [visible])

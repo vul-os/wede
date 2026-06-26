@@ -11,9 +11,9 @@ import (
 	"wede/backend/internal/config"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
-	"wede/backend/internal/room"
-	"wede/backend/internal/search"
 	"wede/backend/internal/workspace"
+	"wede/backend/internal/search"
+	"wede/backend/internal/folder"
 )
 
 // Version is injected at build time via -ldflags "-X main.Version=vX.Y.Z".
@@ -71,18 +71,18 @@ func main() {
 		defaultPath = args[0]
 	}
 
-	ws := workspace.New(defaultPath)
+	rootFolder := folder.New(defaultPath)
 
-	// Room registry: the multi-project backbone. The boot workspace is adopted
-	// as the default room so the solo-user case works with zero setup; additional
-	// projects can be opened as further rooms via /api/rooms.
-	roomMgr := room.NewManager(cfg.FrameAncestors)
-	defaultRoom := roomMgr.Register("default", ws)
+	// Workspace registry: the multi-project backbone. The boot workspace is adopted
+	// as the default workspace so the solo-user case works with zero setup; additional
+	// projects can be opened as further workspaces via /api/workspaces.
+	wsMgr := workspace.NewManager(cfg.FrameAncestors)
+	defaultWorkspace := wsMgr.Register("default", rootFolder)
 
 	authHandler := auth.New(cfg.Password)
-	fileHandler := files.New(ws)
-	gitHandler := git.New(ws)
-	searchHandler := search.New(ws)
+	fileHandler := files.New(rootFolder)
+	gitHandler := git.New(rootFolder)
+	searchHandler := search.New(rootFolder)
 
 	mux := http.NewServeMux()
 
@@ -95,74 +95,74 @@ func main() {
 	// Protected API routes
 	protected := http.NewServeMux()
 
-	protected.HandleFunc("GET /api/workspace", ws.HandleGet)
-	protected.HandleFunc("POST /api/workspace/open", ws.HandleOpen)
-	protected.HandleFunc("GET /api/workspace/browse", ws.HandleBrowse)
+	protected.HandleFunc("GET /api/folder", rootFolder.HandleGet)
+	protected.HandleFunc("POST /api/folder/open", rootFolder.HandleOpen)
+	protected.HandleFunc("GET /api/folder/browse", rootFolder.HandleBrowse)
 
-	// Room registry endpoints (multi-project backbone). Per-room scoping of the
-	// file/git/etc. routes under /api/rooms/{id}/... is layered on in later slices.
-	protected.HandleFunc("GET /api/rooms", roomMgr.HandleList)
-	protected.HandleFunc("POST /api/rooms", roomMgr.HandleCreate)
-	protected.HandleFunc("GET /api/rooms/{id}", roomMgr.HandleGet)
-	protected.HandleFunc("DELETE /api/rooms/{id}", roomMgr.HandleClose)
+	// Workspace registry endpoints (multi-project backbone). Per-workspace scoping of the
+	// file/git/etc. routes under /api/workspaces/{id}/... is layered on in later slices.
+	protected.HandleFunc("GET /api/workspaces", wsMgr.HandleList)
+	protected.HandleFunc("POST /api/workspaces", wsMgr.HandleCreate)
+	protected.HandleFunc("GET /api/workspaces/{id}", wsMgr.HandleGet)
+	protected.HandleFunc("DELETE /api/workspaces/{id}", wsMgr.HandleClose)
 
-	// Per-room service routes. Each resolves {id} -> Room and dispatches to a
-	// handler bound to that room's isolated workspace. The legacy /api/files,
-	// /api/git, /api/search routes below remain (default room) until the frontend
-	// is migrated to room-scoped paths.
-	rs := roomMgr.Scoped
+	// Per-workspace service routes. Each resolves {id} -> Workspace and dispatches to a
+	// handler bound to that workspace's isolated workspace. The legacy /api/files,
+	// /api/git, /api/search routes below remain (default workspace) until the frontend
+	// is migrated to workspace-scoped paths.
+	rs := wsMgr.Scoped
 	// files
-	protected.HandleFunc("GET /api/rooms/{id}/files", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().List }))
-	protected.HandleFunc("GET /api/rooms/{id}/files/tree", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Tree }))
-	protected.HandleFunc("GET /api/rooms/{id}/files/read", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Read }))
-	protected.HandleFunc("PUT /api/rooms/{id}/files/write", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Write }))
-	protected.HandleFunc("POST /api/rooms/{id}/files/create", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Create }))
-	protected.HandleFunc("DELETE /api/rooms/{id}/files/delete", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Delete }))
-	protected.HandleFunc("POST /api/rooms/{id}/files/rename", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Rename }))
-	protected.HandleFunc("POST /api/rooms/{id}/files/copy", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Copy }))
-	protected.HandleFunc("POST /api/rooms/{id}/files/format", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Format }))
+	protected.HandleFunc("GET /api/workspaces/{id}/files", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().List }))
+	protected.HandleFunc("GET /api/workspaces/{id}/files/tree", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Tree }))
+	protected.HandleFunc("GET /api/workspaces/{id}/files/read", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Read }))
+	protected.HandleFunc("PUT /api/workspaces/{id}/files/write", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Write }))
+	protected.HandleFunc("POST /api/workspaces/{id}/files/create", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Create }))
+	protected.HandleFunc("DELETE /api/workspaces/{id}/files/delete", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Delete }))
+	protected.HandleFunc("POST /api/workspaces/{id}/files/rename", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Rename }))
+	protected.HandleFunc("POST /api/workspaces/{id}/files/copy", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Copy }))
+	protected.HandleFunc("POST /api/workspaces/{id}/files/format", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Files().Format }))
 	// git
-	protected.HandleFunc("GET /api/rooms/{id}/git/status", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Status }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/log", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Log }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/diff", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Diff }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/stage", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Stage }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/unstage", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Unstage }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/commit", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Commit }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/branches", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Branches }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/checkout", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Checkout }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/branch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().CreateBranch }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/branch/delete", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().DeleteBranch }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/fetch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Fetch }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/pull", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Pull }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/push", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Push }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/remotes", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Remotes }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/discard", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Discard }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/stash", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashList }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/stash", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashPush }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/stash/pop", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashPop }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/stash/drop", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashDrop }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/commit-diff", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().CommitDiff }))
-	protected.HandleFunc("GET /api/rooms/{id}/git/conflict", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().ConflictRegions }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/conflict/resolve", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().ConflictResolve }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/remotes/add", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().RemoteAdd }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/remotes/remove", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().RemoteRemove }))
-	protected.HandleFunc("POST /api/rooms/{id}/git/stage-hunk", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StageHunk }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/status", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Status }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/log", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Log }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/diff", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Diff }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/stage", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Stage }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/unstage", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Unstage }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/commit", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Commit }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/branches", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Branches }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/checkout", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Checkout }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/branch", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().CreateBranch }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/branch/delete", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().DeleteBranch }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/fetch", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Fetch }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/pull", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Pull }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/push", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Push }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/remotes", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Remotes }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/discard", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Discard }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/stash", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().StashList }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/stash", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().StashPush }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/stash/pop", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().StashPop }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/stash/drop", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().StashDrop }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/commit-diff", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().CommitDiff }))
+	protected.HandleFunc("GET /api/workspaces/{id}/git/conflict", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().ConflictRegions }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/conflict/resolve", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().ConflictResolve }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/remotes/add", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().RemoteAdd }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/remotes/remove", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().RemoteRemove }))
+	protected.HandleFunc("POST /api/workspaces/{id}/git/stage-hunk", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().StageHunk }))
 	// search
-	protected.HandleFunc("GET /api/rooms/{id}/search", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().Search }))
-	protected.HandleFunc("GET /api/rooms/{id}/search/replace-preview", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplacePreview }))
-	protected.HandleFunc("POST /api/rooms/{id}/search/replace", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplaceApply }))
-	// file-watch SSE (one fsnotify watcher per room)
-	protected.HandleFunc("GET /api/rooms/{id}/watch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Watcher().HandleSSE }))
-	// terminal (shared PTY sessions per room) + lsp (language servers per room)
-	protected.HandleFunc("GET /api/rooms/{id}/terminal/sessions", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().ListSessions }))
-	protected.HandleFunc("GET /api/rooms/{id}/terminal", rs(func(rm *room.Room) http.HandlerFunc { return rm.Terminal().HandleWS }))
-	protected.HandleFunc("GET /api/rooms/{id}/lsp/available", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleAvailable }))
-	protected.HandleFunc("GET /api/rooms/{id}/lsp", rs(func(rm *room.Room) http.HandlerFunc { return rm.LSP().HandleWS }))
+	protected.HandleFunc("GET /api/workspaces/{id}/search", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().Search }))
+	protected.HandleFunc("GET /api/workspaces/{id}/search/replace-preview", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().ReplacePreview }))
+	protected.HandleFunc("POST /api/workspaces/{id}/search/replace", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().ReplaceApply }))
+	// file-watch SSE (one fsnotify watcher per workspace)
+	protected.HandleFunc("GET /api/workspaces/{id}/watch", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Watcher().HandleSSE }))
+	// terminal (shared PTY sessions per workspace) + lsp (language servers per workspace)
+	protected.HandleFunc("GET /api/workspaces/{id}/terminal/sessions", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Terminal().ListSessions }))
+	protected.HandleFunc("GET /api/workspaces/{id}/terminal", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Terminal().HandleWS }))
+	protected.HandleFunc("GET /api/workspaces/{id}/lsp/available", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleAvailable }))
+	protected.HandleFunc("GET /api/workspaces/{id}/lsp", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleWS }))
 	// collaboration socket (presence: roster + cursors)
-	protected.HandleFunc("GET /api/rooms/{id}/collab", rs(func(rm *room.Room) http.HandlerFunc { return rm.Collab().HandleWS }))
+	protected.HandleFunc("GET /api/workspaces/{id}/collab", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Collab().HandleWS }))
 	// CRDT document sync+awareness (ygo provider). {room...} is the file's
-	// room-relative path; the provider reads it via r.PathValue("room").
-	protected.HandleFunc("GET /api/rooms/{id}/doc/{room...}", rs(func(rm *room.Room) http.HandlerFunc { return rm.DocServer().ServeHTTP }))
+	// workspace-relative path; the provider reads it via r.PathValue("workspace").
+	protected.HandleFunc("GET /api/workspaces/{id}/doc/{room...}", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DocServer().ServeHTTP }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)
@@ -205,13 +205,13 @@ func main() {
 	protected.HandleFunc("POST /api/git/remotes/remove", gitHandler.RemoteRemove)
 	protected.HandleFunc("POST /api/git/stage-hunk", gitHandler.StageHunk)
 
-	protected.HandleFunc("GET /api/watch", defaultRoom.Watcher().HandleSSE)
+	protected.HandleFunc("GET /api/watch", defaultWorkspace.Watcher().HandleSSE)
 
-	protected.HandleFunc("GET /api/terminal/sessions", defaultRoom.Terminal().ListSessions)
-	protected.HandleFunc("GET /api/terminal", defaultRoom.Terminal().HandleWS)
+	protected.HandleFunc("GET /api/terminal/sessions", defaultWorkspace.Terminal().ListSessions)
+	protected.HandleFunc("GET /api/terminal", defaultWorkspace.Terminal().HandleWS)
 
-	protected.HandleFunc("GET /api/lsp/available", defaultRoom.LSP().HandleAvailable)
-	protected.HandleFunc("GET /api/lsp", defaultRoom.LSP().HandleWS)
+	protected.HandleFunc("GET /api/lsp/available", defaultWorkspace.LSP().HandleAvailable)
+	protected.HandleFunc("GET /api/lsp", defaultWorkspace.LSP().HandleWS)
 
 	mux.Handle("/api/", authHandler.Middleware(protected))
 
@@ -225,8 +225,8 @@ func main() {
 	}
 	addr := host + ":" + cfg.Port
 	log.Printf("wede %s running on http://%s", Version, addr)
-	if ws.HasWorkspace() {
-		log.Printf("workspace: %s", ws.Current())
+	if rootFolder.HasWorkspace() {
+		log.Printf("workspace: %s", rootFolder.Current())
 	} else {
 		log.Printf("no default workspace - open a folder from the UI")
 	}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTheme } from './hooks/useTheme'
-import { useRooms } from './hooks/useRooms'
+import { useWorkspaces } from './hooks/useWorkspaces'
 import Logo from './components/Logo'
 import ThemePicker from './components/ThemePicker'
 import Login from './components/Login'
@@ -11,14 +11,14 @@ import IDE from './components/IDE'
 function App() {
   const { token, username, login, logout, error, locked, remaining, authFetch } = useAuth()
   const { theme, setTheme } = useTheme()
-  const roomsApi = useRooms(token, authFetch)
+  const workspacesApi = useWorkspaces(token, authFetch)
   const [workspace, setWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchWorkspace = useCallback(async () => {
     if (!token) return
     try {
-      const res = await authFetch('/api/workspace')
+      const res = await authFetch('/api/folder')
       const data = await res.json()
       setWorkspace(data)
     } catch { /* ignore */ }
@@ -72,8 +72,8 @@ function App() {
       workspace={workspace.current}
       recents={workspace?.recents || []}
       onWorkspaceChange={(path) => setWorkspace({ ...workspace, current: path, hasWorkspace: true })}
-      roomId={roomsApi.activeRoomId}
-      roomsApi={roomsApi}
+      workspaceId={workspacesApi.activeWorkspaceId}
+      workspacesApi={workspacesApi}
       username={username}
     />
   )

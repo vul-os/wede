@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 
 // Breadcrumbs — a VS Code-style path bar showing the active file's location.
-// Display-only: splits the room-relative path into segments, last = filename.
+// Display-only: splits the workspace-relative path into segments, last = filename.
 export default function Breadcrumbs({ path }) {
   if (!path) return null
   const segments = path.split('/').filter(Boolean)

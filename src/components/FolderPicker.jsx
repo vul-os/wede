@@ -16,7 +16,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
   const browse = useCallback(async (path) => {
     setLoading(true)
     try {
-      const res = await authFetch(`/api/workspace/browse?path=${encodeURIComponent(path || '')}`)
+      const res = await authFetch(`/api/folder/browse?path=${encodeURIComponent(path || '')}`)
       const data = await res.json()
       setCurrentPath(data.path)
       setDirs(data.dirs || [])
@@ -33,7 +33,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
 
   const handleOpen = async (path) => {
     try {
-      const res = await authFetch('/api/workspace/open', {
+      const res = await authFetch('/api/folder/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
@@ -64,7 +64,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
             type="text"
             value={manualPath}
             onChange={(e) => setManualPath(e.target.value)}
-            placeholder="/path/to/project"
+            placeholder="/path/to/folder"
             className="flex-1 bg-bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
           />
           <button
@@ -182,7 +182,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
             <Logo size={34} />
           </div>
           <h1 className="text-xl font-semibold text-text-primary">Open a Folder</h1>
-          <p className="text-text-muted text-sm mt-1">Choose a project directory to get started</p>
+          <p className="text-text-muted text-sm mt-1">Choose a folder to get started</p>
         </div>
         <div className="bg-bg-primary border border-border rounded-xl p-6 shadow-xl">
           {content}

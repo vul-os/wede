@@ -1,4 +1,4 @@
-// PresenceRoster — colored avatar circles for everyone connected to the room.
+// PresenceRoster — colored avatar circles for everyone connected to the workspace.
 // Each avatar shows the member's initial in their assigned color, with a tooltip
 // of their name and (if known) the file they're viewing.
 
@@ -14,7 +14,7 @@ export default function PresenceRoster({ roster }) {
   const extra = roster.length - shown.length
 
   return (
-    <div className="flex items-center -space-x-1.5" title="People in this project">
+    <div className="flex items-center -space-x-1.5" title="People in this workspace">
       {shown.map((m) => (
         <div
           key={m.id}
