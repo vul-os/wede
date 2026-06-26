@@ -110,7 +110,11 @@ No new user features — prove isolation.
       lazy start-on-first-use done. Member-driven start + grace-period teardown pending (Wave 2)
 - [x] Room-native API; auto-created boot room covers the solo case
 - [x] Tests: two rooms / two roots / no cross-talk (room_test.go); lifecycle get/list/close
-- [ ] Frontend: room list / create / join UI; thread room id through API calls
+- [x] Frontend API foundation: `src/api.js` (`roomUrl`/`roomsUrl`) + `useRooms` hook
+      (live: fetches `/api/rooms`, tracks active room, `createRoom`); wired into `App`,
+      `roomId` threaded to `IDE`
+- [ ] Frontend: visible room switcher UI (list/create) in IDE header + migrate component
+      fetches to `roomUrl(roomId, …)` (legacy default-room paths still work meanwhile)
 
 ### Wave 2 — Identity & presence  ⬜
 - [ ] Username at join; extend session record with `username`, `rooms[]`
@@ -220,3 +224,7 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   language servers. Legacy /api/terminal,/api/lsp + new room-scoped routes both flow
   through the default room; standalone term/lsp handlers removed. Check green. **Backend
   room-scoping complete.** Next: room-scoped safePath confinement, then Wave 1 frontend.
+- 2026-06-26: Wave 1 slice 5 — room-scoped safePath confinement proven
+  (`TestCrossRoomConfinement`). Frontend API foundation: `src/api.js` + `useRooms` hook
+  wired live into `App`; `roomId` threaded to `IDE`. Check green. Next: visible room
+  switcher UI in IDE header + migrate component fetches to `roomUrl`. Then Wave 2.

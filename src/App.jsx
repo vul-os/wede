@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useTheme } from './hooks/useTheme'
+import { useRooms } from './hooks/useRooms'
 import Logo from './components/Logo'
 import ThemePicker from './components/ThemePicker'
 import Login from './components/Login'
@@ -10,6 +11,7 @@ import IDE from './components/IDE'
 function App() {
   const { token, login, logout, error, locked, remaining, authFetch } = useAuth()
   const { theme, setTheme } = useTheme()
+  const roomsApi = useRooms(token, authFetch)
   const [workspace, setWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -70,6 +72,8 @@ function App() {
       workspace={workspace.current}
       recents={workspace?.recents || []}
       onWorkspaceChange={(path) => setWorkspace({ ...workspace, current: path, hasWorkspace: true })}
+      roomId={roomsApi.activeRoomId}
+      roomsApi={roomsApi}
     />
   )
 }
