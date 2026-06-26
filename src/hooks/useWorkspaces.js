@@ -13,7 +13,11 @@ export function useWorkspaces(token, authFetch) {
 
   // Keep the module-level holder (read by authFetch) in sync with the focused
   // workspace so legacy /api/<service> calls are rewritten to the active one.
-  useEffect(() => { syncActiveWorkspaceId(activeWorkspaceId) }, [activeWorkspaceId])
+  // Synced during render — not in an effect — so authFetch sees the new id
+  // BEFORE descendant effects (e.g. the file explorer's first fetch) run on the
+  // same commit. React runs effects child-first, so a parent effect would land
+  // too late and the explorer would fetch the now-removed unscoped /api/files.
+  syncActiveWorkspaceId(activeWorkspaceId)
 
   const refresh = useCallback(async () => {
     if (!token) return

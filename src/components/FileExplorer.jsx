@@ -292,7 +292,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 }
 
 /* ── Main explorer ── */
-export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, onRegisterActions, roster = [] }) {
+export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, workspaceId, onRegisterActions, roster = [] }) {
   // Map file path -> members currently viewing it (for presence dots).
   const presenceMap = useMemo(() => {
     const m = {}
@@ -339,7 +339,7 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     loadGitStatus()
     const interval = setInterval(loadGitStatus, 8000)
     return () => clearInterval(interval)
-  }, [loadRoot, loadGitStatus, workspace])
+  }, [loadRoot, loadGitStatus, workspace, workspaceId])
 
   // Register refresh + new-file/folder triggers with the parent (for command palette).
   useEffect(() => {

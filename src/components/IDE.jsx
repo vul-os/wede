@@ -764,7 +764,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 min-h-0 relative">
           {mobilePanel === 'files' && (
             <div className="h-full animate-fade-in">
-              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
+              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} workspaceId={workspaceId} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
             </div>
           )}
           {mobilePanel === 'code' && (
@@ -985,7 +985,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {/* File explorer stays mounted (hidden when inactive) so its tree + expansion persist across tab switches. */}
               <div className={`flex-1 min-h-0 ${sidebarTab === 'files' ? 'flex flex-col' : 'hidden'}`}>
-                <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
+                <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} workspaceId={workspaceId} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
               </div>
               {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
                 openFile(entry).then?.(() => {
