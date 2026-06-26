@@ -113,6 +113,7 @@ func main() {
 	rs := roomMgr.Scoped
 	// files
 	protected.HandleFunc("GET /api/rooms/{id}/files", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().List }))
+	protected.HandleFunc("GET /api/rooms/{id}/files/tree", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Tree }))
 	protected.HandleFunc("GET /api/rooms/{id}/files/read", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Read }))
 	protected.HandleFunc("PUT /api/rooms/{id}/files/write", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Write }))
 	protected.HandleFunc("POST /api/rooms/{id}/files/create", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Create }))
@@ -163,6 +164,7 @@ func main() {
 	protected.HandleFunc("GET /api/rooms/{id}/doc/{room...}", rs(func(rm *room.Room) http.HandlerFunc { return rm.DocServer().ServeHTTP }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
+	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
 	protected.HandleFunc("PUT /api/files/write", fileHandler.Write)
 	protected.HandleFunc("POST /api/files/create", fileHandler.Create)

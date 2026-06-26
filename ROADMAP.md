@@ -186,15 +186,22 @@ No new user features — prove isolation.
       running server, then default collab ON + add a Settings toggle (Wave 7)
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect (needs live/integration harness)
 
-### Wave 5 — VS Code parity (mostly polish on existing)  ⬜
-- [ ] Quick Open `Cmd+P` fuzzy file finder
-- [ ] Editor tabs + dirty indicators + overflow; split editor
+### Wave 5 — VS Code parity (mostly polish on existing)  🚧
+- [x] Quick Open `Cmd+P` fuzzy file finder (`QuickOpen.jsx` + backend `files.Tree`
+      `/api/files/tree` (+room-scoped), noise-skipping flat index; 2 Go tests). Cmd/Ctrl+P
+      opens it; Enter/↑/↓ navigate.
+- [x] Editor tabs + dirty indicators (`EditorTabs.jsx`: `tab.modified` dot, close button) —
+      already present. (split editor: deferred)
 - [ ] Breadcrumbs path bar
 - [ ] Problems/Diagnostics panel from LSP; references/rename/hover surfaced in UI
+      (hover/definition/diagnostics already work in-editor via `codemirror-languageserver`)
 - [ ] Symbol outline (`Cmd+Shift+O`) + workspace symbols
-- [ ] Snippets + configurable keybindings; sticky scroll; bracket-pair colorization
+- [ ] Snippets + configurable keybindings; sticky scroll
+- [x] Multi-cursor, minimap, format-on-save, go-to-line, image preview, command palette,
+      search+replace — already shipped (verified in components; see "Shipped" section)
 - [ ] Markdown preview
-- [ ] File create/delete keyboard shortcuts in explorer (carried from v0.3.0)
+- [ ] File create/delete keyboard shortcuts in explorer (context-menu + command palette
+      already cover create/delete; raw keyboard shortcuts deferred)
 
 ### Wave 6 — Git graph, features & merge conflicts (extend existing)  ⬜
 - [ ] Graph polish: branch lanes, refs/tags rendering, performance on large histories
@@ -352,3 +359,11 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   a failed connect would hide on-disk content; opt-in via the setting. Non-collab editing is
   byte-for-byte unchanged. Live verification + default-on + Settings toggle deferred to Wave 7.
   Check green.
+- 2026-06-26: Wave 5 slice 1 — Quick Open (Cmd/Ctrl+P fuzzy file finder). Backend
+  `files.Tree` returns a flat, sorted, noise-skipped file index at `/api/files/tree`
+  (+`/api/rooms/{id}/files/tree`), capped at 10k, 2 Go tests. Frontend `QuickOpen.jsx`
+  modal: fuzzy filename ranking, keyboard nav, opens via `openFile`; wired into IDE
+  (both layouts) + Cmd/Ctrl+P. Audited Wave 5: tabs+dirty indicators, multi-cursor,
+  minimap, LSP hover/def/diagnostics, format-on-save, go-to-line, image preview, command
+  palette, search+replace all already present (ticked). Remaining gaps: breadcrumbs,
+  Problems panel, symbol outline, markdown preview. Check green.

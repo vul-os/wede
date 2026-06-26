@@ -19,6 +19,7 @@ import Settings from './Settings'
 import SearchPanel from './SearchPanel'
 import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
+import QuickOpen from './QuickOpen'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 import { useCollab } from '../hooks/useCollab'
@@ -64,6 +65,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [saving, setSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState('') // 'saving'|'saved'|''
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showQuickOpen, setShowQuickOpen] = useState(false)
 
   // Editor settings — persisted to localStorage
   const [editorSettings, setEditorSettings] = useState(() => {
@@ -254,6 +256,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'P') {
         e.preventDefault()
         setShowCommandPalette((v) => !v)
+      }
+      // Cmd/Ctrl+P — Quick Open (fuzzy file finder).
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        setShowQuickOpen((v) => !v)
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'F') {
         e.preventDefault()
@@ -680,6 +687,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onSelect={(id) => { if (id === 'menu') { setMobileMenu(true); return }; setMobilePanel(id) }}
           hasModified={hasModified} />
         {mobileMenu && <MobileMenuOverlay />}
+        <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} roomId={roomId} onOpenFile={openFile} />
         <CommandPalette
           visible={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
@@ -880,6 +888,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       </div>
 
       {/* ── Command palette ── */}
+      <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} roomId={roomId} onOpenFile={openFile} />
       <CommandPalette
         visible={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}

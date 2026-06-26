@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,6 +22,57 @@ type Handler struct {
 
 func New(ws WorkspaceProvider) *Handler {
 	return &Handler{ws: ws}
+}
+
+// treeSkipDirs are directories excluded from the Quick Open file index.
+var treeSkipDirs = map[string]bool{
+	".git": true, "node_modules": true, "dist": true, "build": true,
+	".next": true, "vendor": true, ".cache": true, "target": true,
+}
+
+const treeMaxFiles = 10000
+
+// Tree returns a flat, sorted list of file paths (relative to the workspace root,
+// slash-separated) for the Quick Open finder. Directory noise (.git, node_modules,
+// hidden dirs, …) is skipped and the count is capped to stay responsive on large
+// repos.
+func (h *Handler) Tree(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if !h.checkWorkspace(w) {
+		return
+	}
+	root := h.workspace()
+
+	files := make([]string, 0, 256)
+	truncated := false
+	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if p != root && (treeSkipDirs[name] || strings.HasPrefix(name, ".")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() == ".DS_Store" {
+			return nil
+		}
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return nil
+		}
+		files = append(files, filepath.ToSlash(rel))
+		if len(files) >= treeMaxFiles {
+			truncated = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	sort.Strings(files)
+	json.NewEncoder(w).Encode(map[string]any{"files": files, "truncated": truncated})
 }
 
 type FileEntry struct {
