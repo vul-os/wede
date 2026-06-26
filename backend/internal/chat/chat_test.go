@@ -12,7 +12,7 @@ import (
 
 func TestPostAppendsToFile(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	defer h.Close()
 
 	id, ch := h.Join("alice", "#f87171")
@@ -65,7 +65,7 @@ func TestNewHubReplaysHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	defer h.Close()
 
 	if len(h.history) != 2 {
@@ -94,7 +94,7 @@ func TestNewHubReplaysHistory(t *testing.T) {
 
 func TestNewHubEmptyHistoryNoFrame(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	defer h.Close()
 
 	_, ch := h.Join("carol", "#fbbf24")
@@ -112,7 +112,7 @@ func TestNewHubEmptyHistoryNoFrame(t *testing.T) {
 
 func TestPostGitAndSystemKinds(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	defer h.Close()
 
 	id, ch := h.Join("watcher", "#888888")
@@ -156,7 +156,7 @@ func TestPostGitAndSystemKinds(t *testing.T) {
 
 func TestBroadcastToAllPeers(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	defer h.Close()
 
 	id1, ch1 := h.Join("alice", "#f87171")
@@ -286,14 +286,14 @@ func TestShouldPostDirty(t *testing.T) {
 
 func TestCloseIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	h.Close()
 	h.Close() // second Close must not panic
 }
 
 func TestJoinAfterClose(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir)
+	h := NewHub(dir, ChannelPublic)
 	h.Close()
 
 	id, ch := h.Join("late", "#888")
@@ -308,5 +308,36 @@ func TestJoinAfterClose(t *testing.T) {
 		}
 	default:
 		t.Error("expected channel to be closed (receive should not block)")
+	}
+}
+
+// TestPrivateChannel verifies the private channel writes to .wede/private/chat.md
+// and that wede auto-gitignores the private folder.
+func TestPrivateChannel(t *testing.T) {
+	dir := t.TempDir()
+	pub := NewHub(dir, ChannelPublic)
+	defer pub.Close()
+	priv := NewHub(dir, ChannelPrivate)
+	defer priv.Close()
+
+	pub.Post("alice", "#fff", "public hello")
+	priv.Post("bob", "#000", "private secret")
+	time.Sleep(20 * time.Millisecond)
+
+	pubFile := filepath.Join(dir, ".wede", "chat.md")
+	privFile := filepath.Join(dir, ".wede", "private", "chat.md")
+	if b, _ := os.ReadFile(pubFile); !strings.Contains(string(b), "public hello") {
+		t.Errorf("public chat.md missing public message: %q", b)
+	}
+	if b, _ := os.ReadFile(pubFile); strings.Contains(string(b), "private secret") {
+		t.Error("private message leaked into public chat.md")
+	}
+	if b, _ := os.ReadFile(privFile); !strings.Contains(string(b), "private secret") {
+		t.Errorf("private chat.md missing private message: %q", b)
+	}
+	// .wede/.gitignore should exclude the private folder.
+	gi, err := os.ReadFile(filepath.Join(dir, ".wede", ".gitignore"))
+	if err != nil || !strings.Contains(string(gi), "private/") {
+		t.Errorf(".wede/.gitignore should contain 'private/': err=%v content=%q", err, gi)
 	}
 }

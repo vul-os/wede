@@ -195,8 +195,10 @@ func main() {
 	protected.Handle("POST /api/workspaces/{id}/git/tag/delete", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().TagDelete })))
 	// comprehensive search: filename mode
 	protected.HandleFunc("GET /api/workspaces/{id}/search/files", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().SearchFiles }))
-	// workspace chat (live + .wede/chat.md + git activity)
-	protected.HandleFunc("GET /api/workspaces/{id}/chat", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Chat().HandleWS }))
+	// workspace chat (live + .wede/chat.md + git activity); ?channel=public|private
+	protected.HandleFunc("GET /api/workspaces/{id}/chat", rs(func(ws *workspace.Workspace) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) { ws.Chat(r.URL.Query().Get("channel")).HandleWS(w, r) }
+	}))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/tree", fileHandler.Tree)

@@ -82,7 +82,8 @@ function MessageRow({ msg }) {
 }
 
 export default function Chat({ workspaceId, token, username, color }) {
-  const { messages, sendMessage } = useChat(workspaceId, token, username, color)
+  const [channel, setChannel] = useState('public')
+  const { messages, sendMessage } = useChat(workspaceId, token, username, color, channel)
   const [input, setInput] = useState('')
   const listRef = useRef(null)
   const bottomRef = useRef(null)
@@ -126,16 +127,29 @@ export default function Chat({ workspaceId, token, username, color }) {
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
 
-      {/* ── Header ── */}
-      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
-        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-          Chat
+      {/* ── Header: Public/Private channel toggle ── */}
+      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-md border border-border overflow-hidden shrink-0">
+          {['public', 'private'].map((ch) => (
+            <button
+              key={ch}
+              onClick={() => setChannel(ch)}
+              className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                channel === ch ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+              }`}
+            >
+              {ch}
+            </button>
+          ))}
+        </div>
+        <span
+          className="text-[10px] text-text-muted truncate"
+          title={channel === 'public'
+            ? 'Committed to .wede/chat.md — visible to the repo and to LLMs working on it'
+            : 'Local only — stored in .wede/private/ which wede gitignores'}
+        >
+          {channel === 'public' ? '.wede/chat.md' : '.wede/private/ · gitignored'}
         </span>
-        {messages.length > 0 && (
-          <span className="text-[10px] text-text-muted">
-            {messages.length} message{messages.length !== 1 ? 's' : ''}
-          </span>
-        )}
       </div>
 
       {/* ── Message list ── */}
@@ -148,9 +162,13 @@ export default function Chat({ workspaceId, token, username, color }) {
             <div className="w-10 h-10 rounded-xl bg-bg-hover flex items-center justify-center mb-3">
               <span className="text-lg" role="img" aria-label="chat">💬</span>
             </div>
-            <p className="text-[12px] font-medium text-text-secondary">No messages yet</p>
-            <p className="text-[11px] text-text-muted mt-1">
-              Say hello to your teammates
+            <p className="text-[12px] font-medium text-text-secondary">
+              {channel === 'public' ? 'No messages yet' : 'No private messages yet'}
+            </p>
+            <p className="text-[11px] text-text-muted mt-1 max-w-[200px]">
+              {channel === 'public'
+                ? 'Public chat is committed to .wede/chat.md so the repo and LLMs can read it'
+                : 'Private chat stays local in .wede/private/ (gitignored)'}
             </p>
           </div>
         ) : (

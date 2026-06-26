@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-function buildWsUrl(workspaceId, token, username, color) {
+function buildWsUrl(workspaceId, token, username, color, channel) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   // In dev (Vite on 5173/5174) the WS must hit the backend on :9090 directly.
   const port = window.location.port
@@ -23,17 +23,20 @@ function buildWsUrl(workspaceId, token, username, color) {
     + `?token=${encodeURIComponent(token || '')}`
     + `&username=${encodeURIComponent(username || '')}`
     + `&color=${encodeURIComponent(color || '#888888')}`
+    + `&channel=${encodeURIComponent(channel || 'public')}`
 }
 
-export function useChat(workspaceId, token, username, color) {
+export function useChat(workspaceId, token, username, color, channel = 'public') {
   const [messages, setMessages] = useState([])
   const wsRef = useRef(null)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!workspaceId || !token) return undefined
+    setMessages([]) // reset when switching channel
     let ws
     try {
-      ws = new WebSocket(buildWsUrl(workspaceId, token, username, color))
+      ws = new WebSocket(buildWsUrl(workspaceId, token, username, color, channel))
       wsRef.current = ws
       ws.onmessage = (ev) => {
         try {
@@ -56,7 +59,8 @@ export function useChat(workspaceId, token, username, color) {
       try { if (ws) ws.close() } catch { /* ignore */ }
       if (wsRef.current === ws) wsRef.current = null
     }
-  }, [workspaceId, token, username, color])
+  }, [workspaceId, token, username, color, channel])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const sendMessage = useCallback((text) => {
     const ws = wsRef.current

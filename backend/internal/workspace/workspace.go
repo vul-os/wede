@@ -57,7 +57,8 @@ type Workspace struct {
 	lsp      *lsp.Handler
 	presence  *presence.Hub
 	collab    *collab.Handler
-	chat      *chat.Hub
+	chatPublic  *chat.Hub
+	chatPrivate *chat.Hub
 	docs       *collabdoc.DocStore
 	docServer  *ywebsocket.Server          // ygo sync+awareness WS server (one doc per file)
 	docPersist *collabdoc.DiskPersistence  // seeds from + writes back to disk
@@ -156,21 +157,27 @@ func (r *Workspace) Collab() *collab.Handler {
 	return r.collab
 }
 
-// Chat returns this workspace's per-room chat hub, lazily created on first use.
-// The hub persists messages to <root>/.wede/chat.md and polls git for activity.
+// Chat returns this workspace's chat hub for the given channel ("public" or
+// "private"; anything else falls back to public), lazily created on first use.
+// Public persists to <root>/.wede/chat.md (committed, LLM-readable) and polls git
+// for activity; private persists to <root>/.wede/private/chat.md, which wede
+// gitignores by default.
 //
-// Route the integrator must wire:
-//
-//	GET /api/workspaces/{id}/chat -> workspace.Chat().HandleWS
-//	(behind auth middleware, public-read OK)
-func (r *Workspace) Chat() *chat.Hub {
+//	GET /api/workspaces/{id}/chat?channel=public|private -> Chat(channel).HandleWS
+func (r *Workspace) Chat(channel string) *chat.Hub {
 	root := r.Root() // reads ws.Current(); does not take r.mu
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.chat == nil {
-		r.chat = chat.NewHub(root)
+	if channel == chat.ChannelPrivate {
+		if r.chatPrivate == nil {
+			r.chatPrivate = chat.NewHub(root, chat.ChannelPrivate)
+		}
+		return r.chatPrivate
 	}
-	return r.chat
+	if r.chatPublic == nil {
+		r.chatPublic = chat.NewHub(root, chat.ChannelPublic)
+	}
+	return r.chatPublic
 }
 
 // Docs returns this workspace's collaborative document store (server-authoritative
@@ -224,9 +231,13 @@ func (r *Workspace) shutdown() {
 		r.presence.Close()
 		r.presence = nil
 	}
-	if r.chat != nil {
-		r.chat.Close()
-		r.chat = nil
+	if r.chatPublic != nil {
+		r.chatPublic.Close()
+		r.chatPublic = nil
+	}
+	if r.chatPrivate != nil {
+		r.chatPrivate.Close()
+		r.chatPrivate = nil
 	}
 	if r.docs != nil {
 		r.docs.CloseAll()

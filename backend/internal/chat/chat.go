@@ -59,34 +59,76 @@ type peer struct {
 	out chan []byte
 }
 
-// Hub is the per-workspace chat hub. Safe for concurrent use.
+// Channel names. Public chat is committed (.wede/chat.md) so collaborators and
+// LLMs working on the repo can read it; private chat lives in .wede/private/,
+// which wede gitignores by default so it never enters the repo.
+const (
+	ChannelPublic  = "public"
+	ChannelPrivate = "private"
+)
+
+// Hub is one chat channel for a workspace. Safe for concurrent use.
 type Hub struct {
 	mu      sync.Mutex
 	peers   map[string]*peer
 	history []Message
 	root    string
+	relPath string // workspace-relative chat file path
+	gitOn   bool   // post git-activity messages (public channel only)
 	counter uint64
 	closed  bool
 	stop    chan struct{}
 }
 
-// NewHub creates a Hub rooted at root, replaying any existing .wede/chat.md into
-// history so reconnecting clients and new sessions see the prior conversation.
-// A git-activity polling goroutine is started immediately.
-func NewHub(root string) *Hub {
+// NewHub creates a Hub for the given channel ("public" or "private") rooted at
+// root, replaying any existing history file so reconnecting clients see prior
+// messages. The public channel persists to .wede/chat.md and starts a
+// git-activity poller; the private channel persists to .wede/private/chat.md and
+// ensures .wede/.gitignore excludes it.
+func NewHub(root, channel string) *Hub {
+	relPath := filepath.Join(".wede", "chat.md")
+	gitOn := true
+	if channel == ChannelPrivate {
+		relPath = filepath.Join(".wede", "private", "chat.md")
+		gitOn = false
+		ensurePrivateGitignore(root)
+	}
 	h := &Hub{
-		peers: make(map[string]*peer),
-		root:  root,
-		stop:  make(chan struct{}),
+		peers:   make(map[string]*peer),
+		root:    root,
+		relPath: relPath,
+		gitOn:   gitOn,
+		stop:    make(chan struct{}),
 	}
 	h.loadHistory()
-	go h.gitPoller()
+	if gitOn {
+		go h.gitPoller()
+	}
 	return h
 }
 
-// chatFile returns the absolute path to <root>/.wede/chat.md.
+// ensurePrivateGitignore writes "private/" into <root>/.wede/.gitignore so the
+// private chat folder is never committed. Best-effort + idempotent.
+func ensurePrivateGitignore(root string) {
+	dir := filepath.Join(root, ".wede")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return
+	}
+	gi := filepath.Join(dir, ".gitignore")
+	if data, err := os.ReadFile(gi); err == nil && strings.Contains(string(data), "private/") {
+		return
+	}
+	f, err := os.OpenFile(gi, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintln(f, "private/") //nolint:errcheck
+}
+
+// chatFile returns the absolute path to this channel's history file.
 func (h *Hub) chatFile() string {
-	return filepath.Join(h.root, ".wede", "chat.md")
+	return filepath.Join(h.root, h.relPath)
 }
 
 // loadHistory reads .wede/chat.md (if present) and appends parsed messages to
@@ -170,8 +212,7 @@ func formatLine(m Message) string {
 // appendToDisk creates .wede/chat.md if needed and appends one formatted line.
 // Errors are silently dropped; live chat is not gated on disk availability.
 func (h *Hub) appendToDisk(m Message) {
-	dir := filepath.Join(h.root, ".wede")
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(h.chatFile()), 0755); err != nil {
 		return
 	}
 	f, err := os.OpenFile(h.chatFile(), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
