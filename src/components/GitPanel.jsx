@@ -426,17 +426,35 @@ function GraphRow({ row, nextRow, isLast, onContextMenu, isSelected, onClick }) 
    Commit detail panel (diff for a selected commit)
 ═══════════════════════════════════════════════════ */
 
+// splitDiffByFile breaks a unified diff into per-file sections with +/- counts
+// and a status, so the commit detail can list files like VS Code's Git Graph.
+function splitDiffByFile(diff) {
+  if (!diff) return []
+  return diff.split(/(?=^diff --git )/m).filter((p) => p.startsWith('diff --git')).map((part) => {
+    const m = part.match(/^diff --git a\/(.+?) b\/(.+)$/m)
+    const path = m ? m[2].trim() : '(file)'
+    let add = 0, del = 0, status = 'modified'
+    for (const line of part.split('\n')) {
+      if (/^new file mode/.test(line)) status = 'added'
+      else if (/^deleted file mode/.test(line)) status = 'deleted'
+      else if (/^rename (from|to) /.test(line)) status = 'renamed'
+      else if (line.startsWith('+') && !line.startsWith('+++')) add++
+      else if (line.startsWith('-') && !line.startsWith('---')) del++
+    }
+    return { path, add, del, status, diff: part }
+  })
+}
+
 function CommitDetail({ commit, authFetch, onClose }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [expandedFile, setExpandedFile] = useState(null)
+  const [expanded, setExpanded] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!commit) return
-    setLoading(true)
-    setData(null)
-    setExpandedFile(null)
+    setLoading(true); setData(null); setExpanded(null)
     authFetch(`/api/git/commit-diff?hash=${encodeURIComponent(commit.hash)}`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false) })
@@ -446,58 +464,84 @@ function CommitDetail({ commit, authFetch, onClose }) {
 
   if (!commit) return null
 
-  const diffLines = parseDiff(data?.diff || '')
+  const files = splitDiffByFile(data?.diff || '')
+  const parents = (commit.parents || []).map((p) => p.slice(0, 7)).join(', ')
+  const copyHash = () => { navigator.clipboard?.writeText(commit.hash || commit.short); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   return (
-    <div className="border-t border-border bg-bg-primary flex flex-col" style={{ maxHeight: '55%' }}>
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
-        <span className="font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded font-semibold shrink-0">{commit.short}</span>
-        <span className="text-[11px] text-text-secondary truncate flex-1">{commit.message}</span>
-        <button onClick={onClose}
-          className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0">
-          <X className="w-3.5 h-3.5" />
-        </button>
+    <div className="border-t border-border bg-bg-primary flex flex-col" style={{ maxHeight: '62%' }}>
+      {/* Commit metadata */}
+      <div className="px-4 py-3 border-b border-border shrink-0">
+        <div className="flex items-start gap-2">
+          <p className="flex-1 text-[13px] font-semibold text-text-primary leading-snug break-words">{commit.message}</p>
+          <button onClick={onClose} className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="mt-2.5 grid grid-cols-[64px_1fr] gap-x-3 gap-y-1.5 text-[11px]">
+          <span className="text-text-muted">Commit</span>
+          <span className="font-mono text-accent flex items-center gap-1.5 min-w-0">
+            <span className="truncate">{commit.hash || commit.short}</span>
+            <button onClick={copyHash} title="Copy hash" className="shrink-0 text-text-muted hover:text-text-primary">
+              {copied ? <Check className="w-3 h-3 text-green" /> : <Copy className="w-3 h-3" />}
+            </button>
+          </span>
+          <span className="text-text-muted">Author</span>
+          <span className="text-text-secondary flex items-center gap-1.5 min-w-0">
+            <span className="w-4 h-4 rounded-full bg-accent/15 text-accent flex items-center justify-center text-[8px] font-bold shrink-0">
+              {(commit.author || '?')[0].toUpperCase()}
+            </span>
+            <span className="truncate">{commit.author}</span>
+            <span className="text-text-muted shrink-0">· {commit.date}</span>
+          </span>
+          {parents && (<>
+            <span className="text-text-muted">Parents</span>
+            <span className="font-mono text-text-muted truncate">{parents}</span>
+          </>)}
+        </div>
       </div>
 
+      {/* Changed files */}
       <div className="overflow-y-auto flex-1 min-h-0">
         {loading && (
           <div className="flex items-center justify-center py-8 gap-2 text-text-muted">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            <span className="text-[12px]">Loading diff…</span>
+            <span className="text-[12px]">Loading changes…</span>
           </div>
         )}
-
-        {!loading && data && (
+        {!loading && (
           <>
-            {data.files && data.files.length > 0 && (
-              <div className="border-b border-border/40 py-1">
-                {data.files.map((f, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setExpandedFile(expandedFile === f ? null : f)}
-                    className="w-full flex items-center gap-2 px-3 py-1 hover:bg-bg-hover transition-colors text-left"
-                  >
-                    {expandedFile === f
-                      ? <EyeOff className="w-3 h-3 text-text-muted shrink-0" />
-                      : <Eye className="w-3 h-3 text-text-muted shrink-0" />
-                    }
-                    <span className="text-[11px] text-text-secondary truncate font-mono">{f}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted border-b border-border/40 sticky top-0 bg-bg-primary z-10">
+              {files.length} file{files.length !== 1 ? 's' : ''} changed
+            </div>
+            {files.length === 0 && (
+              <div className="flex items-center justify-center py-6 text-text-muted text-[11px]">No file changes</div>
             )}
-
-            {diffLines.length > 0 ? (
-              <div className="bg-bg-secondary border-border/30">
-                <DiffViewer lines={diffLines} />
-              </div>
-            ) : (
-              !loading && (
-                <div className="flex items-center justify-center py-6 text-text-muted">
-                  <span className="text-[11px]">No diff available</span>
+            {files.map((f) => {
+              const meta = STATUS_META[f.status] || STATUS_META.modified
+              const filename = f.path.split('/').pop()
+              const dir = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''
+              const open = expanded === f.path
+              return (
+                <div key={f.path} className="border-b border-border/30 last:border-0">
+                  <button onClick={() => setExpanded(open ? null : f.path)}
+                    className={`w-full flex items-center gap-2 pl-3 pr-2.5 py-1.5 hover:bg-bg-hover transition-colors text-left ${open ? 'bg-bg-hover/60' : ''}`}>
+                    {open ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" /> : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />}
+                    <span className={`w-4 text-center text-[11px] font-bold shrink-0 ${meta.color}`}>{meta.label}</span>
+                    <span className="text-[11.5px] text-text-primary truncate">{filename}</span>
+                    {dir && <span className="text-[10px] text-text-muted truncate min-w-0">{dir}</span>}
+                    <div className="flex-1" />
+                    {f.add > 0 && <span className="text-[10px] font-mono text-green shrink-0">+{f.add}</span>}
+                    {f.del > 0 && <span className="text-[10px] font-mono text-red shrink-0">−{f.del}</span>}
+                  </button>
+                  {open && (
+                    <div className="bg-bg-secondary">
+                      <DiffViewer lines={parseDiff(f.diff)} />
+                    </div>
+                  )}
                 </div>
               )
-            )}
+            })}
           </>
         )}
       </div>

@@ -967,7 +967,10 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         {showSidebar && (
           <>
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
-              {sidebarTab === 'files' && <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />}
+              {/* File explorer stays mounted (hidden when inactive) so its tree + expansion persist across tab switches. */}
+              <div className={`flex-1 min-h-0 ${sidebarTab === 'files' ? 'flex flex-col' : 'hidden'}`}>
+                <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
+              </div>
               {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
                 openFile(entry).then?.(() => {
                   // targetLine is used by Editor to scroll to the match.

@@ -343,8 +343,12 @@ async function run() {
 
   // ── 4. Git graph — History tab ────────────────────────────────────────────
   console.log('Capturing: git graph (commit history)...');
-  const historyTab = page.locator('button').filter({ hasText: /^(History|Graph|Log|Commits)$/ }).first();
-  if (await historyTab.count() > 0) { await historyTab.click(); await sleep(1400); }
+  // Open the Git Graph editor from the Source Control header toolbar.
+  await page.locator('button[title="Open Git Graph"]').first().click().catch(() => {});
+  await sleep(1600);
+  // Click a commit to reveal the VS Code-style commit-detail panel.
+  await page.getByText('feat(api): CORS + auth middleware', { exact: true }).first().click().catch(() => {});
+  await sleep(1300);
   await shot(page, 'git_graph');
 
   // ── 5. Search panel — results for "handleCreate" ─────────────────────────
