@@ -1,132 +1,189 @@
 # wede Roadmap
 
 wede is a lightweight, self-hosted web IDE maintained by [Vulos](https://vulos.org).
-The design goals are: single binary, no mandatory cloud, fast cold-start, and clean
-embed-in-shell support. This roadmap tracks the public direction.
+Historically single-user; the active direction is to make it a **multi-user,
+multi-project collaborative IDE** that still ships as **one Go binary** — no cgo,
+no Node sidecar, no external database.
 
-Items are grouped by milestone. Completed items move to [CHANGELOG.md](CHANGELOG.md).
+This file is the durable source of truth. Checkbox rule: tick an item only when the
+change **builds and tests pass** (`go build ./...`, `go test ./...`, `npm run build`,
+`npm run lint`). Completed milestones are summarised under "Shipped". Honesty rule:
+a wave is ✅ only when its acceptance tests pass — otherwise 🚧 with explicit TODOs.
 
----
-
-## v0.2.x — Hardening (current)
-
-- [x] Vulos OS `frame_ancestors` embed config
-- [x] Security fixes: path-traversal, git arg-injection, WS origin, localhost bind
-- [x] IDE redesign: Midnight/Daylight themes, responsive mobile layout
-- [x] Visual git commit graph (DAG view)
-- [x] `--version` flag + version injected via ldflags
-- [x] `go test ./...` CI gate (`ci.yml` now runs Go tests)
-- [x] `npm run lint` CI step (advisory — pre-existing violations tracked separately)
-- [x] Config validation: unknown JSON keys are fatal on startup (`DisallowUnknownFields`)
-- [x] Session expiry: 24 h idle TTL on session tokens
-- [x] Server-side logout (`DELETE /api/auth/logout`) — tokens revoked on disk
-- [x] Brute-force lockout persisted to disk — survives server restart
-- [x] `HandleBrowse` path escape: folder picker confined to home directory tree
-- [x] WS token no longer in URL — passed as `auth.<token>` subprotocol
-- [x] Plaintext password removed from startup log
-- [x] Delete confirmation dialog in file explorer (especially for directories)
-- [x] Ctrl+V paste targets focused directory, not always workspace root
-- [x] **Command palette implemented** — Ctrl/Cmd+Shift+P; fuzzy search; all IDE actions wired
-- [x] **Recursive directory copy** — `POST /api/files/copy`; Copy/Paste re-enabled for both
-  files and directories via the new recursive endpoint; safePath-guarded
-- [x] **Ctrl/Cmd+W** close active tab shortcut
-- [x] All legacy brand references removed from codebase, docs, and configs
-- [x] Orphaned `database/` Postgres module deleted
-- [x] `wede.config.json` gitignored; `wede.config.example.json` added
+**Branch:** `feat/collab-ide`
 
 ---
 
-## v0.3.0 — Editor polish
+## North-star architecture (collaborative rebuild)
 
-- [x] **Multi-cursor** and column-select — `rectangularSelection` + `crosshairCursor`
-  CodeMirror extensions; Alt+Click / Alt+Drag.
-- [x] **Search across files** — ripgrep subprocess (Go walker fallback); Search sidebar
-  panel; results grouped by file with highlighted matches; click to open at line.
-- [ ] **File creation/deletion** keyboard shortcuts in file explorer
-- [x] **Editor settings panel** — font size (10–24 px), tab width (2/4/8), word wrap,
-  auto-save toggle; all settings live-applied via CodeMirror Compartments.
-- [x] **Minimap** toggle — `@replit/codemirror-minimap` (MIT) wired via a CodeMirror
-  `Compartment`; toggled in Settings; scroll-synced viewport overlay; live enable/disable
-  without editor rebuild.
-- [x] **Auto-save** — 1.5 s debounce; status indicator in top bar; toggleable in settings.
-- [x] **Language Server Protocol (LSP) proxy** — Go backend (`backend/internal/lsp`)
-  spawns one language server process per (workspace, language) pair and bridges
-  JSON-RPC `Content-Length` frames ↔ WebSocket. Supported: `gopls` (Go),
-  `typescript-language-server` (JS/TS), `pylsp` (Python), `rust-analyzer` (Rust).
-  Client uses `codemirror-languageserver` (BSD-3) for diagnostics, hover, completion,
-  and go-to-definition. Degrades gracefully when binary not installed — no errors,
-  Settings panel shows which servers are active or missing. LSP toggled per-user in
-  Settings. `GET /api/lsp/available` lists installed servers.
-- [x] **Git push / pull / fetch / create-branch** — Remote tab in git panel; backend
-  endpoints with injection-safe arg validation.
-- [x] **File-watching SSE** — `GET /api/watch` (fsnotify + 250 ms debounce); explorer
-  and git status refresh automatically on file-system changes; git-status poll relaxed
-  from 10 s to 30 s.
-- [x] **Git diff viewer** — inline unified diff for staged/unstaged files; click-to-expand
-  per file row in the Changes tab.
-- [x] **Discard file changes** — trash icon to restore a file to HEAD; injection-safe backend.
-- [x] **Stash save/pop/list** — full stash workflow in the Changes tab.
-- [x] **Commit detail diff** — click a commit in History to see files changed + full diff.
-- [x] **Format on save** — `gofmt` / `prettier` / `black` via `POST /api/files/format`;
-  toggled in Settings; also available as "Format Document" in the command palette.
-- [x] **Go to line (`Ctrl+G`)** — floating line-jump overlay in the editor; command palette entry.
+The core shift: **global singletons → per-`Room` state.** A `Room` *is* a project.
+The server holds a `RoomManager` (`map[roomID]*Room`); every request is room-scoped,
+so many people can work on many independent projects on one host at once.
+
+```
+Server
+ └─ RoomManager  map[roomID]*Room
+     └─ Room { Root, members,
+               files, git, search,       // disk-backed, scoped to Root
+               watcher (fsnotify),        // one per room
+               lsp,                       // language servers per room (lazy)
+               terms  (terminal.Hub),     // SHARED terminals, output fan-out
+               docs   (collab.DocStore),  // ygo CRDT, server-authoritative
+               presence }                 // roster, cursors, who-views-what
+```
+
+- **Collab editing:** [reearth/ygo](https://github.com/reearth/ygo) — pure-Go, cgo-free,
+  Yjs-v13 wire-compatible CRDT. Server holds the authoritative `Y.Doc` per open file.
+  Client: `yjs` + `y-codemirror.next`. Awareness layer = multiplayer cursors.
+- **Disk⇄Doc reconciliation:** the per-room fsnotify watcher detects external edits
+  (terminal `sed`, `git checkout`, formatters) and re-seeds the live doc. Central
+  correctness problem; first-class treatment in Wave 4.
+- **Routing:** path-scoped via Go 1.22+ `ServeMux` wildcards — `/api/rooms/{id}/...`.
+  No router dependency.
+- **Identity:** keep the shared-password gate as the door; add a **username at join**
+  for presence/attribution. Per-user accounts stay optional/additive.
+- **Lazy lifecycle:** watcher/LSP/PTYs start only when a room has ≥1 member and tear
+  down (grace period) when empty — one binary hosts many projects without melting.
 
 ---
 
-## v0.3.x — IDE-class gaps (current)
+## Shipped (do not rebuild — audit & polish only)
 
-- [x] **Merge-conflict resolution** — conflicted files detected in git status (`UU`/`AA`/`DD`/`DU`/`UD`),
-  shown in a "Conflicts" section; inline resolver shows each `<<<`/`===`/`>>>` region with
-  Accept Current / Accept Incoming / Accept Both buttons; "Resolve & Stage" writes and stages the
-  file. Backend: `GET /api/git/conflict`, `POST /api/git/conflict/resolve`.
-- [x] **Remote management** — add and remove git remotes from the Remote tab; strict name
-  validation (`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`). Backend: `POST /api/git/remotes/add`,
-  `POST /api/git/remotes/remove`.
-- [x] **Replace across files** — replace mode in the Search panel; preview shows amber-tinted
-  replacements per match; "Replace All" applies atomically per file. 200-file / 10k-replacement
-  cap. Backend: `GET /api/search/replace-preview`, `POST /api/search/replace`.
-- [x] **Image/binary preview** — images (png/jpg/gif/svg/webp) rendered inline as `<img>` with
-  a checkerboard transparency background; other binary files show a "binary file" notice with size.
-  Backend: `Read` now returns `fileType:"image"` with base64 data URL, or `fileType:"binary"` + size.
-- [x] **Per-hunk staging** — each `@@` hunk header in the diff view has a "+" button to stage just
-  that hunk via `git apply --cached`; likewise "–" to unstage via `--reverse`. Backend:
-  `POST /api/git/stage-hunk`.
+These already exist in the codebase. Treat requests to "add/improve" them as
+incremental enhancement on top of working features, not greenfield work.
 
----
-
-## v0.4.0 — Terminal improvements
-
-- [ ] **Persistent terminal sessions** — reconnect without losing the PTY on browser reload
-- [ ] **Custom shell selection** — `shell` config key (`/bin/bash`, `zsh`, `fish`, …)
-- [ ] **Terminal copy mode** — keyboard-driven selection (tmux-style)
-- [ ] **Split panes** — horizontal / vertical terminal splits within a tab
+- **Editor:** CodeMirror 6, multi-cursor + column select, minimap, settings panel
+  (font/tab/wrap), auto-save (1.5 s debounce), go-to-line (Ctrl+G), format-on-save
+  (`gofmt`/`prettier`/`black`), image/binary preview.
+- **LSP:** Go backend proxy spawning one server per (workspace, language); `gopls`,
+  `typescript-language-server`, `pylsp`, `rust-analyzer`; diagnostics, hover,
+  completion, go-to-definition; degrades gracefully when a binary is missing.
+- **Command palette:** Cmd/Ctrl+Shift+P, fuzzy, all actions wired.
+- **Search:** ripgrep (Go-walker fallback) search **and replace** across files, with
+  per-match preview and atomic per-file apply (200-file / 10k-replacement cap).
+- **Git:** visual commit **graph (DAG)**, inline + commit-detail diffs, discard,
+  stash save/pop/list, push/pull/fetch/branch, **remote add/remove**, **per-hunk
+  staging** (`git apply --cached`), **merge-conflict resolver** (Accept Current /
+  Incoming / Both, resolve & stage).
+- **File explorer:** tree with git-status colors, context menu, recursive copy/paste,
+  delete confirmation, paste-into-focused-dir, file-watch SSE auto-refresh.
+- **Platform:** single binary, embedded frontend, shared-password auth, 24 h session
+  TTL, disk-persisted brute-force lockout, WS auth via `auth.<token>` subprotocol,
+  path-traversal / arg-injection hardening, Midnight/Daylight themes, responsive layout.
 
 ---
 
-## v0.5.0 — Remote & collaboration
+## Waves (collaborative direction)
 
-- [ ] **SSH workspace** — open a remote directory over SSH (Go ssh client, no local agent
-  required); all file/git/terminal operations tunnel through the SSH connection
-- [ ] **Read-only share link** — time-limited token that grants read-only editor access
-  (no terminal, no writes) for code review or pair sessions
+Legend: ⬜ not started · 🚧 in progress · ✅ done (build+test green) · ⏭️ deferred
+
+### Wave 0 — Safety net & scaffolding  ⬜
+- [ ] Confirm baseline build/test/lint all green on `feat/collab-ide`
+- [ ] `Makefile` (or `scripts/check.sh`): `build` / `test` / `lint` / `check`
+- [ ] Backend HTTP-boot smoke test; frontend test runner (vitest) + one smoke test
+- [ ] Ensure `check` gates CI; document the dev loop in `docs/CONTRIBUTING.md`
+
+### Wave 1 — Rooms backbone (the refactor)  ⬜
+No new user features — prove isolation.
+- [ ] `internal/room`: `Room` + `RoomManager`, lifecycle (create/join/leave/close)
+- [ ] `internal/files` operates on injected `Root`, not `workspace.Current()`
+- [ ] `internal/git`, `internal/search` room-scoped
+- [ ] `internal/filewatcher` one-per-room; `internal/lsp` room-scoped (lazy)
+- [ ] Path-scope routes: `/api/rooms`, `/api/rooms/{id}/files|git|search|watch`
+- [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
+- [ ] Lazy lifecycle: start on first member, tear down on empty + grace period
+- [ ] Default-room shim so existing single-user flows keep working
+- [ ] Tests: two rooms / two roots / no cross-talk; lifecycle start/stop
+- [ ] Frontend: room list / create / join UI; thread room id through API calls
+
+### Wave 2 — Identity & presence  ⬜
+- [ ] Username at join; extend session record with `username`, `rooms[]`
+- [ ] `internal/presence`: per-room hub, roster, join/leave events
+- [ ] Single **collab WebSocket** `/api/rooms/{id}/collab` (presence + later doc + file events)
+- [ ] Broadcast "X is viewing `file`" + cursor line; stable per-user color
+- [ ] Frontend: avatar roster; per-file presence dots in FileExplorer
+- [ ] Tests: presence join/leave fan-out; roster correctness
+
+### Wave 3 — Shared terminal  ⬜
+- [ ] `terminal.Hub` per room: one PTY, N subscribers, output fan-out
+- [ ] Multi-writer input + "X is typing"; optional soft driver-lock
+- [ ] Resize policy (fixed / smallest-client-wins) + UI dims affordance
+- [ ] Late-joiner scrollback replay (reuse 64 KB buffer)
+- [ ] Tests: two clients same output; input interleaving; reconnect replay
+- [ ] Frontend: shared indicator + participant list per terminal
+
+### Wave 4 — Collaborative editing (ygo)  ⬜
+- [ ] Add `reearth/ygo`; verify wire round-trip vs pinned `yjs`
+- [ ] `internal/collab` `DocStore`: one server-authoritative `Y.Doc` per open file
+- [ ] Sync handshake + awareness over collab WS
+- [ ] Open → seed doc from disk; edit → observe `YText` → debounced write to disk
+- [ ] Reconcile: watcher detects external change → re-seed as CRDT update (cursors survive) + UX
+- [ ] Doc persistence under `~/.wede/rooms/{id}/docs/`; flush-on-last-disconnect
+- [ ] Frontend: `y-codemirror.next`; remote cursors/selections with names
+- [ ] Tests: two-client convergence; external-edit reconciliation; reconnect
+
+### Wave 5 — VS Code parity (mostly polish on existing)  ⬜
+- [ ] Quick Open `Cmd+P` fuzzy file finder
+- [ ] Editor tabs + dirty indicators + overflow; split editor
+- [ ] Breadcrumbs path bar
+- [ ] Problems/Diagnostics panel from LSP; references/rename/hover surfaced in UI
+- [ ] Symbol outline (`Cmd+Shift+O`) + workspace symbols
+- [ ] Snippets + configurable keybindings; sticky scroll; bracket-pair colorization
+- [ ] Markdown preview
+- [ ] File create/delete keyboard shortcuts in explorer (carried from v0.3.0)
+
+### Wave 6 — Git graph, features & merge conflicts (extend existing)  ⬜
+- [ ] Graph polish: branch lanes, refs/tags rendering, performance on large histories
+- [ ] Branch/tag management UI (create, checkout, delete, merge, rebase)
+- [ ] Stage by line (extend per-hunk); side-by-side diff viewer
+- [ ] `git blame` gutter + commit details
+- [ ] Merge-conflict resolver: 3-way view, navigate-conflicts, beyond current inline mode
+- [ ] Cherry-pick, revert; richer remote status
+
+### Wave 7 — UI/UX polish  ⬜
+- [ ] Design pass: spacing, type, color tokens, dark/light parity
+- [ ] Keyboard nav + a11y (focus rings, ARIA, SR labels)
+- [ ] Loading / empty / error states; toasts
+- [ ] Responsive + persisted panel layout; virtualized file tree & large-file handling
+- [ ] Collaboration onboarding (share-room flow)
+
+### Wave 8 — Docs & README  ⬜
+- [ ] Rewrite `README.md` for collaborative, multi-project model
+- [ ] Update `docs/ARCHITECTURE.md` (Rooms, ygo, presence, shared terminal)
+- [ ] New `docs/COLLABORATION.md` (concepts, security model, limits)
+- [ ] Refresh Playwright screenshots to show collaboration; changelog + version bump
 
 ---
 
-## Future / exploratory
+## Execution model
 
-- **Plugin API** — register custom sidebar panels or editor commands from a WASM module
-- **Vulos workspace sync** — optional cloud bookmark of open project + scroll position
-  when running inside Vulos OS (uses the Vulos fabric sync layer, opt-in)
-- **Container workspace** — open a path inside a running Docker/OCI container
-- **Offline PWA** — service-worker cache so the UI loads instantly (already a single
-  binary; this is about browser-side asset caching)
-- **Theme editor** — live-edit and export Midnight/Daylight colour tokens as JSON
+Autonomous loop, ~15-min self-wakeup, picking the next unchecked item in wave order.
+Each cycle: implement a coherent slice → build/test/lint → commit → tick boxes here →
+schedule next wakeup. Multiple agents used **within** a wave for non-overlapping files;
+the Rooms refactor (Wave 1) stays single-track to keep builds green.
 
----
+## Risk register
+- **ygo maturity (~21★):** mitigated by the standard Yjs wire format — the client is
+  unaffected if we later swap to a Node `y-websocket` sidecar or another impl.
+- **Disk⇄Doc divergence:** central correctness risk; gated behind reconciliation tests.
+- **Rooms refactor blast radius:** touches every backend package; done first, single-track,
+  behind a default-room shim.
+- **Resource exhaustion on one host:** lazy room lifecycle from the start.
+
+## Later / exploratory
+- SSH workspace (open a remote dir over SSH; ops tunnel through).
+- Container workspace (open a path inside a running OCI container).
+- Plugin API (WASM sidebar panels / editor commands).
+- Offline PWA asset caching; theme editor.
 
 ## Non-goals
+- **Mandatory user accounts** — collaboration uses the shared-password gate plus a
+  chosen username; named per-user accounts remain optional, never required.
+- **External database** — the binary stays self-contained. Collaboration state uses
+  ygo's cgo-free filesystem adapter under `~/.wede/`, not Postgres/Redis/standalone SQLite.
+- **Mandatory cloud** — wede always runs fully self-hosted/standalone.
+- **Extension marketplace** — the plugin API is the extensibility story, not a marketplace.
 
-- **Mandatory accounts or cloud** — wede will always run fully offline/standalone.
-- **Database dependency** — the binary stays self-contained; no SQLite, Postgres, or Redis.
-- **Extension marketplace** — wede is intentionally small; plugin API (above) is the
-  extensibility story, not a marketplace.
+## Progress log
+- 2026-06-26: Roadmap redone for the collaborative direction; existing shipped features
+  inventoried as audit-and-polish. Branch `feat/collab-ide`. Beginning Wave 0.
