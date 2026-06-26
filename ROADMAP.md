@@ -104,7 +104,8 @@ No new user features — prove isolation.
 - [x] `internal/terminal`, `internal/lsp` room-scoped (`Room.Terminal()`, `Room.LSP()`,
       lazy) + `Close()` on each; `frameAncestors` threaded via `NewManager(...)`
 - [x] Path-scope routes: `/api/rooms/{id}/files|git|search|watch|terminal|lsp` (via `Manager.Scoped`)
-- [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
+- [x] Room-scoped `safePath` confinement — guaranteed by per-room workspace binding;
+      proven by `TestCrossRoomConfinement` (room A 403s on `../roomB` traversal)
 - [x] Teardown on close: `Room.shutdown()` closes the watcher via `Manager.Close`;
       lazy start-on-first-use done. Member-driven start + grace-period teardown pending (Wave 2)
 - [x] Room-native API; auto-created boot room covers the solo case

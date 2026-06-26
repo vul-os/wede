@@ -3,6 +3,9 @@ package room
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"wede/backend/internal/workspace"
@@ -38,6 +41,47 @@ func TestCreateAndIsolation(t *testing.T) {
 	// Mutating one room's workspace must not affect the other.
 	if a.Root() == b.Root() {
 		t.Fatal("rooms share a root — not isolated")
+	}
+}
+
+// TestCrossRoomConfinement proves that each room's file operations are jailed to
+// its own root: room A cannot reach room B's files via path traversal, because
+// A's files handler is bound to A's root-pinned workspace and safePath rejects
+// any path that escapes it.
+func TestCrossRoomConfinement(t *testing.T) {
+	parent := t.TempDir()
+	dirA := filepath.Join(parent, "roomA")
+	dirB := filepath.Join(parent, "roomB")
+	if err := os.Mkdir(dirA, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dirB, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirB, "secret.txt"), []byte("top secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := NewManager("")
+	a, _ := m.Create("A", dirA)
+	b, _ := m.Create("B", dirB)
+
+	// Attempt to list room B's directory from room A via "../roomB" traversal.
+	traversal := "../" + filepath.Base(dirB)
+	req := httptest.NewRequest(http.MethodGet, "/?path="+url.QueryEscape(traversal), nil)
+	rec := httptest.NewRecorder()
+	a.Files().List(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-room traversal: got %d (%s), want 403", rec.Code, rec.Body.String())
+	}
+
+	// Sanity: room B can legitimately list its own root (so the 403 above is the
+	// confinement check firing, not an unrelated failure).
+	reqB := httptest.NewRequest(http.MethodGet, "/?path=", nil)
+	recB := httptest.NewRecorder()
+	b.Files().List(recB, reqB)
+	if recB.Code != http.StatusOK {
+		t.Fatalf("room B listing own root: got %d (%s), want 200", recB.Code, recB.Body.String())
 	}
 }
 
