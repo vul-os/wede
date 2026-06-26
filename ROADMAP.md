@@ -170,7 +170,11 @@ No new user features — prove isolation.
       re-seed open doc as CRDT update (cursors survive), avoiding feedback loops with our own
       write-back — its own slice (deferred)
 - [ ] Doc persistence under `~/.wede/rooms/{id}/docs/`; flush-on-last-disconnect
-- [ ] Frontend: `y-codemirror.next`; remote cursors/selections with names
+- [x] Path-encoding contract: room name = base64url(relative path); backend `decodeRoom`
+      decodes (raw-path fallback) at LoadDoc + write-back; deps added (`yjs`,
+      `y-codemirror.next`, `y-protocols`, `y-websocket`); build green. (+2 Go tests)
+- [ ] Frontend: `useYDoc` (y-websocket provider → `/api/rooms/{id}/doc`, room=base64url(path),
+      params {token}, awareness user) + `yCollab` in Editor.jsx; remote cursors/selections
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect
 
 ### Wave 5 — VS Code parity (mostly polish on existing)  ⬜
@@ -319,3 +323,8 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   `Room.shutdown` before `Server.Shutdown`). 6 write-back tests incl. subdir/new-file, Stop
   flush, traversal block; race-clean. External-disk-change re-seed deferred to its own slice
   (feedback-loop risk). Check green. Next: FRONTEND yjs + y-codemirror.next binding.
+- 2026-06-26: Wave 4 frontend slice A — path-encoding contract settled: room name =
+  base64url(relative path). Backend `decodeRoom` (RawURLEncoding, raw-path fallback) wired
+  into LoadDoc + write-back; +2 Go tests. Added frontend deps yjs/y-codemirror.next/
+  y-protocols/y-websocket; `npm run build` green (not integrated yet). Check green. Next:
+  `useYDoc` hook (y-websocket provider + awareness) then `yCollab` in Editor.jsx.

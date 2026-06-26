@@ -1,12 +1,47 @@
 package collabdoc
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/reearth/ygo/crdt"
 )
+
+func TestDecodeRoom(t *testing.T) {
+	// base64url-encoded path decodes back to the path.
+	enc := base64.RawURLEncoding.EncodeToString([]byte("src/main.go"))
+	if got := decodeRoom(enc); got != "src/main.go" {
+		t.Errorf("decodeRoom(%q) = %q, want src/main.go", enc, got)
+	}
+	// A raw path (not valid base64url — has '/' and '.') falls back unchanged.
+	if got := decodeRoom("src/main.go"); got != "src/main.go" {
+		t.Errorf("raw path should pass through, got %q", got)
+	}
+}
+
+func TestLoadDocWithBase64Room(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src", "main.go"), []byte("package main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewDiskPersistence(dir)
+	room := base64.RawURLEncoding.EncodeToString([]byte("src/main.go"))
+
+	update, err := p.LoadDoc(room)
+	if err != nil || len(update) == 0 {
+		t.Fatalf("LoadDoc(base64 room): err=%v len=%d", err, len(update))
+	}
+	d := crdt.New()
+	crdt.ApplyUpdateV1(d, update, nil) //nolint:errcheck
+	if got := d.GetText(contentField).ToString(); got != "package main" {
+		t.Fatalf("materialized = %q, want %q", got, "package main")
+	}
+}
 
 func TestDiskPersistenceLoadSeedsFromFile(t *testing.T) {
 	dir := t.TempDir()

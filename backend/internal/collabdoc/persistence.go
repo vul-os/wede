@@ -1,6 +1,7 @@
 package collabdoc
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,21 @@ import (
 
 	"github.com/reearth/ygo/crdt"
 )
+
+// decodeRoom maps a provider room name back to a room-relative file path. The
+// frontend encodes the path as base64url (RawURLEncoding) so it is a single,
+// slash-free, URL-safe token for the y-websocket client. Real file paths contain
+// characters outside the base64url alphabet ('/', '.'), so a failed decode
+// safely falls back to treating the name as a raw path (handy for curl/testing).
+func decodeRoom(room string) string {
+	if b, err := base64.RawURLEncoding.DecodeString(room); err == nil {
+		return string(b)
+	}
+	if b, err := base64.URLEncoding.DecodeString(room); err == nil {
+		return string(b)
+	}
+	return room
+}
 
 // DocProvider is the subset of ygo's provider/websocket Server that the
 // persistence layer needs: fetch the live doc for a room. Defined as an interface
@@ -77,7 +93,7 @@ func safeJoin(root, rel string) (string, bool) {
 // or (nil, nil) when there is nothing to seed (new/missing file, traversal, or a
 // directory) — the provider then starts an empty doc.
 func (p *DiskPersistence) LoadDoc(room string) ([]byte, error) {
-	full, ok := safeJoin(p.root, room)
+	full, ok := safeJoin(p.root, decodeRoom(room))
 	if !ok {
 		return nil, nil
 	}
@@ -128,7 +144,7 @@ func (p *DiskPersistence) materialize(prov DocProvider, room string) {
 		return
 	}
 	text := doc.GetText(contentField).ToString()
-	full, ok := safeJoin(p.root, room)
+	full, ok := safeJoin(p.root, decodeRoom(room))
 	if !ok {
 		return
 	}
