@@ -222,7 +222,7 @@ async function run() {
     page.on('pageerror', () => {});
     // Seed theme only (so we skip ThemePicker but land on Login)
     await ctx.addInitScript(() => {
-      localStorage.setItem('wede_theme', 'dark');
+      localStorage.setItem('wede_theme', 'light');
     });
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('input[placeholder="Enter password"]', { timeout: 8000 });
@@ -234,7 +234,7 @@ async function run() {
   // ── Create IDE context with pre-seeded auth token ─────────────────────────
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   await ctx.addInitScript(({ tok }) => {
-    localStorage.setItem('wede_theme', 'dark');
+    localStorage.setItem('wede_theme', 'light');
     localStorage.setItem('wede_token', tok);
   }, { tok: loginToken });
 
@@ -377,6 +377,19 @@ async function run() {
   await sleep(400);
   await shot(page, 'command_palette');
   await page.keyboard.press('Escape');
+  await sleep(300);
+
+  // ── 9. Browser preview — load wikipedia.org in the in-app preview ──────────
+  console.log('Capturing: browser preview (wikipedia.org)...');
+  await clickSidebar(/browser/i); // "Open Browser Preview" (Globe)
+  await sleep(800);
+  const urlInput = page.locator('input[placeholder*="URL" i]').first();
+  if (await urlInput.count() > 0) {
+    await urlInput.fill('https://www.wikipedia.org');
+    await urlInput.press('Enter');
+    await sleep(4000); // let the page load inside the iframe
+  }
+  await shot(page, 'browser');
 
   await browser.close();
   stopWede();
