@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
 	"wede/backend/internal/git"
 	"wede/backend/internal/search"
@@ -34,10 +35,11 @@ type Room struct {
 
 	ws *workspace.Manager
 
-	mu     sync.Mutex
-	files  *files.Handler
-	git    *git.Handler
-	search *search.Handler
+	mu      sync.Mutex
+	files   *files.Handler
+	git     *git.Handler
+	search  *search.Handler
+	watcher *filewatcher.Handler
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -75,6 +77,27 @@ func (r *Room) Search() *search.Handler {
 		r.search = search.New(r.ws)
 	}
 	return r.search
+}
+
+// Watcher returns this room's filewatcher, lazily starting an fsnotify watch on
+// the room's root on first use.
+func (r *Room) Watcher() *filewatcher.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.watcher == nil {
+		r.watcher = filewatcher.New(r.ws)
+	}
+	return r.watcher
+}
+
+// shutdown tears down the room's long-lived subsystems. Called by Manager.Close.
+func (r *Room) shutdown() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.watcher != nil {
+		r.watcher.Close()
+		r.watcher = nil
+	}
 }
 
 // Manager owns the set of live rooms. Safe for concurrent use.
@@ -166,12 +189,13 @@ func (m *Manager) List() []*Room {
 	return out
 }
 
-// Close removes a room from the manager. (Tearing down per-room subsystems —
-// watcher/lsp/pty — is added with the lazy lifecycle slice.)
+// Close removes a room from the manager and tears down its long-lived
+// subsystems (currently the filewatcher; terminal/lsp join as they are scoped).
 func (m *Manager) Close(id string) bool {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.rooms[id]; !ok {
+	r, ok := m.rooms[id]
+	if !ok {
+		m.mu.Unlock()
 		return false
 	}
 	delete(m.rooms, id)
@@ -181,6 +205,11 @@ func (m *Manager) Close(id string) bool {
 			break
 		}
 	}
+	m.mu.Unlock()
+
+	// Tear down outside the manager lock so subsystem shutdown can't block other
+	// room operations.
+	r.shutdown()
 	return true
 }
 

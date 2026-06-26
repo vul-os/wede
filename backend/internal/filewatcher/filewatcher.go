@@ -58,6 +58,19 @@ func New(ws WorkspaceProvider) *Handler {
 	return h
 }
 
+// Close stops the underlying fsnotify watcher (ending its debounce goroutine)
+// and releases resources. Called when the owning room is closed. Active SSE
+// subscribers simply stop receiving change events.
+func (h *Handler) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.watcher != nil {
+		h.watcher.Close()
+		h.watcher = nil
+	}
+	h.wsDir = ""
+}
+
 // startWatching replaces the current fsnotify watcher with one rooted at dir.
 func (h *Handler) startWatching(dir string) {
 	h.mu.Lock()

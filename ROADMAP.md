@@ -100,10 +100,12 @@ No new user features — prove isolation.
       as the "default" room (solo-user case, zero setup)
 - [x] `internal/files` room-scoped — `Room.Files()` lazily binds a handler to the room's ws
 - [x] `internal/git`, `internal/search` room-scoped (`Room.Git()`, `Room.Search()`)
-- [ ] `internal/filewatcher` one-per-room; `internal/lsp` room-scoped (lazy)
-- [x] Path-scope routes: `/api/rooms/{id}/files|git|search` (via `Manager.Scoped`); `watch` pending
+- [x] `internal/filewatcher` one-per-room (`Room.Watcher()`, lazy) + `filewatcher.Close()`;
+      `internal/terminal`, `internal/lsp` room-scoping pending
+- [x] Path-scope routes: `/api/rooms/{id}/files|git|search|watch` (via `Manager.Scoped`)
 - [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
-- [ ] Lazy lifecycle: start on first member, tear down on empty + grace period
+- [x] Teardown on close: `Room.shutdown()` closes the watcher via `Manager.Close`;
+      lazy start-on-first-use done. Member-driven start + grace-period teardown pending (Wave 2)
 - [x] Room-native API; auto-created boot room covers the solo case
 - [x] Tests: two rooms / two roots / no cross-talk (room_test.go); lifecycle get/list/close
 - [ ] Frontend: room list / create / join UI; thread room id through API calls
@@ -206,4 +208,7 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
 - 2026-06-26: Wave 1 slice 2 — per-room services: `Room.Files()/Git()/Search()` lazy
   accessors + `Manager.Scoped` dispatch; full `/api/rooms/{id}/files|git|search` route set
   wired (legacy routes retained for the un-migrated frontend). 6 room tests green; check green.
-  Next: filewatcher one-per-room (+ lazy lifecycle), then frontend room-id threading.
+- 2026-06-26: Wave 1 slice 3 — filewatcher per-room: `Room.Watcher()` (lazy) + new
+  `filewatcher.Close()`; `Room.shutdown()`/`Manager.Close` tear it down. Legacy `/api/watch`
+  + new `/api/rooms/{id}/watch` both route through room watchers; standalone watcher removed.
+  7 room tests green; check green. Next: scope terminal + lsp per-room (thread frameAncestors).

@@ -10,7 +10,6 @@ import (
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
 	"wede/backend/internal/files"
-	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/git"
 	"wede/backend/internal/lsp"
 	"wede/backend/internal/room"
@@ -80,14 +79,13 @@ func main() {
 	// as the default room so the solo-user case works with zero setup; additional
 	// projects can be opened as further rooms via /api/rooms.
 	roomMgr := room.NewManager()
-	roomMgr.Register("default", ws)
+	defaultRoom := roomMgr.Register("default", ws)
 
 	authHandler := auth.New(cfg.Password)
 	fileHandler := files.New(ws)
 	gitHandler := git.New(ws)
 	termHandler := terminal.New(ws, cfg.FrameAncestors)
 	searchHandler := search.New(ws)
-	watchHandler := filewatcher.New(ws)
 	lspHandler := lsp.New(ws, cfg.FrameAncestors)
 
 	mux := http.NewServeMux()
@@ -154,6 +152,8 @@ func main() {
 	protected.HandleFunc("GET /api/rooms/{id}/search", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().Search }))
 	protected.HandleFunc("GET /api/rooms/{id}/search/replace-preview", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplacePreview }))
 	protected.HandleFunc("POST /api/rooms/{id}/search/replace", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplaceApply }))
+	// file-watch SSE (one fsnotify watcher per room)
+	protected.HandleFunc("GET /api/rooms/{id}/watch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Watcher().HandleSSE }))
 
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
@@ -194,7 +194,7 @@ func main() {
 	protected.HandleFunc("POST /api/git/remotes/remove", gitHandler.RemoteRemove)
 	protected.HandleFunc("POST /api/git/stage-hunk", gitHandler.StageHunk)
 
-	protected.HandleFunc("GET /api/watch", watchHandler.HandleSSE)
+	protected.HandleFunc("GET /api/watch", defaultRoom.Watcher().HandleSSE)
 
 	protected.HandleFunc("GET /api/terminal/sessions", termHandler.ListSessions)
 	protected.HandleFunc("GET /api/terminal", termHandler.HandleWS)

@@ -94,6 +94,28 @@ func TestLazyHandlersAreStable(t *testing.T) {
 	}
 }
 
+func TestWatcherLifecycle(t *testing.T) {
+	m := NewManager()
+	r, _ := m.Create("x", t.TempDir())
+
+	w := r.Watcher()
+	if w == nil {
+		t.Fatal("Watcher() returned nil")
+	}
+	if r.Watcher() != w {
+		t.Error("Watcher() should return a stable instance")
+	}
+
+	// Close tears the room down (incl. its watcher) without panicking, and the
+	// room is gone from the manager afterward.
+	if !m.Close(r.ID) {
+		t.Fatal("Close returned false")
+	}
+	if _, ok := m.Get(r.ID); ok {
+		t.Error("room still present after Close")
+	}
+}
+
 func TestScopedDispatch(t *testing.T) {
 	m := NewManager()
 	r, _ := m.Create("x", t.TempDir())
