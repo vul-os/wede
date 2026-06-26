@@ -50,6 +50,24 @@ func (m *Manager) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toDTO(rm))
 }
 
+// Scoped adapts a per-room handler into an http.HandlerFunc registered under a
+// path containing the {id} wildcard. It resolves the room from the path, returns
+// 404 if the room does not exist, and otherwise invokes the selected handler.
+//
+//	mux.HandleFunc("GET /api/rooms/{id}/files",
+//	    roomMgr.Scoped(func(rm *room.Room) http.HandlerFunc { return rm.Files().List }))
+func (m *Manager) Scoped(pick func(*Room) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		rm, ok := m.Get(id)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "room not found"})
+			return
+		}
+		pick(rm)(w, r)
+	}
+}
+
 // HandleGet serves GET /api/rooms/{id}.
 func (m *Manager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

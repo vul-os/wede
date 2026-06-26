@@ -111,6 +111,50 @@ func main() {
 	protected.HandleFunc("GET /api/rooms/{id}", roomMgr.HandleGet)
 	protected.HandleFunc("DELETE /api/rooms/{id}", roomMgr.HandleClose)
 
+	// Per-room service routes. Each resolves {id} -> Room and dispatches to a
+	// handler bound to that room's isolated workspace. The legacy /api/files,
+	// /api/git, /api/search routes below remain (default room) until the frontend
+	// is migrated to room-scoped paths.
+	rs := roomMgr.Scoped
+	// files
+	protected.HandleFunc("GET /api/rooms/{id}/files", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().List }))
+	protected.HandleFunc("GET /api/rooms/{id}/files/read", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Read }))
+	protected.HandleFunc("PUT /api/rooms/{id}/files/write", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Write }))
+	protected.HandleFunc("POST /api/rooms/{id}/files/create", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Create }))
+	protected.HandleFunc("DELETE /api/rooms/{id}/files/delete", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Delete }))
+	protected.HandleFunc("POST /api/rooms/{id}/files/rename", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Rename }))
+	protected.HandleFunc("POST /api/rooms/{id}/files/copy", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Copy }))
+	protected.HandleFunc("POST /api/rooms/{id}/files/format", rs(func(rm *room.Room) http.HandlerFunc { return rm.Files().Format }))
+	// git
+	protected.HandleFunc("GET /api/rooms/{id}/git/status", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Status }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/log", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Log }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/diff", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Diff }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/stage", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Stage }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/unstage", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Unstage }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/commit", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Commit }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/branches", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Branches }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/checkout", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Checkout }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/branch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().CreateBranch }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/fetch", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Fetch }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/pull", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Pull }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/push", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Push }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/remotes", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Remotes }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/discard", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().Discard }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/stash", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashList }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/stash", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashPush }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/stash/pop", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashPop }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/stash/drop", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StashDrop }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/commit-diff", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().CommitDiff }))
+	protected.HandleFunc("GET /api/rooms/{id}/git/conflict", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().ConflictRegions }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/conflict/resolve", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().ConflictResolve }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/remotes/add", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().RemoteAdd }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/remotes/remove", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().RemoteRemove }))
+	protected.HandleFunc("POST /api/rooms/{id}/git/stage-hunk", rs(func(rm *room.Room) http.HandlerFunc { return rm.Git().StageHunk }))
+	// search
+	protected.HandleFunc("GET /api/rooms/{id}/search", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().Search }))
+	protected.HandleFunc("GET /api/rooms/{id}/search/replace-preview", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplacePreview }))
+	protected.HandleFunc("POST /api/rooms/{id}/search/replace", rs(func(rm *room.Room) http.HandlerFunc { return rm.Search().ReplaceApply }))
+
 	protected.HandleFunc("GET /api/files", fileHandler.List)
 	protected.HandleFunc("GET /api/files/read", fileHandler.Read)
 	protected.HandleFunc("PUT /api/files/write", fileHandler.Write)

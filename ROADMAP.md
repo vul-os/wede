@@ -98,10 +98,10 @@ No new user features — prove isolation.
       Membership (join/leave) lands with Wave 2 presence.
 - [x] `GET/POST /api/rooms`, `GET/DELETE /api/rooms/{id}` wired; boot workspace adopted
       as the "default" room (solo-user case, zero setup)
-- [ ] `internal/files` operates on injected `Root`, not `workspace.Current()`
-- [ ] `internal/git`, `internal/search` room-scoped
+- [x] `internal/files` room-scoped — `Room.Files()` lazily binds a handler to the room's ws
+- [x] `internal/git`, `internal/search` room-scoped (`Room.Git()`, `Room.Search()`)
 - [ ] `internal/filewatcher` one-per-room; `internal/lsp` room-scoped (lazy)
-- [ ] Path-scope routes: `/api/rooms/{id}/files|git|search|watch`
+- [x] Path-scope routes: `/api/rooms/{id}/files|git|search` (via `Manager.Scoped`); `watch` pending
 - [ ] Room-scoped `safePath` confinement (each room jailed to its Root)
 - [ ] Lazy lifecycle: start on first member, tear down on empty + grace period
 - [x] Room-native API; auto-created boot room covers the solo case
@@ -203,4 +203,7 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
   granted: complete re-architecture OK, green-per-cycle + no feature-strip.
 - 2026-06-26: Wave 1 slice 1 — `internal/room` (Room + RoomManager) + `/api/rooms`
   endpoints; boot workspace adopted as default room. 4 room tests green; full check green.
-  Next: scope `files` per-room under `/api/rooms/{id}/files`.
+- 2026-06-26: Wave 1 slice 2 — per-room services: `Room.Files()/Git()/Search()` lazy
+  accessors + `Manager.Scoped` dispatch; full `/api/rooms/{id}/files|git|search` route set
+  wired (legacy routes retained for the un-migrated frontend). 6 room tests green; check green.
+  Next: filewatcher one-per-room (+ lazy lifecycle), then frontend room-id threading.

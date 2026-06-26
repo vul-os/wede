@@ -18,16 +18,26 @@ import (
 	"strings"
 	"sync"
 
+	"wede/backend/internal/files"
+	"wede/backend/internal/git"
+	"wede/backend/internal/search"
 	"wede/backend/internal/workspace"
 )
 
 // Room is one open project. It is rooted at an immutable path on disk, surfaced
 // through its workspace.Manager (which the per-room service handlers consume).
+// The service handlers (files/git/search) are constructed lazily and bound to
+// this room's workspace, so each room operates on its own isolated root.
 type Room struct {
 	ID   string
 	Name string
 
 	ws *workspace.Manager
+
+	mu     sync.Mutex
+	files  *files.Handler
+	git    *git.Handler
+	search *search.Handler
 }
 
 // Workspace returns the room's workspace.Manager, satisfying the WorkspaceProvider
@@ -36,6 +46,36 @@ func (r *Room) Workspace() *workspace.Manager { return r.ws }
 
 // Root is the absolute project path this room is pinned to.
 func (r *Room) Root() string { return r.ws.Current() }
+
+// Files returns this room's files handler, bound to the room's workspace.
+func (r *Room) Files() *files.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.files == nil {
+		r.files = files.New(r.ws)
+	}
+	return r.files
+}
+
+// Git returns this room's git handler, bound to the room's workspace.
+func (r *Room) Git() *git.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.git == nil {
+		r.git = git.New(r.ws)
+	}
+	return r.git
+}
+
+// Search returns this room's search handler, bound to the room's workspace.
+func (r *Room) Search() *search.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.search == nil {
+		r.search = search.New(r.ws)
+	}
+	return r.search
+}
 
 // Manager owns the set of live rooms. Safe for concurrent use.
 type Manager struct {

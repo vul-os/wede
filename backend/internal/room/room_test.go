@@ -1,6 +1,8 @@
 package room
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"wede/backend/internal/workspace"
@@ -74,6 +76,62 @@ func TestGetListClose(t *testing.T) {
 	}
 	if len(m.List()) != 1 {
 		t.Fatalf("after close, List len = %d, want 1", len(m.List()))
+	}
+}
+
+func TestLazyHandlersAreStable(t *testing.T) {
+	m := NewManager()
+	r, _ := m.Create("x", t.TempDir())
+
+	if r.Files() != r.Files() {
+		t.Error("Files() should return a stable instance")
+	}
+	if r.Git() != r.Git() {
+		t.Error("Git() should return a stable instance")
+	}
+	if r.Search() != r.Search() {
+		t.Error("Search() should return a stable instance")
+	}
+}
+
+func TestScopedDispatch(t *testing.T) {
+	m := NewManager()
+	r, _ := m.Create("x", t.TempDir())
+
+	called := false
+	h := m.Scoped(func(rm *Room) http.HandlerFunc {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			if rm.ID != r.ID {
+				t.Errorf("dispatched to wrong room: %s", rm.ID)
+			}
+			called = true
+			w.WriteHeader(http.StatusOK)
+		}
+	})
+
+	// Found: dispatches to the picked handler.
+	req := httptest.NewRequest(http.MethodGet, "/api/rooms/"+r.ID+"/files", nil)
+	req.SetPathValue("id", r.ID)
+	rec := httptest.NewRecorder()
+	h(rec, req)
+	if !called {
+		t.Fatal("scoped handler was not invoked for existing room")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+
+	// Missing: 404, picked handler never runs.
+	called = false
+	req2 := httptest.NewRequest(http.MethodGet, "/api/rooms/missing/files", nil)
+	req2.SetPathValue("id", "missing")
+	rec2 := httptest.NewRecorder()
+	h(rec2, req2)
+	if called {
+		t.Error("scoped handler ran for a missing room")
+	}
+	if rec2.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec2.Code)
 	}
 }
 
