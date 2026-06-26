@@ -21,6 +21,7 @@ import MobileNav from './MobileNav'
 import CommandPalette from './CommandPalette'
 import QuickOpen from './QuickOpen'
 import Breadcrumbs from './Breadcrumbs'
+import MarkdownPreview from './MarkdownPreview'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
 import { useCollab } from '../hooks/useCollab'
@@ -67,6 +68,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [autoSaveStatus, setAutoSaveStatus] = useState('') // 'saving'|'saved'|''
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
+  const [mdPreviewPaths, setMdPreviewPaths] = useState(() => new Set())
+  const toggleMdPreview = useCallback((path) => {
+    setMdPreviewPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path); else next.add(path)
+      return next
+    })
+  }, [])
 
   // Editor settings — persisted to localStorage
   const [editorSettings, setEditorSettings] = useState(() => {
@@ -565,7 +574,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (currentTab.fileType === 'binary') {
       return <BinaryNotice filename={currentTab.name} size={currentTab.size} />
     }
-    return (
+    const editorEl = (
       <Editor
         file={currentTab}
         content={currentTab.content}
@@ -578,6 +587,28 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         collab={collab}
       />
     )
+
+    // Markdown: offer an Edit/Preview toggle that swaps the editor for rendered HTML.
+    const isMarkdown = /\.(md|markdown)$/i.test(currentTab.path || '')
+    if (isMarkdown) {
+      const inPreview = mdPreviewPaths.has(currentTab.path)
+      return (
+        <div className="h-full flex flex-col">
+          <div className="flex items-center justify-end px-3 h-7 border-b border-border/50 bg-bg-primary shrink-0">
+            <button
+              onClick={() => toggleMdPreview(currentTab.path)}
+              className="px-2 py-0.5 rounded-md text-[11px] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+              {inPreview ? 'Edit' : 'Preview'}
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            {inPreview ? <MarkdownPreview content={currentTab.content} /> : editorEl}
+          </div>
+        </div>
+      )
+    }
+
+    return editorEl
   }
 
   // ── Mobile menu overlay ──

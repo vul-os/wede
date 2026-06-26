@@ -336,3 +336,23 @@ body {
     min-width: 36px;
   }
 }
+
+/* Markdown preview (MarkdownPreview.jsx) — restore readable defaults that the
+   Tailwind reset strips, scoped so it never leaks into the rest of the UI. */
+.wede-markdown h1 { font-size: 1.6em; font-weight: 700; margin: 0.6em 0 0.4em; line-height: 1.25; }
+.wede-markdown h2 { font-size: 1.35em; font-weight: 700; margin: 0.6em 0 0.4em; border-bottom: 1px solid var(--c-border); padding-bottom: 0.2em; }
+.wede-markdown h3 { font-size: 1.15em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.wede-markdown h4, .wede-markdown h5, .wede-markdown h6 { font-weight: 600; margin: 0.5em 0 0.3em; }
+.wede-markdown p { margin: 0.5em 0; }
+.wede-markdown a { color: var(--c-accent); text-decoration: underline; }
+.wede-markdown ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.wede-markdown ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.wede-markdown li { margin: 0.2em 0; }
+.wede-markdown blockquote { border-left: 3px solid var(--c-border); padding-left: 1em; margin: 0.6em 0; color: var(--c-text-muted); }
+.wede-markdown code { font-family: "JetBrains Mono", monospace; font-size: 0.9em; background: var(--c-bg-secondary); padding: 0.1em 0.35em; border-radius: 4px; }
+.wede-markdown pre { background: var(--c-bg-secondary); padding: 0.8em 1em; border-radius: 8px; overflow-x: auto; margin: 0.6em 0; }
+.wede-markdown pre code { background: none; padding: 0; }
+.wede-markdown table { border-collapse: collapse; margin: 0.6em 0; }
+.wede-markdown th, .wede-markdown td { border: 1px solid var(--c-border); padding: 0.3em 0.6em; }
+.wede-markdown img { max-width: 100%; }
+.wede-markdown hr { border: none; border-top: 1px solid var(--c-border); margin: 1em 0; }

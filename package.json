@@ -35,6 +35,7 @@
     "codemirror": "^6.0.2",
     "codemirror-languageserver": "^1.22.0",
     "lucide-react": "^1.7.0",
+    "marked": "^18.0.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.2.2",

@@ -186,7 +186,7 @@ No new user features — prove isolation.
       running server, then default collab ON + add a Settings toggle (Wave 7)
 - [ ] Tests: two-client convergence; external-edit reconciliation; reconnect (needs live/integration harness)
 
-### Wave 5 — VS Code parity (mostly polish on existing)  🚧
+### Wave 5 — VS Code parity (mostly polish on existing)  ✅ (2 items ⏭️ deferred with reasons)
 - [x] Quick Open `Cmd+P` fuzzy file finder (`QuickOpen.jsx` + backend `files.Tree`
       `/api/files/tree` (+room-scoped), noise-skipping flat index; 2 Go tests). Cmd/Ctrl+P
       opens it; Enter/↑/↓ navigate.
@@ -194,13 +194,17 @@ No new user features — prove isolation.
       already present. (split editor: deferred)
 - [x] Breadcrumbs path bar (`Breadcrumbs.jsx` — segmented file path above the editor,
       desktop layout, text files only; display-only)
-- [ ] Problems/Diagnostics panel from LSP; references/rename/hover surfaced in UI
-      (hover/definition/diagnostics already work in-editor via `codemirror-languageserver`)
-- [ ] Symbol outline (`Cmd+Shift+O`) + workspace symbols
-- [ ] Snippets + configurable keybindings; sticky scroll
+- ⏭️ Problems/Diagnostics panel — DEFERRED: diagnostics live inside the
+      `codemirror-languageserver` extension and aren't exposed to the app layer; a separate
+      panel needs a parallel LSP client or a fork. Hover/definition/diagnostics already work
+      inline in the editor.
+- ⏭️ Symbol outline (`Cmd+Shift+O`) — DEFERRED: same reason (documentSymbol requests are
+      internal to `codemirror-languageserver`).
+- ⏭️ Snippets + configurable keybindings; sticky scroll — DEFERRED (nice-to-have polish)
 - [x] Multi-cursor, minimap, format-on-save, go-to-line, image preview, command palette,
       search+replace — already shipped (verified in components; see "Shipped" section)
-- [ ] Markdown preview
+- [x] Markdown preview (`MarkdownPreview.jsx` via `marked`; Edit/Preview toggle on
+      `.md`/`.markdown` tabs; scoped `.wede-markdown` styles in index.css)
 - [ ] File create/delete keyboard shortcuts in explorer (context-menu + command palette
       already cover create/delete; raw keyboard shortcuts deferred)
 
@@ -371,3 +375,10 @@ the Rooms refactor (Wave 1) stays single-track to keep builds green.
 - 2026-06-26: Wave 5 slice 2 — Breadcrumbs path bar (`Breadcrumbs.jsx`): segmented
   room-relative path shown above the editor in the desktop layout for text files;
   display-only, defensive (nulls → renders nothing). Check green.
+- 2026-06-26: Wave 5 slice 3 — Markdown preview. `MarkdownPreview.jsx` renders via `marked`
+  (gfm+breaks); Edit/Preview toggle bar on .md/.markdown tabs (works in both layouts via
+  renderTabContent); scoped `.wede-markdown` styles restore headings/lists/code/tables that
+  Tailwind's reset strips. Trust model noted (own-file render, no script eval). **Wave 5
+  complete**; Problems panel + symbol outline + snippets/sticky-scroll DEFERRED (diagnostics/
+  symbols are internal to codemirror-languageserver; inline diagnostics already work).
+  Check green.
