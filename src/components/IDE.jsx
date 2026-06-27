@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
   Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
-  Share2, MessageSquare, Webhook, PanelLeft, ListChecks,
+  Share2, MessageSquare, Webhook, PanelLeft, ListChecks, Bug,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -36,7 +36,9 @@ import GitGraphView from './GitGraphView'
 import FloatingTerminals from './FloatingTerminals'
 import RemoteCursors from './RemoteCursors'
 import TasksPanel from './TasksPanel'
+import DebugPanel from './DebugPanel'
 import { useTerminals } from '../hooks/useTerminals'
+import { useDap } from '../hooks/useDap'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -82,6 +84,42 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     setTerminalMode((m) => (m === 'hidden' ? 'docked' : m))
     terminalsApi.addTerminal(task.name || 'Task', cmd)
   }, [role, terminalsApi])
+
+  // Debugging (DAP) — adapter availability, breakpoints, and the live session.
+  const dap = useDap({ workspaceId, token })
+  const [dapAvailable, setDapAvailable] = useState({ available: {}, extensions: {} })
+  useEffect(() => {
+    if (!authFetch) return
+    authFetch('/api/dap/available').then((r) => r.json())
+      .then((d) => setDapAvailable({ available: d.available || {}, extensions: d.extensions || {} }))
+      .catch(() => {})
+  }, [authFetch, workspaceId])
+  const [breakpoints, setBreakpoints] = useState({}) // { absolutePath: number[] }
+  const wsRoot = (workspace || '').replace(/\/+$/, '')
+  const absPath = useCallback((rel) => (wsRoot && rel ? `${wsRoot}/${rel}` : rel), [wsRoot])
+  const langForPath = useCallback((rel) => {
+    if (!rel) return null
+    const lang = dapAvailable.extensions[rel.split('.').pop().toLowerCase()]
+    return lang && dapAvailable.available[lang] ? lang : null
+  }, [dapAvailable])
+  const toggleBreakpoint = useCallback((rel, lines) => {
+    const abs = absPath(rel)
+    setBreakpoints((prev) => ({ ...prev, [abs]: lines }))
+    if (dap.status === 'running' || dap.status === 'stopped') dap.syncBreakpoints(abs, lines)
+  }, [absPath, dap])
+  const startDebug = useCallback(() => {
+    const rel = activeTab
+    const lang = langForPath(rel)
+    if (!lang || role === 'viewer') return
+    const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+    const program = lang === 'go' ? absPath(dir || '.') : absPath(rel)
+    dap.start({ program, lang, breakpoints })
+  }, [activeTab, langForPath, role, absPath, dap, breakpoints])
+  const debugLang = langForPath(activeTab)
+  const hasDebugAdapters = Object.keys(dapAvailable.available).length > 0
+  const currentStopLine = (dap.stopLine && activeTab &&
+    (dap.stopLine.path === absPath(activeTab) || dap.stopLine.path?.endsWith('/' + activeTab)))
+    ? dap.stopLine.line : null
   // Terminal placement: 'hidden' | 'floating' (movable windows) | 'docked' (bottom).
   const [terminalMode, setTerminalMode] = useState('hidden')
   const lastTermModeRef = useRef('floating')
@@ -700,6 +738,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onRegisterActions={handleRegisterEditorActions}
         collab={collab}
         editable={editable}
+        breakpoints={breakpoints[absPath(activeTab)] || []}
+        onToggleBreakpoint={(ln, lines) => toggleBreakpoint(activeTab, lines)}
+        stopLine={currentStopLine}
       />
     )
 
@@ -1018,6 +1059,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               onClick={() => toggleSidebarTab('tasks')}
             />
           )}
+          {hasDebugAdapters && role !== 'viewer' && (
+            <ActivityBtn
+              icon={Bug}
+              title="Run & Debug"
+              active={sidebarTab === 'debug' && showSidebar}
+              onClick={() => toggleSidebarTab('debug')}
+            />
+          )}
           {role !== 'viewer' && (
             <ActivityBtn
               icon={TerminalSquare}
@@ -1054,6 +1103,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
               {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
               {sidebarTab === 'tasks' && <TasksPanel tasks={tasks} onRun={runTask} readOnly={role === 'viewer'} />}
+              {sidebarTab === 'debug' && (
+                <DebugPanel dap={dap} canDebug={!!debugLang} targetName={activeTab || ''} targetLang={debugLang}
+                  onStart={startDebug} readOnly={role === 'viewer'}
+                  hint={hasDebugAdapters ? 'Open a Go or Python file to debug.' : 'Install a debug adapter (dlv, debugpy) to enable debugging.'} />
+              )}
             </div>
             {/* Drag handle */}
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('sidebar')} />

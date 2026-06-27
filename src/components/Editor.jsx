@@ -43,6 +43,7 @@ import { properties } from '@codemirror/legacy-modes/mode/properties'
 import { swift } from '@codemirror/legacy-modes/mode/swift'
 import { powerShell } from '@codemirror/legacy-modes/mode/powershell'
 import { csharp, kotlin, scala, objectiveC } from '@codemirror/legacy-modes/mode/clike'
+import { breakpointGutter, setBreakpointsEffect, setStopLineEffect } from '../lib/breakpoints'
 
 // sl wraps a CodeMirror 5 legacy mode as a CodeMirror 6 language extension.
 const sl = (mode) => () => StreamLanguage.define(mode)
@@ -150,12 +151,15 @@ function GoToLineWidget({ viewRef, onClose }) {
   )
 }
 
-export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions, collab = null, editable = true }) {
+export default function Editor({ file, content, onChange, onSave, onCursorChange, settings = {}, lspExtension = null, onRegisterActions, collab = null, editable = true, breakpoints = [], onToggleBreakpoint, stopLine = null }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
   const onChangeRef = useRef(onChange)
   const onSaveRef = useRef(onSave)
   const onCursorRef = useRef(onCursorChange)
+  const onToggleBpRef = useRef(onToggleBreakpoint)
+  const breakpointsRef = useRef(breakpoints)
+  const stopLineRef = useRef(stopLine)
 
   const [showGoToLine, setShowGoToLine] = useState(false)
 
@@ -175,6 +179,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
     onChangeRef.current = onChange
     onSaveRef.current = onSave
     onCursorRef.current = onCursorChange
+    onToggleBpRef.current = onToggleBreakpoint
   })
 
   // Register editor actions (goToLine) with the parent IDE.
@@ -237,6 +242,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
         // Read-only compartment — viewer role gets EditorState.readOnly + EditorView.editable(false).
         editComp.of(editable ? [] : [EditorState.readOnly.of(true), EditorView.editable.of(false)]),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        breakpointGutter((ln, lines) => onToggleBpRef.current?.(ln, lines)),
         getLang(file?.name || ''),
         keymap.of([
           ...closeBracketsKeymap, ...defaultKeymap,
@@ -267,8 +273,31 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
 
     const view = new EditorView({ state, parent: containerRef.current })
     viewRef.current = view
+    // Seed this file's breakpoints + current stop line into the new editor.
+    view.dispatch({ effects: [
+      setBreakpointsEffect.of(breakpointsRef.current || []),
+      setStopLineEffect.of(stopLineRef.current ?? null),
+    ] })
     return () => view.destroy()
   }, [file?.path, collab?.ytext]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live breakpoint updates (without recreating the editor).
+  useEffect(() => {
+    breakpointsRef.current = breakpoints
+    if (viewRef.current) viewRef.current.dispatch({ effects: setBreakpointsEffect.of(breakpoints || []) })
+  }, [breakpoints])
+
+  // Current execution line — highlight + scroll into view when paused.
+  useEffect(() => {
+    stopLineRef.current = stopLine
+    const view = viewRef.current
+    if (!view) return
+    const effects = [setStopLineEffect.of(stopLine ?? null)]
+    if (stopLine && stopLine >= 1 && stopLine <= view.state.doc.lines) {
+      effects.push(EditorView.scrollIntoView(view.state.doc.line(stopLine).from, { y: 'center' }))
+    }
+    view.dispatch({ effects })
+  }, [stopLine])
 
   // Live theme switch (dark ↔ light).
   useEffect(() => {

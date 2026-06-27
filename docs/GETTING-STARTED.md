@@ -178,9 +178,25 @@ revokes it immediately. Only trust workspaces whose collaborators you trust.
 > registry is global-only; project `.wede/lsp.json` support lands with the same
 > trust gate.
 
+### Debugging (DAP)
+
+wede speaks the **Debug Adapter Protocol**, the same standard VS Code uses, so it
+can drive any debug adapter. Built-in: **`dlv`** (Go, `dlv dap`) and **`debugpy`**
+(Python); install the adapter binary and it's auto-detected. Add more in
+`~/.wede/debug.json` (or a trusted project `.wede/debug.json`):
+
+```json
+{ "adapters": { "node": { "command": "js-debug-adapter", "extensions": ["js", "ts"] } } }
+```
+
+Open a debuggable file, click the gutter to set **breakpoints**, then **Run &
+Debug** (activity rail) → **Start Debugging**. You get stepping (continue / step
+over / into / out), the **call stack**, **variables**, and a debug console; the
+current line is highlighted as you step. Debugging runs code, so it's editor-gated.
+
 VS Code `.vsix` extensions are **not** supported — they require a Node extension
-host, which is intentionally outside wede's single-binary design. LSP is the
-portable, editor-agnostic equivalent and covers the language-support use case.
+host, which is intentionally outside wede's single-binary design. LSP and DAP are
+the portable, editor-agnostic equivalents and cover the language + debugging use cases.
 
 ---
 

@@ -8,7 +8,7 @@ export function setActiveWorkspaceId(id) { activeWorkspaceId = id }
 export function getActiveWorkspaceId() { return activeWorkspaceId }
 
 // Services that are workspace-scoped on the server. Matched as /api/<service>(/|?|end).
-const SCOPED = /^\/api\/(files|git|search|watch|lsp|terminal|tasks|trust)(\/|\?|$)/
+const SCOPED = /^\/api\/(files|git|search|watch|lsp|terminal|tasks|trust|dap)(\/|\?|$)/
 
 // scopedUrl rewrites a legacy /api/<service>... path to the active workspace's
 // scoped path. Already-scoped, auth, folder, tunnel, etc. paths pass through.
