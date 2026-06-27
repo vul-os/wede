@@ -96,7 +96,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **API Client** | Postman-style HTTP client: methods, params, headers, auth (bearer/basic/api-key), JSON/form/raw bodies, environments with `{{variables}}`, and a server-side send (no CORS). Requests are saved as files under `.wede/requests/` — committable and shareable. |
 | **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Ships with gopls, typescript-language-server, pylsp, rust-analyzer — and **any other LSP server can be added without recompiling** via `~/.wede/lsp.json` (see [Adding languages](docs/GETTING-STARTED.md#adding-language-support)). |
 | **Syntax highlighting** | 25+ languages out of the box — Go, JS/TS/JSX, Python, Rust, C/C++, Java, PHP, C#, Kotlin, Scala, Swift, Ruby, Lua, shell, PowerShell, SQL, YAML, TOML, JSON, Markdown, HTML/CSS, Dockerfile, INI, and more. |
-| **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python. |
+| **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python — and **any other formatter** via `~/.wede/formatters.json` ([docs](docs/GETTING-STARTED.md#format-on-save-for-any-language)). |
 | **Image & Binary Preview** | Images render inline with a checkerboard background; other binary files show a size notice instead of garbled editor content. |
 | **Editor Settings** | Font size, tab width, word wrap, minimap, auto-save — all live-applied without reopening files, persisted to `localStorage`. |
 | **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes with Space Grotesk / Inter / JetBrains Mono font stack. |

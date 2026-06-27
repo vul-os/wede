@@ -121,6 +121,29 @@ apply. The command must be installed and on your `PATH`.
 > Syntax highlighting is independent of LSP and already covers 25+ languages out
 > of the box; LSP adds the *intelligence* on top.
 
+### Format on save for any language
+
+Built-in formatters cover Go (`gofmt`), JS/TS/CSS/JSON/HTML/Markdown
+(`prettier`), and Python (`black`). Add a formatter for any other language in
+`~/.wede/formatters.json` — the command receives the source on **stdin** and must
+write the result to **stdout** (`{file}` in args is replaced with the file name):
+
+```json
+{
+  "formatters": {
+    "rs":   { "command": "rustfmt" },
+    "lua":  { "command": "stylua", "args": ["-"] },
+    "sh":   { "command": "shfmt",  "args": ["-"] },
+    "swift":{ "command": "swift-format" }
+  }
+}
+```
+
+Enable **Settings → Format on save** (or `Ctrl/Cmd+S`). User formatters override
+the built-ins for the same extension. Like the LSP config this is **global and
+owner-controlled** (`~/.wede/`) by design — a formatter runs a command on the
+host, so it is deliberately not read from the shared workspace.
+
 VS Code `.vsix` extensions are **not** supported — they require a Node extension
 host, which is intentionally outside wede's single-binary design. LSP is the
 portable, editor-agnostic equivalent and covers the language-support use case.

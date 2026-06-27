@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"os/exec"
 	"strings"
 	"testing"
@@ -137,5 +139,53 @@ func TestFormat_MissingPath(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("missing path: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestLoadFormatters_normalisesAndSkips(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".wede"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := `{"formatters":{
+	  "lua":  {"command":"stylua","args":["-"]},
+	  ".RS":  {"command":"rustfmt"},
+	  "bad":  {"command":"   "}
+	}}`
+	if err := os.WriteFile(filepath.Join(home, ".wede", "formatters.json"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := loadFormatters()
+	if _, ok := m["lua"]; !ok {
+		t.Fatalf("lua missing: %v", m)
+	}
+	if _, ok := m["rs"]; !ok { // ".RS" → "rs"
+		t.Fatalf("extension not normalised (dot/case): %v", m)
+	}
+	if _, ok := m["bad"]; ok {
+		t.Fatal("blank-command entry should be skipped")
+	}
+}
+
+func TestLoadFormatters_missingFileNil(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if m := loadFormatters(); m != nil {
+		t.Fatalf("missing config should give nil map, got %v", m)
+	}
+}
+
+func TestRunFormatter(t *testing.T) {
+	if _, err := exec.LookPath("cat"); err != nil {
+		t.Skip("cat not available")
+	}
+	// cat echoes stdin → idempotent "formatter"
+	out, ok, msg := runFormatter(formatterSpec{Command: "cat"}, "hello\n", "x.txt")
+	if !ok || out != "hello\n" {
+		t.Fatalf("cat: ok=%v out=%q msg=%q", ok, out, msg)
+	}
+	// missing binary fails gracefully
+	if _, ok, _ := runFormatter(formatterSpec{Command: "no-such-binary-xyzzy"}, "x", "x"); ok {
+		t.Fatal("missing command should not succeed")
 	}
 }
