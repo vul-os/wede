@@ -48,13 +48,19 @@ function buildWsUrl(lang, token, workspaceId) {
 
 export function useLSP({ file, token, authFetch, lspEnabled, workspaceId }) {
   const [available, setAvailable] = useState(null) // null = not yet fetched
+  // Effective extension→language map: built-ins plus any servers added via
+  // ~/.wede/lsp.json (reported by the backend), so config languages just work.
+  const [extMap, setExtMap] = useState(EXT_TO_LANG)
 
   // Fetch available servers once on mount.
   useEffect(() => {
     if (!authFetch) return
     authFetch('/api/lsp/available')
       .then(r => r.json())
-      .then(data => setAvailable(data.available || {}))
+      .then(data => {
+        setAvailable(data.available || {})
+        if (data.extensions) setExtMap({ ...EXT_TO_LANG, ...data.extensions })
+      })
       .catch(() => setAvailable({}))
   }, [authFetch])
 
@@ -66,7 +72,7 @@ export function useLSP({ file, token, authFetch, lspEnabled, workspaceId }) {
   const extension = useMemo(() => {
     if (!lspEnabled || !filePath || available === null) return null
 
-    const lang = langFromFile({ path: filePath })
+    const lang = extMap[extFromPath(filePath)] || null
     if (!lang || !available[lang]) return null
 
     const wsUrl = buildWsUrl(lang, token, workspaceId)
@@ -84,7 +90,7 @@ export function useLSP({ file, token, authFetch, lspEnabled, workspaceId }) {
       console.warn('[lsp] failed to create extension:', err)
       return null
     }
-  }, [filePath, lspEnabled, available, token, workspaceId])
+  }, [filePath, lspEnabled, available, extMap, token, workspaceId])
 
   return { extension, available }
 }

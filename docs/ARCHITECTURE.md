@@ -98,7 +98,7 @@ Full PTY via `os/exec` + `github.com/creack/pty`. The PTY is bridged to a WebSoc
 
 ### LSP proxy (`internal/lsp`)
 
-Spawns one language server process per (workspace, language) pair and bridges JSON-RPC `Content-Length` framing to/from a WebSocket. Supported: `gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer`. Degrades gracefully when binaries are not installed.
+Spawns one language server process per (workspace, language) pair and bridges JSON-RPC `Content-Length` framing to/from a WebSocket. Built-in: `gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer`; the registry is extended at startup from `~/.wede/lsp.json` (`LoadConfig`) so any LSP server can be added without recompiling. The extension→language map is served to the client via `/api/lsp/available`. Degrades gracefully when binaries are not installed.
 
 ### Search (`internal/search`)
 

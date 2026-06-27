@@ -40,8 +40,8 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
   const lspHint = (() => {
     if (lspAvailable === null) return null
     const names = Object.keys(lspAvailable)
-    if (names.length === 0) return 'No language servers found on PATH. Install gopls, typescript-language-server, or pylsp to enable diagnostics and hover.'
-    return `Active for: ${names.join(', ')}`
+    if (names.length === 0) return 'No language servers found on PATH. Install gopls, typescript-language-server, pylsp, etc. — or add any LSP server in ~/.wede/lsp.json.'
+    return `Active for: ${names.join(', ')}. Add more in ~/.wede/lsp.json.`
   })()
 
   const update = (patch) => onEditorSettingsChange?.({ ...s, ...patch })

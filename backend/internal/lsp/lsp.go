@@ -26,6 +26,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -40,21 +41,81 @@ type WorkspaceProvider interface {
 	OnChange(func(string))
 }
 
-// langServer maps a canonical language name to the binary and arguments of the
-// language server process.
+// langServer maps a canonical language name to the binary, arguments, and the
+// file extensions that belong to it.
 type langServer struct {
 	bin  string
 	args []string
+	exts []string
 }
 
-// knownServers is the built-in table of supported languages.
-// All entries are located via exec.LookPath — none are hard-coded paths.
+// knownServers is the built-in table of supported languages, extensible at
+// startup via LoadConfig (see ~/.wede/lsp.json). All binaries are located via
+// exec.LookPath — none are hard-coded paths. LoadConfig is called once before
+// serving, so reads during request handling need no lock.
 var knownServers = map[string]langServer{
-	"go":         {bin: "gopls", args: []string{"serve"}},
-	"javascript": {bin: "typescript-language-server", args: []string{"--stdio"}},
-	"typescript": {bin: "typescript-language-server", args: []string{"--stdio"}},
-	"python":     {bin: "pylsp", args: []string{}},
-	"rust":       {bin: "rust-analyzer", args: []string{}},
+	"go":         {bin: "gopls", args: []string{"serve"}, exts: []string{"go"}},
+	"javascript": {bin: "typescript-language-server", args: []string{"--stdio"}, exts: []string{"js", "jsx", "cjs", "mjs"}},
+	"typescript": {bin: "typescript-language-server", args: []string{"--stdio"}, exts: []string{"ts", "tsx"}},
+	"python":     {bin: "pylsp", args: []string{}, exts: []string{"py", "pyw"}},
+	"rust":       {bin: "rust-analyzer", args: []string{}, exts: []string{"rs"}},
+}
+
+// ConfigServer is one user-defined language server in ~/.wede/lsp.json.
+type ConfigServer struct {
+	Command    string   `json:"command"`
+	Args       []string `json:"args"`
+	Extensions []string `json:"extensions"`
+}
+
+// Config is the on-disk LSP configuration: a map of language name → server.
+type Config struct {
+	Servers map[string]ConfigServer `json:"servers"`
+}
+
+// LoadConfig merges language-server definitions from a JSON file into the
+// registry, letting users add support for any LSP server without recompiling.
+// A missing file is not an error; config entries override built-ins by language.
+// Must be called before the handler starts serving (it mutates the registry).
+func LoadConfig(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
+	}
+	for lang, s := range cfg.Servers {
+		lang = strings.ToLower(strings.TrimSpace(lang))
+		if lang == "" || strings.TrimSpace(s.Command) == "" {
+			continue
+		}
+		exts := make([]string, 0, len(s.Extensions))
+		for _, e := range s.Extensions {
+			e = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(e, ".")))
+			if e != "" {
+				exts = append(exts, e)
+			}
+		}
+		knownServers[lang] = langServer{bin: strings.TrimSpace(s.Command), args: s.Args, exts: exts}
+	}
+	return nil
+}
+
+// LanguageExtensions returns a map of file extension → language name across all
+// registered servers, so the client can route a file to the right LSP.
+func LanguageExtensions() map[string]string {
+	out := make(map[string]string)
+	for lang, ls := range knownServers {
+		for _, e := range ls.exts {
+			out[e] = lang
+		}
+	}
+	return out
 }
 
 // serverKey identifies a unique language server instance.
@@ -139,9 +200,11 @@ func (h *Handler) Close() {
 // HandleAvailable returns a JSON object listing installed language servers.
 // GET /api/lsp/available
 func (h *Handler) HandleAvailable(w http.ResponseWriter, _ *http.Request) {
-	avail := AvailableServers()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"available": avail}) //nolint:errcheck
+	json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
+		"available":  AvailableServers(),
+		"extensions": LanguageExtensions(),
+	})
 }
 
 // HandleWS is the WebSocket endpoint: GET /api/lsp?lang=<language>

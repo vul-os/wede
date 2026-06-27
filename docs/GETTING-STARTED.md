@@ -80,11 +80,50 @@ Open [http://localhost:9090](http://localhost:9090) in your browser and log in w
 ## First steps in the IDE
 
 1. **File Explorer** (left sidebar) — browse and manage your project files. Right-click for context menu options.
-2. **Editor** — click any file to open it. Supports 12+ languages with syntax highlighting, auto-save, and LSP diagnostics when language servers are installed.
+2. **Editor** — click any file to open it. 25+ languages with syntax highlighting, auto-save, and LSP diagnostics when language servers are installed (see [Adding language support](#adding-language-support)).
 3. **Terminal** (bottom panel, or `Ctrl+` `` ` ``) — full PTY terminal. Multiple tabs supported.
 4. **Git panel** (sidebar) — stage changes, write commit messages, push/pull, view the commit graph.
 5. **Search** (`Ctrl+Shift+F`) — workspace-wide search with ripgrep. Supports regex and replace-across-files.
 6. **Command palette** (`Ctrl+Shift+P`) — fuzzy-search all IDE commands.
+
+---
+
+## Adding language support
+
+wede gets code intelligence (diagnostics, hover, completion, go-to-definition)
+the same way VS Code does — through **Language Server Protocol** servers. It can
+use **any LSP server**, not just the built-in ones, with no recompiling.
+
+**Built-in** (auto-detected on your `PATH`): `gopls` (Go),
+`typescript-language-server` (JS/TS), `pylsp` (Python), `rust-analyzer` (Rust).
+Install the binary and wede picks it up — check **Settings → Language server**
+for what it found.
+
+**Add your own** — create `~/.wede/lsp.json`:
+
+```json
+{
+  "servers": {
+    "c":     { "command": "clangd",                "extensions": ["c", "h"] },
+    "cpp":   { "command": "clangd",                "extensions": ["cpp", "cc", "hpp"] },
+    "lua":   { "command": "lua-language-server",    "extensions": ["lua"] },
+    "ruby":  { "command": "solargraph", "args": ["stdio"], "extensions": ["rb"] },
+    "bash":  { "command": "bash-language-server", "args": ["start"], "extensions": ["sh", "bash"] }
+  }
+}
+```
+
+Each entry maps a language to its server `command` (located on `PATH`, like the
+built-ins), optional `args`, and the file `extensions` that should use it. An
+entry with a name matching a built-in (e.g. `go`) overrides it. Restart wede to
+apply. The command must be installed and on your `PATH`.
+
+> Syntax highlighting is independent of LSP and already covers 25+ languages out
+> of the box; LSP adds the *intelligence* on top.
+
+VS Code `.vsix` extensions are **not** supported — they require a Node extension
+host, which is intentionally outside wede's single-binary design. LSP is the
+portable, editor-agnostic equivalent and covers the language-support use case.
 
 ---
 

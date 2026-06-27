@@ -32,15 +32,37 @@ import { rust } from '@codemirror/lang-rust'
 import { cpp } from '@codemirror/lang-cpp'
 import { java } from '@codemirror/lang-java'
 import { php } from '@codemirror/lang-php'
+import { yaml } from '@codemirror/lang-yaml'
+import { StreamLanguage } from '@codemirror/language'
+import { shell } from '@codemirror/legacy-modes/mode/shell'
+import { ruby } from '@codemirror/legacy-modes/mode/ruby'
+import { lua } from '@codemirror/legacy-modes/mode/lua'
+import { toml } from '@codemirror/legacy-modes/mode/toml'
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile'
+import { properties } from '@codemirror/legacy-modes/mode/properties'
+import { swift } from '@codemirror/legacy-modes/mode/swift'
+import { powerShell } from '@codemirror/legacy-modes/mode/powershell'
+import { csharp, kotlin, scala, objectiveC } from '@codemirror/legacy-modes/mode/clike'
+
+// sl wraps a CodeMirror 5 legacy mode as a CodeMirror 6 language extension.
+const sl = (mode) => () => StreamLanguage.define(mode)
 
 const langMap = {
   js: () => javascript(), jsx: () => javascript({ jsx: true }),
   ts: () => javascript({ typescript: true }), tsx: () => javascript({ jsx: true, typescript: true }),
-  html: () => html(), htm: () => html(), css: () => css(), json: () => json(),
-  py: () => python(), go: () => go(), md: () => markdown(),
+  html: () => html(), htm: () => html(), css: () => css(), scss: () => css(), less: () => css(), json: () => json(),
+  py: () => python(), go: () => go(), md: () => markdown(), markdown: () => markdown(),
   xml: () => xml(), svg: () => xml(), sql: () => sql(),
-  rs: () => rust(), c: () => cpp(), cpp: () => cpp(), h: () => cpp(),
+  rs: () => rust(), c: () => cpp(), cpp: () => cpp(), cc: () => cpp(), hpp: () => cpp(), h: () => cpp(),
   java: () => java(), php: () => php(),
+  // YAML + many languages via legacy modes (syntax highlighting; LSP is separate).
+  yaml: () => yaml(), yml: () => yaml(),
+  sh: sl(shell), bash: sl(shell), zsh: sl(shell), ksh: sl(shell),
+  rb: sl(ruby), lua: sl(lua), toml: sl(toml),
+  dockerfile: sl(dockerFile),
+  ini: sl(properties), cfg: sl(properties), conf: sl(properties), env: sl(properties), properties: sl(properties),
+  swift: sl(swift), ps1: sl(powerShell), psm1: sl(powerShell),
+  cs: sl(csharp), kt: sl(kotlin), kts: sl(kotlin), scala: sl(scala), sbt: sl(scala), m: sl(objectiveC),
 }
 
 function getLang(filename) {

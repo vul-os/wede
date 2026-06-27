@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
 	"wede/backend/internal/folder"
+	"wede/backend/internal/lsp"
 	"wede/backend/internal/tunnel"
 	"wede/backend/internal/workspace"
 )
@@ -58,6 +60,14 @@ func main() {
 	}
 
 	cfg := config.Load()
+
+	// Optional user-defined language servers (~/.wede/lsp.json) — add LSP support
+	// for any language without recompiling. Missing file is fine.
+	if home, err := os.UserHomeDir(); err == nil {
+		if err := lsp.LoadConfig(filepath.Join(home, ".wede", "lsp.json")); err != nil {
+			log.Printf("lsp config: %v", err)
+		}
+	}
 
 	if *portFlag != "" {
 		cfg.Port = *portFlag

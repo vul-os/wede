@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -216,5 +217,55 @@ func TestKnownServers_noBinIsEmpty(t *testing.T) {
 		if ls.bin == "" {
 			t.Errorf("knownServers[%q].bin is empty", lang)
 		}
+	}
+}
+
+func TestLoadConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/lsp.json"
+	cfg := `{
+	  "servers": {
+	    "lua":  { "command": "lua-language-server", "extensions": ["lua", ".luau"] },
+	    "go":   { "command": "gopls-custom", "args": ["serve"], "extensions": ["go"] },
+	    "bad":  { "command": "  ", "extensions": ["x"] }
+	  }
+	}`
+	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// snapshot + restore the package registry so we don't leak into other tests
+	saved := make(map[string]langServer, len(knownServers))
+	for k, v := range knownServers {
+		saved[k] = v
+	}
+	t.Cleanup(func() { knownServers = saved })
+
+	if err := LoadConfig(path); err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if ls, ok := knownServers["lua"]; !ok || ls.bin != "lua-language-server" {
+		t.Fatalf("lua not registered: %+v", knownServers["lua"])
+	}
+	// config overrides a built-in
+	if knownServers["go"].bin != "gopls-custom" {
+		t.Fatalf("go override failed: %+v", knownServers["go"])
+	}
+	// blank command is skipped
+	if _, ok := knownServers["bad"]; ok {
+		t.Fatal("blank-command entry should be skipped")
+	}
+	// extension dot is stripped + lowercased
+	exts := LanguageExtensions()
+	if exts["lua"] != "lua" || exts["luau"] != "lua" {
+		t.Fatalf("lua extensions wrong: %v", exts)
+	}
+	if exts["go"] != "go" {
+		t.Fatalf("go extension wrong: %v", exts)
+	}
+}
+
+func TestLoadConfig_missingFileOK(t *testing.T) {
+	if err := LoadConfig(t.TempDir() + "/does-not-exist.json"); err != nil {
+		t.Fatalf("missing file should be nil error, got %v", err)
 	}
 }
