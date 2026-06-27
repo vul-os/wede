@@ -91,7 +91,7 @@ export default function FloatingTerminals({ token, workspaceId, term, onDock, se
     <div className="absolute inset-0 pointer-events-none z-30">
       {/* Floating toolbar */}
       <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1 bg-bg-secondary border border-border rounded-lg shadow-lg px-1.5 py-1" style={{ zIndex: topZ + 1 }}>
-        <button onClick={addTerminal} title="New terminal" className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><Plus className="w-3.5 h-3.5" /></button>
+        <button onClick={() => addTerminal()} title="New terminal" className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><Plus className="w-3.5 h-3.5" /></button>
         <div className="w-px h-4 bg-border" />
         <button onClick={onDock} title="Dock terminals to the bottom" className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><PanelBottom className="w-3.5 h-3.5" /> Dock</button>
       </div>

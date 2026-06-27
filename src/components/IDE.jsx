@@ -63,13 +63,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wede_activeTab') || null)
 
   // Collaboration presence: who else is in this workspace and what they're viewing.
-  const { roster: collabRoster, setViewing: setCollabViewing, mice: collabMice, sendMouse, sendWindow, onWindow } = useCollab(workspaceId, token, username)
+  const { roster: collabRoster, setViewing: setCollabViewing, mice: collabMice, sendMouse, sendWindow, onWindow, sendTerminals, onTerminals } = useCollab(workspaceId, token, username)
 
   // Built-in API client — shared between the sidebar collections and the editor tab.
   const apiClient = useApiClient(workspaceId, authFetch)
 
-  // Terminal sessions — shared between the docked panel and the floating windows.
-  const terminalsApi = useTerminals(authFetch, workspaceId)
+  // Terminal sessions — shared between the docked panel and the floating windows,
+  // and synced across collaborators (list + window positions).
+  const terminalsApi = useTerminals(authFetch, workspaceId, { sendTerminals, onTerminals })
 
   // Tasks (global + trusted project .wede/tasks.json) — run in a new terminal.
   const [tasks, setTasks] = useState([])

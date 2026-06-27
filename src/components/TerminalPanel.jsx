@@ -53,7 +53,7 @@ export default function TerminalPanel({ token, workspaceId, term, visible, isFul
           })}
 
           <button
-            onClick={addTerminal}
+            onClick={() => addTerminal()}
             className="flex items-center justify-center w-7 h-7 mx-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors shrink-0"
             title="New Terminal"
           >

@@ -40,6 +40,7 @@ export function useCollab(workspaceId, token, username) {
   const mouseTimerRef = useRef(null)
   const pendingMouseRef = useRef(null)
   const windowSubsRef = useRef(new Set())
+  const terminalsSubsRef = useRef(new Set())
 
   useEffect(() => {
     if (!workspaceId || !token) return undefined
@@ -65,6 +66,8 @@ export function useCollab(workspaceId, token, username) {
             setMice((prev) => ({ ...prev, [msg.id]: { x: msg.x, y: msg.y } }))
           } else if (msg.type === 'window' && msg.id) {
             windowSubsRef.current.forEach((cb) => { try { cb(msg.win, msg.geo, msg.id) } catch { /* ignore */ } })
+          } else if (msg.type === 'terminals' && Array.isArray(msg.list)) {
+            terminalsSubsRef.current.forEach((cb) => { try { cb(msg.list) } catch { /* ignore */ } })
           }
         } catch { /* ignore malformed frames */ }
       }
@@ -131,5 +134,11 @@ export function useCollab(workspaceId, token, username) {
     return () => windowSubsRef.current.delete(cb)
   }, [])
 
-  return { roster, setViewing, mice, sendMouse, sendWindow, onWindow }
+  const sendTerminals = useCallback((list) => send({ type: 'terminals', list }), [send])
+  const onTerminals = useCallback((cb) => {
+    terminalsSubsRef.current.add(cb)
+    return () => terminalsSubsRef.current.delete(cb)
+  }, [])
+
+  return { roster, setViewing, mice, sendMouse, sendWindow, onWindow, sendTerminals, onTerminals }
 }

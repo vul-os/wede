@@ -158,7 +158,7 @@ func tagRelay(senderID string, msg []byte) ([]byte, bool) {
 	if err := json.Unmarshal(raw, &t); err != nil {
 		return nil, false
 	}
-	if t != "mouse" && t != "window" {
+	if t != "mouse" && t != "window" && t != "terminals" {
 		return nil, false
 	}
 	idBytes, err := json.Marshal(senderID)

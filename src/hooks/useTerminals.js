@@ -21,14 +21,40 @@ let nextId = (() => {
   return saved ? Math.max(...saved.map((t) => t.id)) + 1 : 1
 })()
 
-export function useTerminals(authFetch, workspaceId) {
+export function useTerminals(authFetch, workspaceId, sync = {}) {
+  const { sendTerminals, onTerminals } = sync
   const [terminals, setTerminals] = useState(() => loadTerminals() || [{ id: nextId++, name: 'Terminal 1' }])
   const [activeId, setActiveId] = useState(() => {
     const saved = localStorage.getItem('wede_terminal_active')
     return saved ? Number(saved) : (loadTerminals()?.[0]?.id || 1)
   })
   const reconciledRef = useRef(false)
+  const applyingRemoteRef = useRef(false)
   const termRefs = useRef({})
+
+  // Sync the terminal list across collaborators: broadcast on local change, and
+  // union in peers' terminals (additive merge → converges; same ids map to the
+  // same shared PTY). Applying a peer update doesn't re-broadcast (no echo).
+  useEffect(() => {
+    if (!onTerminals) return undefined
+    return onTerminals((list) => {
+      setTerminals((prev) => {
+        const ids = new Set(prev.map((t) => t.id))
+        const additions = (list || [])
+          .filter((t) => t && typeof t.id === 'number' && !ids.has(t.id))
+          .map((t) => ({ id: t.id, name: t.name || `Terminal ${t.id}` }))
+        if (additions.length === 0) return prev
+        for (const t of additions) if (t.id >= nextId) nextId = t.id + 1
+        applyingRemoteRef.current = true
+        return [...prev, ...additions].sort((a, b) => a.id - b.id)
+      })
+    })
+  }, [onTerminals])
+
+  useEffect(() => {
+    if (applyingRemoteRef.current) { applyingRemoteRef.current = false; return }
+    sendTerminals?.(terminals.map((t) => ({ id: t.id, name: t.name })))
+  }, [terminals, sendTerminals])
 
   // Reconcile with live server sessions on mount (so refresh keeps PTYs).
   useEffect(() => {
