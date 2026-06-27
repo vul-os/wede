@@ -53,9 +53,9 @@ func (h *Handler) Format(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(result{Content: body.Content, Formatted: false, Error: errMsg})
 	}
 
-	// User-configured formatters (~/.wede/formatters.json) win over the built-ins,
-	// so any language can be formatted on save without recompiling.
-	if custom := loadFormatters(); custom != nil {
+	// User-configured formatters (global + trusted project config) win over the
+	// built-ins, so any language can be formatted on save without recompiling.
+	if custom := loadFormatters(h.workspace()); custom != nil {
 		if spec, ok := custom[strings.TrimPrefix(ext, ".")]; ok {
 			out, ok, errMsg := runFormatter(spec, body.Content, base)
 			if ok {

@@ -140,9 +140,9 @@ write the result to **stdout** (`{file}` in args is replaced with the file name)
 ```
 
 Enable **Settings → Format on save** (or `Ctrl/Cmd+S`). User formatters override
-the built-ins for the same extension. Like the LSP config this is **global and
-owner-controlled** (`~/.wede/`) by design — a formatter runs a command on the
-host, so it is deliberately not read from the shared workspace.
+the built-ins for the same extension. The global `~/.wede/formatters.json` always
+applies; a project may also commit `<workspace>/.wede/formatters.json`, which is
+used **only after you trust the workspace** (see [Workspace trust](#workspace-trust)).
 
 ### Tasks — named build/test/run commands
 
@@ -162,8 +162,21 @@ activity rail and run in a terminal:
 Click a task (or pick it from the panel) and wede opens a new terminal tab named
 after it and runs the command — `cwd` (relative to the workspace) is optional.
 Running uses the terminal, so it's editor-gated (viewers can see tasks but not
-run them). Like the LSP/formatter config it's **global + owner-controlled** for
-now; project-committed tasks will arrive behind a workspace-trust gate.
+run them). The global `~/.wede/tasks.json` always applies; a project may also
+commit `<workspace>/.wede/tasks.json`, used **only after you trust the workspace**.
+
+### Workspace trust
+
+LSP servers, formatters, and tasks all run **commands on the host**. The owner's
+global `~/.wede/` config is always trusted, but a project's *committed*
+`.wede/formatters.json` / `.wede/tasks.json` could otherwise let any editor run
+code as the owner. So committed tool config is **ignored until the owner trusts
+the workspace** — toggle **Settings → Workspace trust** (owner-only). Untrusting
+revokes it immediately. Only trust workspaces whose collaborators you trust.
+
+> The trusted set is stored in `~/.wede/trusted.json`. The currently-bundled LSP
+> registry is global-only; project `.wede/lsp.json` support lands with the same
+> trust gate.
 
 VS Code `.vsix` extensions are **not** supported — they require a Node extension
 host, which is intentionally outside wede's single-binary design. LSP is the

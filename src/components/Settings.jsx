@@ -1,17 +1,32 @@
 import { useEffect, useState } from 'react'
-import { Moon, Sun, FolderOpen, Info, Minus, Plus, X, Check, User } from 'lucide-react'
+import { Moon, Sun, FolderOpen, Info, Minus, Plus, X, Check, User, ShieldCheck } from 'lucide-react'
 import { useTheme } from '../hooks/useTheme'
 import Logo from './Logo'
 import TunnelSettings from './TunnelSettings'
 import WedeLocation from './WedeLocation'
 
-export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role, workspaceId, username, onUsernameChange }) {
+export default function Settings({ visible, onClose, onOpenFolder, workspace, editorSettings, onEditorSettingsChange, lspAvailable, authFetch, role, workspaceId, username, onUsernameChange, onTrustChange }) {
   const { setTheme, isDark } = useTheme()
   const [name, setName] = useState(username || '')
   const [savedName, setSavedName] = useState(false)
   const saveName = () => {
     const v = name.trim()
     if (v && v !== username) { onUsernameChange?.(v); setSavedName(true); setTimeout(() => setSavedName(false), 1500) }
+  }
+
+  // Workspace trust — gates running formatters/tasks from the project's committed
+  // .wede/ config (owner-only).
+  const [trust, setTrust] = useState(null) // { trusted, hasProjectConfig }
+  useEffect(() => {
+    if (!visible || role !== 'owner' || !authFetch) return
+    authFetch('/api/trust').then((r) => r.json()).then(setTrust).catch(() => setTrust(null))
+  }, [visible, role, authFetch, workspaceId])
+  const toggleTrust = async (v) => {
+    try {
+      await authFetch('/api/trust', { method: v ? 'POST' : 'DELETE' })
+      setTrust((t) => ({ ...t, trusted: v }))
+      onTrustChange?.()
+    } catch { /* ignore */ }
   }
 
   // Close on Escape.
@@ -279,6 +294,28 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
         {role === 'owner' && authFetch && workspaceId && (
           <div>
             <WedeLocation workspaceId={workspaceId} authFetch={authFetch} />
+          </div>
+        )}
+
+        {/* Workspace trust (owner only) — run tools from this project's committed config */}
+        {role === 'owner' && trust && (
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Workspace trust</h3>
+            <label className={`flex items-center justify-between rounded-lg px-3 py-2.5 cursor-pointer group border ${
+              trust.hasProjectConfig && !trust.trusted ? 'bg-yellow/5 border-yellow/30' : 'bg-bg-primary border-border'
+            }`}>
+              <div className="min-w-0 pr-3">
+                <span className="flex items-center gap-1.5 text-xs text-text-secondary group-hover:text-text-primary transition-colors">
+                  <ShieldCheck className="w-3.5 h-3.5 text-text-muted" /> Trust this workspace
+                </span>
+                <span className="block text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                  {trust.hasProjectConfig
+                    ? "Run formatters & tasks from this project's committed .wede/ config. Only trust workspaces you control — these commands run on your machine."
+                    : 'No project tooling (.wede/lsp.json, formatters.json, tasks.json) committed yet.'}
+                </span>
+              </div>
+              <Toggle checked={trust.trusted} onChange={toggleTrust} />
+            </label>
           </div>
         )}
 

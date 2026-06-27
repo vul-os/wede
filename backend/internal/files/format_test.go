@@ -156,7 +156,7 @@ func TestLoadFormatters_normalisesAndSkips(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".wede", "formatters.json"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m := loadFormatters()
+	m := loadFormatters("")
 	if _, ok := m["lua"]; !ok {
 		t.Fatalf("lua missing: %v", m)
 	}
@@ -170,7 +170,7 @@ func TestLoadFormatters_normalisesAndSkips(t *testing.T) {
 
 func TestLoadFormatters_missingFileNil(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if m := loadFormatters(); m != nil {
+	if m := loadFormatters(""); m != nil {
 		t.Fatalf("missing config should give nil map, got %v", m)
 	}
 }

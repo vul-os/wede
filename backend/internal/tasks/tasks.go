@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"wede/backend/internal/trust"
 )
 
 // Task is one named command from ~/.wede/tasks.json.
@@ -26,14 +28,23 @@ type config struct {
 	Tasks []Task `json:"tasks"`
 }
 
-// Load reads and validates the task list. A missing or invalid file yields an
-// empty slice (never an error to the caller).
-func Load() []Task {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil
+// Load returns the active task list: the owner's global ~/.wede/tasks.json plus
+// the workspace's committed <root>/.wede/tasks.json — the latter only when the
+// owner has trusted the workspace, since a task runs a host command.
+func Load(root string) []Task {
+	var out []Task
+	if home, err := os.UserHomeDir(); err == nil {
+		out = append(out, loadFile(filepath.Join(home, ".wede", "tasks.json"))...)
 	}
-	data, err := os.ReadFile(filepath.Join(home, ".wede", "tasks.json"))
+	if root != "" && trust.IsTrusted(root) {
+		out = append(out, loadFile(filepath.Join(root, ".wede", "tasks.json"))...)
+	}
+	return out
+}
+
+// loadFile parses + validates one tasks.json (missing/invalid → empty).
+func loadFile(path string) []Task {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
@@ -54,8 +65,10 @@ func Load() []Task {
 	return out
 }
 
-// HandleList serves GET /api/tasks → {"tasks":[...]}.
-func HandleList(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"tasks": Load()}) //nolint:errcheck
+// Handler serves GET /api/workspaces/{id}/tasks → {"tasks":[...]} for one root.
+func Handler(root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"tasks": Load(root)}) //nolint:errcheck
+	}
 }

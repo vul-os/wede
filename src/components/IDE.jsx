@@ -69,12 +69,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // Terminal sessions — shared between the docked panel and the floating windows.
   const terminalsApi = useTerminals(authFetch, workspaceId)
 
-  // Owner-defined tasks (~/.wede/tasks.json) — run as a command in a new terminal.
+  // Tasks (global + trusted project .wede/tasks.json) — run in a new terminal.
   const [tasks, setTasks] = useState([])
-  useEffect(() => {
+  const fetchTasks = useCallback(() => {
     if (!authFetch) return
     authFetch('/api/tasks').then((r) => r.json()).then((d) => setTasks(d.tasks || [])).catch(() => {})
   }, [authFetch])
+  useEffect(() => { fetchTasks() }, [fetchTasks, workspaceId])
   const runTask = useCallback((task) => {
     if (role === 'viewer' || !task?.command) return
     const cmd = task.cwd ? `cd '${task.cwd}' && ${task.command}` : task.command
@@ -824,6 +825,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 authFetch={authFetch}
                 username={username}
                 onUsernameChange={onUsernameChange}
+                onTrustChange={fetchTasks}
                 role={role}
                 workspaceId={workspaceId}
                 visible
@@ -1097,6 +1099,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 authFetch={authFetch}
                 username={username}
                 onUsernameChange={onUsernameChange}
+                onTrustChange={fetchTasks}
                 role={role}
                 workspaceId={workspaceId}
                 visible

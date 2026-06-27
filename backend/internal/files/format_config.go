@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"wede/backend/internal/trust"
 )
 
 // formatterSpec is a user-configured formatter. The command receives the source
@@ -23,27 +25,36 @@ type formatterConfig struct {
 	Formatters map[string]formatterSpec `json:"formatters"`
 }
 
-// loadFormatters reads owner-defined formatters from ~/.wede/formatters.json so
-// any language can be formatted on save without recompiling. It is intentionally
-// global (owner-controlled) — not read from the shared workspace — because the
-// command runs on the host and a project-committed command would let any editor
-// run code as the owner. Project-scoped tool config arrives later behind an
-// explicit workspace-trust gate. Keys are extensions, normalised to lower-case
-// without a leading dot. A missing/invalid file yields an empty map.
-func loadFormatters() map[string]formatterSpec {
-	home, err := os.UserHomeDir()
-	if err != nil {
+// loadFormatters builds the active formatter map: the owner's global
+// ~/.wede/formatters.json always applies, and the workspace's committed
+// <root>/.wede/formatters.json is merged on top (overriding by extension) only
+// when the owner has trusted the workspace — because a formatter runs a host
+// command, so an untrusted project file must not be executed. Keys are
+// extensions, normalised to lower-case without a leading dot.
+func loadFormatters(root string) map[string]formatterSpec {
+	out := map[string]formatterSpec{}
+	if home, err := os.UserHomeDir(); err == nil {
+		mergeFormatterFile(out, filepath.Join(home, ".wede", "formatters.json"))
+	}
+	if root != "" && trust.IsTrusted(root) {
+		mergeFormatterFile(out, filepath.Join(root, ".wede", "formatters.json"))
+	}
+	if len(out) == 0 {
 		return nil
 	}
-	data, err := os.ReadFile(filepath.Join(home, ".wede", "formatters.json"))
+	return out
+}
+
+// mergeFormatterFile parses one formatters.json into out (later calls override).
+func mergeFormatterFile(out map[string]formatterSpec, path string) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil
+		return
 	}
 	var cfg formatterConfig
 	if json.Unmarshal(data, &cfg) != nil {
-		return nil
+		return
 	}
-	out := make(map[string]formatterSpec, len(cfg.Formatters))
 	for ext, spec := range cfg.Formatters {
 		ext = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ext), "."))
 		if ext == "" || strings.TrimSpace(spec.Command) == "" {
@@ -51,7 +62,6 @@ func loadFormatters() map[string]formatterSpec {
 		}
 		out[ext] = spec
 	}
-	return out
 }
 
 // runFormatter pipes src through a configured formatter, substituting {file}

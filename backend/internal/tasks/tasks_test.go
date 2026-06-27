@@ -21,7 +21,7 @@ func TestLoad(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".wede", "tasks.json"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got := Load()
+	got := Load("")
 	if len(got) != 2 {
 		t.Fatalf("want 2 valid tasks, got %d: %+v", len(got), got)
 	}
@@ -35,7 +35,7 @@ func TestLoad(t *testing.T) {
 
 func TestLoad_missingFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if got := Load(); got != nil {
+	if got := Load(""); got != nil {
 		t.Fatalf("missing file should give nil, got %+v", got)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"wede/backend/internal/folder"
 	"wede/backend/internal/lsp"
 	"wede/backend/internal/tasks"
+	"wede/backend/internal/trust"
 	"wede/backend/internal/tunnel"
 	"wede/backend/internal/workspace"
 )
@@ -138,9 +139,6 @@ func main() {
 	// file/git/etc. routes under /api/workspaces/{id}/... is layered on in later slices.
 	protected.HandleFunc("GET /api/workspaces", wsMgr.HandleList)
 
-	// Owner-defined tasks (~/.wede/tasks.json) — listed here; run client-side in a
-	// terminal, which is itself editor-gated.
-	protected.HandleFunc("GET /api/tasks", tasks.HandleList)
 	// Creating a workspace is editor+ only (same rationale as /api/folder/open);
 	// the requested root is validated against the allowed base in HandleCreate.
 	protected.Handle("POST /api/workspaces", re(http.HandlerFunc(wsMgr.HandleCreate)))
@@ -197,6 +195,15 @@ func main() {
 	// terminal (shared PTY sessions per workspace) + lsp (language servers per workspace)
 	protected.HandleFunc("GET /api/workspaces/{id}/terminal/sessions", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Terminal().ListSessions }))
 	protected.Handle("GET /api/workspaces/{id}/terminal", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Terminal().HandleWS }))) // viewers get no shell
+	// Tasks (~/.wede/tasks.json + trusted project .wede/tasks.json) — run client-side
+	// in a terminal, which is itself editor-gated.
+	protected.HandleFunc("GET /api/workspaces/{id}/tasks", rs(func(ws *workspace.Workspace) http.HandlerFunc { return tasks.Handler(ws.Root()) }))
+	// Workspace trust (owner-only) — gates running commands from a workspace's
+	// committed .wede/ tooling config.
+	trustFn := func(ws *workspace.Workspace) http.HandlerFunc { return trust.Handler(ws.Root()) }
+	protected.Handle("GET /api/workspaces/{id}/trust", ro(rs(trustFn)))
+	protected.Handle("POST /api/workspaces/{id}/trust", ro(rs(trustFn)))
+	protected.Handle("DELETE /api/workspaces/{id}/trust", ro(rs(trustFn)))
 	protected.HandleFunc("GET /api/workspaces/{id}/lsp/available", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleAvailable }))
 	protected.HandleFunc("GET /api/workspaces/{id}/lsp", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleWS }))
 	// collaboration socket (presence: roster + cursors)
