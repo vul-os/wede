@@ -68,8 +68,16 @@ across the Go source files. Supports regex, case-toggle, and replace-across-file
 
 ![Terminal](screenshots/terminal.png)
 
-Full PTY terminal panel with multiple tabs. The capture shows `git log --oneline`
+Full PTY terminals opened from the activity rail. The capture shows `git log --oneline`
 output inside the demo workspace.
+
+### Terminals — windows mode
+
+![Floating terminal windows](screenshots/terminals_floating.png)
+
+Each terminal can be a movable, resizable window floating over the editor. They're
+the same server-side PTY sessions, and in a shared workspace a window's position
+syncs to every collaborator.
 
 ---
 
@@ -150,7 +158,8 @@ skipped and that instance is used instead.
 | `git.png` | Git panel — Changes tab | Unstaged diff in `api/middleware.go` |
 | `git_graph.png` | Git panel — History | Two-commit SVG graph |
 | `search.png` | Search panel (`Ctrl+Shift+F`) | Query `handleCreate`, real hits |
-| `terminal.png` | Terminal panel | `git log --oneline` output |
+| `terminal.png` | Terminals (floating) | `git log --oneline` output |
+| `terminals_floating.png` | Terminals — windows mode | Three movable terminal windows over the editor |
 | `settings.png` | Settings panel | Editor preferences |
 | `command_palette.png` | Command palette (`Ctrl+Shift+P`) | Filtered to `git` |
 

@@ -45,7 +45,7 @@ One host serves many people: open multiple projects as **workspaces**, invite ot
 <td><img src="docs/screenshots/apiclient.png" alt="wede built-in Postman-style API client" width="400"><br><em>Built-in API client (Postman-style)</em></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/terminals.png" alt="wede multiple terminals per workspace" width="400"><br><em>Multiple terminals per workspace</em></td>
+<td><img src="docs/screenshots/terminals_floating.png" alt="wede movable floating terminal windows" width="400"><br><em>Terminals as movable windows (synced across collaborators)</em></td>
 <td><img src="docs/screenshots/chat.png" alt="wede live workspace chat with public and private channels" width="400"><br><em>Live chat — public &amp; private channels</em></td>
 </tr>
 <tr>

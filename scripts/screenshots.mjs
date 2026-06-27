@@ -365,13 +365,13 @@ async function run() {
   await page.keyboard.press('Escape');
   await sleep(300);
 
-  // ── 6. Terminal panel — show a real command ───────────────────────────────
+  // ── 6. Terminals — floating windows opened from the activity rail ──────────
   console.log('Capturing: terminal...');
-  // Show the file tree in the sidebar (cleaner than a blank search panel),
-  // then focus the terminal and run a command that produces visible output.
-  // (Do NOT toggle the terminal button — that would hide the panel.)
   await clickSidebar(/explorer/i);
-  await sleep(400);
+  await sleep(300);
+  // Open the terminals as floating windows (activity-rail Terminals button).
+  await page.locator('button[title="Open terminals"]').first().click().catch(() => {});
+  await sleep(500);
   // Wait for the shell prompt to render (PTY connected) before typing.
   await page.waitForFunction(() => {
     const r = document.querySelector('.xterm-rows');
@@ -380,42 +380,52 @@ async function run() {
   const termArea = page.locator('.xterm').first();
   if (await termArea.count() > 0) {
     await termArea.click({ force: true }).catch(() => {});
-    // xterm routes keystrokes through a hidden textarea; focus it explicitly.
-    await page.locator('.xterm-helper-textarea').focus().catch(() => {});
+    await page.locator('.xterm-helper-textarea').first().focus().catch(() => {});
     await sleep(400);
     await page.keyboard.type('git log --oneline -5', { delay: 30 });
     await page.keyboard.press('Enter');
-    await sleep(1800);
+    await sleep(1600);
   }
   await shot(page, 'terminal');
 
-  // ── 6b. Multiple terminals — per-project terminal manager (tabs) ───────────
-  console.log('Capturing: multiple terminals...');
-  const newTermBtn = page.locator('button[title="New Terminal"]').first();
-  for (let i = 0; i < 2 && (await newTermBtn.count()) > 0; i++) {
-    await newTermBtn.click();
-    await sleep(900); // let the new PTY connect + render its prompt
+  // ── 6b. Multiple floating terminal windows (windows mode) ──────────────────
+  console.log('Capturing: floating terminals...');
+  // Drag a window by its title bar to spread the stack out for a clearer shot.
+  async function dragByText(text, dx, dy) {
+    const el = page.getByText(text, { exact: true }).first();
+    if (await el.count() === 0) return;
+    const box = await el.boundingBox();
+    if (!box) return;
+    const sx = box.x + box.width / 2, sy = box.y + box.height / 2;
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    await page.mouse.move(sx + dx, sy + dy, { steps: 12 });
+    await page.mouse.up();
+    await sleep(250);
   }
+  // Add two more terminals via the floating toolbar.
+  const addTermBtn = page.locator('button[title="New terminal"]').first();
+  for (let i = 0; i < 2 && (await addTermBtn.count()) > 0; i++) {
+    await addTermBtn.click();
+    await sleep(900);
+  }
+  // Run a command in the front-most window.
   const lastTerm = page.locator('.xterm-screen').last();
   if (await lastTerm.count() > 0) {
     await lastTerm.click({ force: true }).catch(() => {});
-    await sleep(400);
+    await sleep(300);
     await page.keyboard.type('go build ./... && echo build ok', { delay: 22 });
     await page.keyboard.press('Enter');
     await sleep(1400);
   }
+  // Spread the cascade so all three windows are visible.
+  await dragByText('Terminal 1', -210, 70);
+  await dragByText('Terminal 2', 150, 150);
   await shot(page, 'terminals');
-
-  // ── 6c. Floating terminal windows ──────────────────────────────────────────
-  console.log('Capturing: floating terminals...');
-  const popOut = page.locator('button[title="Open terminals as floating windows"]').first();
-  if (await popOut.count() > 0) {
-    await popOut.click();
-    await sleep(1600); // windows mount + PTYs reconnect
-    await shot(page, 'terminals_floating');
-    const dockBtn = page.getByText('Dock', { exact: true }).first();
-    if (await dockBtn.count() > 0) { await dockBtn.click(); await sleep(600); }
-  }
+  await shot(page, 'terminals_floating');
+  // Hide them so later shots aren't covered.
+  const hideBtn = page.getByText('Hide', { exact: true }).first();
+  if (await hideBtn.count() > 0) { await hideBtn.click(); await sleep(500); }
 
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
