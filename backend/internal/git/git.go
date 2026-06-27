@@ -184,7 +184,7 @@ func (h *Handler) Log(w http.ResponseWriter, r *http.Request) {
 	// --date-order keeps commits ordered by author date, which produces a
 	// natural visual ordering for the DAG graph (parent always above child).
 	// Format: hash|short|subject|author|reldate|refs|parents|ISO-date (8 fields)
-	out, err := h.run("log", "--date-order", "--format=%H|%h|%s|%an|%ar|%D|%P|%ai", "-n", count, "--all")
+	out, err := h.run("log", "--date-order", "--format=%H|%h|%s|%an|%ar|%D|%P|%ai", "-n", count, "--all", "--")
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]any{"entries": []any{}})
 		return
@@ -366,7 +366,9 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := h.run("checkout", body.Branch)
+	// Trailing "--" disambiguates body.Branch as a ref (never a pathspec) and
+	// stops any value from being parsed as an option.
+	out, err := h.run("checkout", body.Branch, "--")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": out})
@@ -776,8 +778,8 @@ func (h *Handler) CommitDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stat, _ := h.run("show", "--stat", "--format=", hash)
-	diff, _ := h.run("show", hash)
+	stat, _ := h.run("show", "--stat", "--format=", hash, "--")
+	diff, _ := h.run("show", hash, "--")
 
 	// Parse file names from the stat output.
 	// Lines look like: " src/foo.go | 3 +++"
@@ -1254,7 +1256,7 @@ func (h *Handler) CherryPick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := h.run("cherry-pick", body.Hash)
+	out, err := h.run("cherry-pick", body.Hash, "--")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": out})
@@ -1291,7 +1293,7 @@ func (h *Handler) Revert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --no-edit avoids spawning an editor for the revert commit message.
-	out, err := h.run("revert", "--no-edit", body.Hash)
+	out, err := h.run("revert", "--no-edit", body.Hash, "--")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": out})
@@ -1343,7 +1345,7 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := h.run("reset", "--"+body.Mode, body.Hash)
+	out, err := h.run("reset", "--"+body.Mode, body.Hash, "--")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": out})

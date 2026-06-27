@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	Password       string `json:"password"`
-	Port           string `json:"port"`
+	Password string `json:"password"`
+	Port     string `json:"port"`
 	// Host is the interface address wede binds to.  Defaults to "127.0.0.1"
 	// (localhost only).  Set to "0.0.0.0" or "" to listen on all interfaces,
 	// which is required when wede is accessed from another machine or a
 	// Docker host.  Keeping the default protects users running wede on a
 	// shared or internet-connected machine.
-	Host           string `json:"host,omitempty"`
+	Host string `json:"host,omitempty"`
 	// FrameAncestors controls which origins may embed wede in an iframe.
 	// Emitted as: Content-Security-Policy: frame-ancestors <value>
 	// Leave empty (default) for 'self' — blocks all cross-origin framing.
@@ -24,6 +24,16 @@ type Config struct {
 	//   "https://vulos.org https://app.vulos.org"
 	// When non-empty, X-Frame-Options is omitted so the CSP takes effect.
 	FrameAncestors string `json:"frame_ancestors,omitempty"`
+	// WorkspaceRoot is the base directory under which workspaces may be opened.
+	// Any path passed to POST /api/workspaces or POST /api/folder/open must
+	// resolve to a directory inside this base (and must not be the base itself,
+	// the filesystem root, or contain a dotfile component such as .ssh). This
+	// stops an authenticated editor from adopting sensitive directories (e.g.
+	// $HOME, /, ~/.ssh) as a workspace root and reading their contents.
+	//
+	// Default (empty): the user's home directory. Override with the
+	// WEDE_WORKSPACE_ROOT environment variable or this config key.
+	WorkspaceRoot string `json:"workspace_root,omitempty"`
 }
 
 const configName = "wede.config.json"
@@ -87,5 +97,19 @@ func Load() *Config {
 	if cfg.Password == "" {
 		log.Fatal("password is required in wede.config.json")
 	}
+
+	// Resolve the allowed workspace root: env override > config key > $HOME.
+	if env := os.Getenv("WEDE_WORKSPACE_ROOT"); env != "" {
+		cfg.WorkspaceRoot = env
+	}
+	if cfg.WorkspaceRoot == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			cfg.WorkspaceRoot = home
+		}
+	}
+	if abs, err := filepath.Abs(cfg.WorkspaceRoot); err == nil {
+		cfg.WorkspaceRoot = abs
+	}
+
 	return cfg
 }

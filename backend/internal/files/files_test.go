@@ -62,11 +62,11 @@ func TestSafePath(t *testing.T) {
 	}
 }
 
-// TestSafePathSymlinkEscape verifies that a symlink created inside the workspace
-// that points outside is still accessible (we do NOT resolve symlinks at this
-// layer — that's an accepted OS-level trust-model decision documented in
-// SECURITY.md).  This test just documents the behaviour, not a bug.
-func TestSafePathSymlinkEscape_Documented(t *testing.T) {
+// TestSafePathSymlinkEscapeDenied verifies that a symlink created inside the
+// workspace that points outside is rejected: safePath resolves symlinks and
+// confirms the real target stays within the workspace, so a planted symlink can't
+// be used to read or overwrite files outside the project root.
+func TestSafePathSymlinkEscapeDenied(t *testing.T) {
 	tmp := t.TempDir()
 	outside := t.TempDir()
 
@@ -76,18 +76,18 @@ func TestSafePathSymlinkEscape_Documented(t *testing.T) {
 		t.Skip("cannot create symlink:", err)
 	}
 
+	// A file the attacker wants to reach, behind the escaping symlink.
+	if err := os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("top secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	h := New(&staticWS{root: tmp})
 
-	// The path "link" is inside the workspace by path, so safePath allows it.
-	full, ok := h.safePath("link")
-	if !ok {
-		t.Error("safePath('link') unexpectedly denied a path inside workspace")
+	// "link/secret.txt" is lexically inside the workspace but resolves outside it,
+	// so safePath must deny it.
+	if full, ok := h.safePath("link/secret.txt"); ok {
+		t.Errorf("safePath('link/secret.txt') allowed symlink escape, got %q", full)
 	}
-	if full != link {
-		t.Errorf("expected %s, got %s", link, full)
-	}
-	// Note: os.ReadFile(full) would follow the symlink to outside.
-	// This is documented as accepted behaviour for a local dev tool.
 }
 
 // TestSafePathHTTPDeny exercises the full HTTP handler path to confirm the

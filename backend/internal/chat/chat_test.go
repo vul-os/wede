@@ -12,7 +12,7 @@ import (
 
 func TestPostAppendsToFile(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
 	id, ch := h.Join("alice", "#f87171")
@@ -65,7 +65,7 @@ func TestNewHubReplaysHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
 	if len(h.history) != 2 {
@@ -94,7 +94,7 @@ func TestNewHubReplaysHistory(t *testing.T) {
 
 func TestNewHubEmptyHistoryNoFrame(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
 	_, ch := h.Join("carol", "#fbbf24")
@@ -112,7 +112,7 @@ func TestNewHubEmptyHistoryNoFrame(t *testing.T) {
 
 func TestPostGitAndSystemKinds(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
 	id, ch := h.Join("watcher", "#888888")
@@ -156,7 +156,7 @@ func TestPostGitAndSystemKinds(t *testing.T) {
 
 func TestBroadcastToAllPeers(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
 	id1, ch1 := h.Join("alice", "#f87171")
@@ -286,14 +286,14 @@ func TestShouldPostDirty(t *testing.T) {
 
 func TestCloseIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	h.Close()
 	h.Close() // second Close must not panic
 }
 
 func TestJoinAfterClose(t *testing.T) {
 	dir := t.TempDir()
-	h := NewHub(dir, ChannelPublic)
+	h := NewHub(dir, ChannelPublic, "")
 	h.Close()
 
 	id, ch := h.Join("late", "#888")
@@ -315,9 +315,9 @@ func TestJoinAfterClose(t *testing.T) {
 // and that wede auto-gitignores the private folder.
 func TestPrivateChannel(t *testing.T) {
 	dir := t.TempDir()
-	pub := NewHub(dir, ChannelPublic)
+	pub := NewHub(dir, ChannelPublic, "")
 	defer pub.Close()
-	priv := NewHub(dir, ChannelPrivate)
+	priv := NewHub(dir, ChannelPrivate, "")
 	defer priv.Close()
 
 	pub.Post("alice", "#fff", "public hello")

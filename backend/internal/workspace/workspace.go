@@ -14,7 +14,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -26,8 +25,8 @@ import (
 	"wede/backend/internal/chat"
 	"wede/backend/internal/collab"
 	"wede/backend/internal/collabdoc"
-	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/files"
+	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/folder"
 	"wede/backend/internal/git"
 	"wede/backend/internal/lsp"
@@ -49,21 +48,21 @@ type Workspace struct {
 	// frameAncestors is threaded into the terminal/lsp WebSocket origin checks.
 	frameAncestors string
 
-	mu       sync.Mutex
-	files    *files.Handler
-	git      *git.Handler
-	search   *search.Handler
-	watcher  *filewatcher.Handler
-	terminal *terminal.Handler
-	lsp      *lsp.Handler
-	presence  *presence.Hub
-	collab    *collab.Handler
+	mu          sync.Mutex
+	files       *files.Handler
+	git         *git.Handler
+	search      *search.Handler
+	watcher     *filewatcher.Handler
+	terminal    *terminal.Handler
+	lsp         *lsp.Handler
+	presence    *presence.Hub
+	collab      *collab.Handler
 	chatPublic  *chat.Hub
 	chatPrivate *chat.Hub
 	apiClient   *apiclient.Handler
-	docs       *collabdoc.DocStore
-	docServer  *ywebsocket.Server          // ygo sync+awareness WS server (one doc per file)
-	docPersist *collabdoc.DiskPersistence  // seeds from + writes back to disk
+	docs        *collabdoc.DocStore
+	docServer   *ywebsocket.Server         // ygo sync+awareness WS server (one doc per file)
+	docPersist  *collabdoc.DiskPersistence // seeds from + writes back to disk
 }
 
 // Workspace returns the workspace's folder.Manager, satisfying the WorkspaceProvider
@@ -174,12 +173,12 @@ func (r *Workspace) Chat(channel string) *chat.Hub {
 	defer r.mu.Unlock()
 	if channel == chat.ChannelPrivate {
 		if r.chatPrivate == nil {
-			r.chatPrivate = chat.NewHub(hostRoot, chat.ChannelPrivate)
+			r.chatPrivate = chat.NewHub(hostRoot, chat.ChannelPrivate, r.frameAncestors)
 		}
 		return r.chatPrivate
 	}
 	if r.chatPublic == nil {
-		r.chatPublic = chat.NewHub(hostRoot, chat.ChannelPublic)
+		r.chatPublic = chat.NewHub(hostRoot, chat.ChannelPublic, r.frameAncestors)
 	}
 	return r.chatPublic
 }
@@ -274,16 +273,18 @@ func (r *Workspace) shutdown() {
 // Manager owns the set of live workspaces. Safe for concurrent use.
 type Manager struct {
 	mu             sync.RWMutex
-	workspaces          map[string]*Workspace
+	workspaces     map[string]*Workspace
 	order          []string // preserves creation order for stable listing
 	frameAncestors string   // threaded into per-workspace terminal/lsp origin checks
+	allowedRoot    string   // base dir under which new workspaces may be created ("" = no restriction)
 }
 
-// NewManager returns an empty RoomManager. frameAncestors mirrors the
-// frame_ancestors config and is passed to each workspace's terminal/lsp handlers for
-// WebSocket origin checking.
-func NewManager(frameAncestors string) *Manager {
-	return &Manager{workspaces: make(map[string]*Workspace), frameAncestors: frameAncestors}
+// NewManager returns an empty Manager. frameAncestors mirrors the frame_ancestors
+// config and is passed to each workspace's terminal/lsp handlers for WebSocket
+// origin checking. allowedRoot is the base directory under which new workspaces
+// may be created (see folder.ValidateRoot); an empty value disables that check.
+func NewManager(frameAncestors, allowedRoot string) *Manager {
+	return &Manager{workspaces: make(map[string]*Workspace), frameAncestors: frameAncestors, allowedRoot: allowedRoot}
 }
 
 func newID() string {
@@ -316,19 +317,12 @@ func (m *Manager) Register(name string, ws *folder.Manager) *Workspace {
 }
 
 // Create opens a new workspace rooted at the given path. The path is expanded (~),
-// absolutised, and validated as an existing directory.
+// absolutised, symlink-resolved, and validated against the manager's allowed root
+// (rejecting $HOME, /, dotfile dirs, and traversal) before being adopted.
 func (m *Manager) Create(name, root string) (*Workspace, error) {
-	root = expandHome(root)
-	abs, err := filepath.Abs(root)
+	abs, err := folder.ValidateRoot(root, m.allowedRoot)
 	if err != nil {
 		return nil, err
-	}
-	info, err := os.Stat(abs)
-	if err != nil {
-		return nil, fmt.Errorf("path does not exist: %s", abs)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("path is not a directory: %s", abs)
 	}
 	ws := folder.New(abs)
 	if !ws.HasWorkspace() {
@@ -385,16 +379,4 @@ func (m *Manager) Close(id string) bool {
 	// workspace operations.
 	r.shutdown()
 	return true
-}
-
-func expandHome(p string) string {
-	if p == "~" || strings.HasPrefix(p, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			if p == "~" {
-				return home
-			}
-			return filepath.Join(home, p[2:])
-		}
-	}
-	return p
 }

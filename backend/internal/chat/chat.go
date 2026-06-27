@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"wede/backend/internal/auth"
 )
 
 const (
@@ -69,15 +71,16 @@ const (
 
 // Hub is one chat channel for a workspace. Safe for concurrent use.
 type Hub struct {
-	mu      sync.Mutex
-	peers   map[string]*peer
-	history []Message
-	root    string
-	relPath string // workspace-relative chat file path
-	gitOn   bool   // post git-activity messages (public channel only)
-	counter uint64
-	closed  bool
-	stop    chan struct{}
+	mu       sync.Mutex
+	peers    map[string]*peer
+	history  []Message
+	root     string
+	relPath  string // workspace-relative chat file path
+	gitOn    bool   // post git-activity messages (public channel only)
+	counter  uint64
+	closed   bool
+	stop     chan struct{}
+	upgrader websocket.Upgrader // per-hub so CheckOrigin honours the embed allowlist
 }
 
 // NewHub creates a Hub for the given channel ("public" or "private") rooted at
@@ -85,7 +88,10 @@ type Hub struct {
 // messages. The public channel persists to .wede/chat.md and starts a
 // git-activity poller; the private channel persists to .wede/private/chat.md and
 // ensures .wede/.gitignore excludes it.
-func NewHub(root, channel string) *Hub {
+// frameAncestors mirrors the frame_ancestors config (space-separated origins) and
+// is enforced by the WebSocket origin check so only same-origin or explicitly
+// allowed embedders can connect.
+func NewHub(root, channel, frameAncestors string) *Hub {
 	relPath := filepath.Join(".wede", "chat.md")
 	gitOn := true
 	if channel == ChannelPrivate {
@@ -93,12 +99,16 @@ func NewHub(root, channel string) *Hub {
 		gitOn = false
 		ensurePrivateGitignore(root)
 	}
+	allowed := parseOrigins(frameAncestors)
 	h := &Hub{
 		peers:   make(map[string]*peer),
 		root:    root,
 		relPath: relPath,
 		gitOn:   gitOn,
 		stop:    make(chan struct{}),
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return checkOrigin(r, allowed) },
+		},
 	}
 	h.loadHistory()
 	if gitOn {
@@ -196,9 +206,9 @@ func parseLine(line string) (Message, bool) {
 // formatLine serialises a Message into a human/LLM-friendly markdown line.
 // Examples:
 //
-//	- 2026-06-26T15:30:00Z [user] alice: hello world
-//	- 2026-06-26T15:31:00Z [git] 📦 committed a1b2c3d: fix typo
-//	- 2026-06-26T15:32:00Z [system] workspace opened
+//   - 2026-06-26T15:30:00Z [user] alice: hello world
+//   - 2026-06-26T15:31:00Z [git] 📦 committed a1b2c3d: fix typo
+//   - 2026-06-26T15:32:00Z [system] workspace opened
 func formatLine(m Message) string {
 	ts := m.Time.UTC().Format(time.RFC3339)
 	switch m.Kind {
@@ -415,9 +425,39 @@ func gitCmd(root string, args ...string) (string, error) {
 
 // ── WebSocket handler ──────────────────────────────────────────────────────────
 
-var upgrader = websocket.Upgrader{
-	// Allow all origins; the auth middleware gates access; public-read is OK per spec.
-	CheckOrigin: func(r *http.Request) bool { return true },
+// parseOrigins splits a space-separated frame_ancestors value into a set of
+// allowed origins (mirrors the collab/terminal handlers).
+func parseOrigins(frameAncestors string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, o := range strings.Fields(frameAncestors) {
+		set[o] = struct{}{}
+	}
+	return set
+}
+
+// checkOrigin enforces WebSocket origin validation: requests with no Origin
+// header (non-browser clients) or a same-origin header are allowed; any other
+// origin must be in the allowed set.
+func checkOrigin(r *http.Request, allowedOrigins map[string]struct{}) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" || proto == "http" {
+		scheme = proto
+	}
+	if origin == scheme+"://"+r.Host {
+		return true
+	}
+	if _, ok := allowedOrigins[origin]; ok {
+		return true
+	}
+	log.Printf("[chat] rejected WebSocket upgrade from origin %q (host=%s)", origin, r.Host)
+	return false
 }
 
 // HandleWS upgrades a GET /api/workspaces/{id}/chat request to a chat WebSocket.
@@ -447,13 +487,16 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		hdr = http.Header{"Sec-Websocket-Protocol": {chosen}}
 	}
 
-	conn, err := upgrader.Upgrade(w, r, hdr)
+	conn, err := h.upgrader.Upgrade(w, r, hdr)
 	if err != nil {
 		log.Println("[chat] websocket upgrade error:", err)
 		return
 	}
 
-	username := r.URL.Query().Get("username")
+	// Identity is taken from the authenticated session (attached by auth.Middleware),
+	// never from a client-supplied query param, so a peer can't post as someone else.
+	// Color is purely cosmetic and not part of the session, so it stays client-chosen.
+	username := auth.GetUsername(r)
 	color := r.URL.Query().Get("color")
 	if username == "" {
 		username = "anon"

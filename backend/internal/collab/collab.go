@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"wede/backend/internal/auth"
 	"wede/backend/internal/presence"
 )
 
@@ -64,7 +65,9 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := r.URL.Query().Get("username")
+	// Identity comes from the authenticated session (attached by auth.Middleware),
+	// not a client-supplied query param, so presence can't be spoofed.
+	username := auth.GetUsername(r)
 	id, out := h.hub.Join(username)
 	if id == "" { // hub already closed (room shutting down)
 		conn.Close()
@@ -92,8 +95,8 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	close(stop)      // stop the write pump promptly
-	h.hub.Leave(id)  // remove from roster (closes out)
+	close(stop)     // stop the write pump promptly
+	h.hub.Leave(id) // remove from roster (closes out)
 	conn.Close()
 }
 

@@ -9,9 +9,13 @@
 package apiclient
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -22,6 +26,60 @@ import (
 // maxResponseBytes caps how much of a response body we buffer (10 MiB).
 const maxResponseBytes = 10 << 20
 
+// allowPrivateTargets reports whether the API-client proxy is permitted to reach
+// loopback/private/link-local addresses. It is blocked by default to prevent SSRF
+// (an editor pivoting to localhost services or the cloud metadata endpoint) and is
+// re-enabled by setting WEDE_APICLIENT_ALLOW_PRIVATE to a truthy value, which a
+// self-hoster does when they intentionally want to call their own dev server.
+func allowPrivateTargets() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("WEDE_APICLIENT_ALLOW_PRIVATE"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// isBlockedIP reports whether ip is in a range the proxy must not reach: loopback,
+// private (RFC1918 / ULA), link-local (incl. the 169.254.169.254 cloud-metadata
+// address), or the unspecified address.
+func isBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified()
+}
+
+// safeDialContext is a DialContext that rejects connections to blocked IP ranges.
+// Checking the address actually being dialled (post-DNS-resolution) defeats
+// DNS-rebinding, since the guard sees the real IP rather than the hostname.
+func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	for _, ipa := range ips {
+		if isBlockedIP(ipa.IP) {
+			return nil, fmt.Errorf("blocked address %s (private/loopback/metadata ranges are not allowed; set WEDE_APICLIENT_ALLOW_PRIVATE=1 to permit)", ipa.IP)
+		}
+	}
+	// Dial the first allowed IP explicitly so we connect to the address we vetted.
+	var lastErr error
+	for _, ipa := range ips {
+		conn, derr := dialer.DialContext(ctx, network, net.JoinHostPort(ipa.IP.String(), port))
+		if derr == nil {
+			return conn, nil
+		}
+		lastErr = derr
+	}
+	return nil, lastErr
+}
+
 // Handler serves the API client for one workspace. wedeDir resolves the
 // workspace's current .wede directory (which may be relocated at runtime).
 type Handler struct {
@@ -30,7 +88,7 @@ type Handler struct {
 
 func New(wedeDir func() string) *Handler { return &Handler{wedeDir: wedeDir} }
 
-func (h *Handler) requestsDir() string    { return filepath.Join(h.wedeDir(), "requests") }
+func (h *Handler) requestsDir() string     { return filepath.Join(h.wedeDir(), "requests") }
 func (h *Handler) environmentsDir() string { return filepath.Join(h.wedeDir(), "environments") }
 
 // safeJoin confines a caller-supplied relative path within base.
@@ -88,6 +146,13 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 		req.URL = "http://" + req.URL
 	}
 
+	// Scheme allowlist: only http(s) may be proxied, blocking file://, gopher://,
+	// etc. that could be used for SSRF or local-file exfiltration.
+	if parsed, perr := url.Parse(req.URL); perr != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		writeErr(w, http.StatusBadRequest, "only http and https URLs are allowed")
+		return
+	}
+
 	var bodyReader io.Reader
 	if req.Body != "" {
 		bodyReader = strings.NewReader(req.Body)
@@ -103,7 +168,13 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// Block requests to loopback/private/metadata IPs by default (SSRF guard),
+	// unless the operator has opted in via WEDE_APICLIENT_ALLOW_PRIVATE.
+	transport := &http.Transport{}
+	if !allowPrivateTargets() {
+		transport.DialContext = safeDialContext
+	}
+	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
 	start := time.Now()
 	resp, err := client.Do(outReq)
 	elapsed := time.Since(start).Milliseconds()

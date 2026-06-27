@@ -12,6 +12,9 @@ import (
 )
 
 func TestSendProxy(t *testing.T) {
+	// The proxy blocks loopback/private targets by default (SSRF guard); the test
+	// server is on 127.0.0.1, so opt in to private targets for this test.
+	t.Setenv("WEDE_APICLIENT_ALLOW_PRIVATE", "1")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Accept") != "application/json" {
 			t.Errorf("header not forwarded: %q", r.Header.Get("Accept"))

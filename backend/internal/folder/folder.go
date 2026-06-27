@@ -2,6 +2,7 @@ package folder
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,11 +14,109 @@ import (
 )
 
 type Manager struct {
-	mu        sync.RWMutex
-	current   string // empty = no folder open yet
-	dataDir   string
-	recents   []string
-	listeners []func(string) // called when workspace changes
+	mu          sync.RWMutex
+	current     string // empty = no folder open yet
+	dataDir     string
+	recents     []string
+	listeners   []func(string) // called when workspace changes
+	allowedRoot string         // base dir under which workspaces may be opened ("" = no extra restriction)
+}
+
+// SetAllowedRoot configures the base directory under which HandleOpen will permit
+// opening a workspace. See ValidateRoot for the enforced rules.
+func (m *Manager) SetAllowedRoot(base string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.allowedRoot = base
+}
+
+// ValidateRoot resolves a user-supplied workspace path and enforces that it is a
+// safe directory to expose. The path must:
+//   - be an existing directory,
+//   - resolve (after ~ expansion + symlink resolution) to a location inside
+//     allowedBase (when allowedBase is non-empty),
+//   - not be the filesystem root or the user's home directory itself,
+//   - not contain a dotfile path component (e.g. .ssh, .config, .gnupg) or a
+//     traversal segment.
+//
+// It returns the cleaned absolute path on success.
+func ValidateRoot(path, allowedBase string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", errors.New("path required")
+	}
+
+	// Expand a leading ~ to the user's home directory.
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			if path == "~" {
+				path = home
+			} else {
+				path = filepath.Join(home, path[2:])
+			}
+		}
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	abs = filepath.Clean(abs)
+
+	// Resolve symlinks so a symlinked path can't be used to escape allowedBase.
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = filepath.Clean(resolved)
+	}
+
+	home, _ := os.UserHomeDir()
+	if abs == string(filepath.Separator) {
+		return "", errors.New("refusing to open filesystem root as a workspace")
+	}
+	if home != "" {
+		if hr, err := filepath.EvalSymlinks(home); err == nil {
+			home = filepath.Clean(hr)
+		}
+		if abs == home {
+			return "", errors.New("refusing to open the home directory itself as a workspace")
+		}
+	}
+
+	base := ""
+	if strings.TrimSpace(allowedBase) != "" {
+		base = filepath.Clean(allowedBase)
+		if br, err := filepath.EvalSymlinks(base); err == nil {
+			base = filepath.Clean(br)
+		}
+		if abs != base && !strings.HasPrefix(abs, base+string(filepath.Separator)) {
+			return "", fmt.Errorf("path outside the allowed workspace root (%s)", base)
+		}
+	}
+
+	// Reject any dotfile component (e.g. .ssh, .gnupg) and traversal segments in
+	// the portion of the path below the allowed base.
+	rel := abs
+	if base != "" {
+		rel = strings.TrimPrefix(abs, base)
+	}
+	for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+		if seg == "" || seg == "." {
+			continue
+		}
+		if seg == ".." {
+			return "", errors.New("path traversal not allowed")
+		}
+		if strings.HasPrefix(seg, ".") {
+			return "", fmt.Errorf("dotfile directories are not allowed in a workspace path (%s)", seg)
+		}
+	}
+
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("path does not exist: %s", abs)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", abs)
+	}
+	return abs, nil
 }
 
 func New(defaultPath string) *Manager {
@@ -134,8 +233,8 @@ func (m *Manager) saveRecents() {
 func (m *Manager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"current": m.Current(),
-		"recents": m.Recents(),
+		"current":      m.Current(),
+		"recents":      m.Recents(),
 		"hasWorkspace": m.HasWorkspace(),
 	})
 }
@@ -151,13 +250,19 @@ func (m *Manager) HandleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Expand ~ to home directory
-	if strings.HasPrefix(body.Path, "~/") || body.Path == "~" {
-		home, _ := os.UserHomeDir()
-		body.Path = filepath.Join(home, body.Path[1:])
+	// Confine the workspace root to the configured allowed base and reject
+	// sensitive locations ($HOME, /, dotfile dirs, traversal).
+	m.mu.RLock()
+	allowed := m.allowedRoot
+	m.mu.RUnlock()
+	safe, err := ValidateRoot(body.Path, allowed)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
 	}
 
-	if err := m.SetWorkspace(body.Path); err != nil {
+	if err := m.SetWorkspace(safe); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
@@ -259,9 +364,9 @@ func (m *Manager) HandleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]any{
-		"path":    abs,
-		"parent":  parent,
-		"dirs":    dirs,
-		"roots":   validRoots,
+		"path":   abs,
+		"parent": parent,
+		"dirs":   dirs,
+		"roots":  validRoots,
 	})
 }

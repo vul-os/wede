@@ -46,15 +46,57 @@ package auth
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"time"
 )
+
+// Invite-redemption rate limit: at most redeemMaxPerWindow attempts per client IP
+// per redeemWindow. This throttles brute-force / abuse of the public redeem
+// endpoint without affecting legitimate one-shot redemptions.
+const (
+	redeemMaxPerWindow = 10
+	redeemWindow       = time.Minute
+)
+
+type redeemBucket struct {
+	count int
+	reset time.Time
+}
+
+// allowRedeem reports whether a redeem attempt from ip is within the rate limit,
+// counting the attempt when allowed.
+func (h *Handler) allowRedeem(ip string) bool {
+	h.redeemMu.Lock()
+	defer h.redeemMu.Unlock()
+	now := time.Now()
+	b, ok := h.redeemHits[ip]
+	if !ok || now.After(b.reset) {
+		h.redeemHits[ip] = &redeemBucket{count: 1, reset: now.Add(redeemWindow)}
+		return true
+	}
+	if b.count >= redeemMaxPerWindow {
+		return false
+	}
+	b.count++
+	return true
+}
+
+// clientIP extracts the remote IP (without port) from the request.
+func clientIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
 
 // HandleMintToken creates a share token for a viewer or editor role.
 //
 // POST /api/auth/tokens  (RequireOwner)
 // Request body: {"role":"viewer"|"editor", "username":"...", "ttlHours":0}
-//   ttlHours is optional; 0 or absent means the token never expires.
+//
+//	ttlHours is optional; 0 or absent means the token never expires.
+//
 // Response 200: {"raw":"<token>", "id":"<id>", "inviteUrl":"?invite=<token>"}
 // Response 400: {"error":"..."} on invalid role.
 func (h *Handler) HandleMintToken(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +180,12 @@ func (h *Handler) HandleRevokeToken(w http.ResponseWriter, r *http.Request) {
 // Response 401: {"error":"invalid or expired token"}
 func (h *Handler) HandleRedeem(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	if !h.allowRedeem(clientIP(r)) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{"error": "too many attempts; try again later"})
+		return
+	}
 
 	var body struct {
 		Token string `json:"token"`

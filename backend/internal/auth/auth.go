@@ -18,13 +18,27 @@ import (
 
 type contextKey int
 
-const roleCtxKey contextKey = iota
+const (
+	roleCtxKey contextKey = iota
+	usernameCtxKey
+)
 
 // GetRole returns the resolved Role that Middleware attached to the request
 // context. Returns "" if Middleware has not run (shouldn't happen in normal
 // operation — treat it as an unauthenticated call).
 func GetRole(r *http.Request) Role {
 	if v, ok := r.Context().Value(roleCtxKey).(Role); ok {
+		return v
+	}
+	return ""
+}
+
+// GetUsername returns the authenticated session's display username that
+// Middleware attached to the request context. Handlers should trust this value
+// rather than a client-supplied query parameter, so a peer cannot impersonate
+// another user. Returns "" if Middleware has not run or the session had no name.
+func GetUsername(r *http.Request) string {
+	if v, ok := r.Context().Value(usernameCtxKey).(string); ok {
 		return v
 	}
 	return ""
@@ -72,6 +86,9 @@ type Handler struct {
 	sessions    map[string]sessionEntry
 	tokens      map[string]shareToken
 	dataDir     string
+
+	redeemMu   sync.Mutex
+	redeemHits map[string]*redeemBucket // per-IP rate limiting for invite redemption
 }
 
 func New(password string) *Handler {
@@ -85,6 +102,7 @@ func New(password string) *Handler {
 		sessions:    make(map[string]sessionEntry),
 		tokens:      make(map[string]shareToken),
 		dataDir:     dataDir,
+		redeemHits:  make(map[string]*redeemBucket),
 	}
 	h.loadSessions()
 	h.loadLockout()
@@ -100,7 +118,9 @@ func (h *Handler) lockoutFilePath() string {
 	return filepath.Join(h.dataDir, lockoutFile)
 }
 
-// loadSessions reads persisted sessions and prunes expired ones.
+// loadSessions reads persisted sessions and prunes expired ones. Sessions are
+// keyed by the SHA-256 hash of the token, so the stored map keys are hashes and
+// can be loaded directly.
 func (h *Handler) loadSessions() {
 	data, err := os.ReadFile(h.sessionsFile())
 	if err != nil {
@@ -109,16 +129,18 @@ func (h *Handler) loadSessions() {
 	var stored map[string]sessionEntry
 	if json.Unmarshal(data, &stored) == nil {
 		now := time.Now()
-		for t, e := range stored {
+		for k, e := range stored {
 			if now.Sub(e.CreatedAt) < SessionTTL {
-				h.sessions[t] = e
+				h.sessions[k] = e
 			}
 		}
 	}
 }
 
 // saveSessions writes the current session map to disk (must be called with mu held or
-// after acquiring it if the caller doesn't hold it).
+// after acquiring it if the caller doesn't hold it). The map is keyed by token
+// hash, so no raw session token is ever persisted: an attacker who reads
+// ~/.wede/sessions.json cannot recover a usable token.
 func (h *Handler) saveSessions() {
 	data, _ := json.Marshal(h.sessions)
 	os.WriteFile(h.sessionsFile(), data, 0600)
@@ -147,21 +169,24 @@ func (h *Handler) saveLockout() {
 // pruneExpired removes sessions whose idle TTL has elapsed. mu must be held.
 func (h *Handler) pruneExpired() {
 	now := time.Now()
-	for t, e := range h.sessions {
+	for k, e := range h.sessions {
 		if now.Sub(e.CreatedAt) >= SessionTTL {
-			delete(h.sessions, t)
+			delete(h.sessions, k)
 		}
 	}
 }
 
 // validSession checks whether token is present and not expired. mu must be held.
+// Lookups are keyed by the token's hash so the raw token is never used as a map
+// key (and thus never persisted).
 func (h *Handler) validSession(token string) bool {
-	e, ok := h.sessions[token]
+	key := hashToken(token)
+	e, ok := h.sessions[key]
 	if !ok {
 		return false
 	}
 	if time.Since(e.CreatedAt) >= SessionTTL {
-		delete(h.sessions, token)
+		delete(h.sessions, key)
 		return false
 	}
 	return true
@@ -237,7 +262,7 @@ func (h *Handler) newSession(username string, role Role) string {
 	raw := make([]byte, 32)
 	rand.Read(raw)
 	token := hex.EncodeToString(raw)
-	h.sessions[token] = sessionEntry{
+	h.sessions[hashToken(token)] = sessionEntry{
 		CreatedAt: time.Now(),
 		Username:  sanitizeUsername(username),
 		Role:      role,
@@ -252,7 +277,7 @@ func (h *Handler) newSession(username string, role Role) string {
 func (h *Handler) Role(token string) Role {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if e, ok := h.sessions[token]; ok && time.Since(e.CreatedAt) < SessionTTL {
+	if e, ok := h.sessions[hashToken(token)]; ok && time.Since(e.CreatedAt) < SessionTTL {
 		return normalizeRole(e.Role)
 	}
 	return ""
@@ -273,11 +298,12 @@ func (h *Handler) SetUsername(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck — empty body => empty name
 	name := sanitizeUsername(body.Username)
 
+	key := hashToken(token)
 	h.mu.Lock()
-	e, ok := h.sessions[token]
+	e, ok := h.sessions[key]
 	if ok {
 		e.Username = name
-		h.sessions[token] = e
+		h.sessions[key] = e
 		h.saveSessions()
 	}
 	h.mu.Unlock()
@@ -295,7 +321,7 @@ func (h *Handler) SetUsername(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Username(token string) string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if e, ok := h.sessions[token]; ok && time.Since(e.CreatedAt) < SessionTTL {
+	if e, ok := h.sessions[hashToken(token)]; ok && time.Since(e.CreatedAt) < SessionTTL {
 		return e.Username
 	}
 	return ""
@@ -310,7 +336,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	delete(h.sessions, token)
+	delete(h.sessions, hashToken(token))
 	h.saveSessions()
 	h.mu.Unlock()
 
@@ -324,14 +350,15 @@ func (h *Handler) Check(w http.ResponseWriter, r *http.Request) {
 		token = r.URL.Query().Get("token")
 	}
 
+	key := hashToken(token)
 	h.mu.Lock()
 	valid := h.validSession(token)
 	locked := h.locked
 	username := ""
 	role := Role("")
 	if valid {
-		username = h.sessions[token].Username
-		role = normalizeRole(h.sessions[token].Role)
+		username = h.sessions[key].Username
+		role = normalizeRole(h.sessions[key].Role)
 	}
 	h.mu.Unlock()
 
@@ -361,11 +388,14 @@ func (h *Handler) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
+		key := hashToken(token)
 		h.mu.Lock()
 		valid := h.validSession(token)
 		role := Role("")
+		username := ""
 		if valid {
-			role = normalizeRole(h.sessions[token].Role)
+			role = normalizeRole(h.sessions[key].Role)
+			username = h.sessions[key].Username
 		}
 		h.mu.Unlock()
 
@@ -376,6 +406,7 @@ func (h *Handler) Middleware(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), roleCtxKey, role)
+		ctx = context.WithValue(ctx, usernameCtxKey, username)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -11,9 +11,9 @@ import (
 
 	"wede/backend/internal/auth"
 	"wede/backend/internal/config"
-	"wede/backend/internal/workspace"
-	"wede/backend/internal/tunnel"
 	"wede/backend/internal/folder"
+	"wede/backend/internal/tunnel"
+	"wede/backend/internal/workspace"
 )
 
 // Version is injected at build time via -ldflags "-X main.Version=vX.Y.Z".
@@ -72,11 +72,15 @@ func main() {
 	}
 
 	rootFolder := folder.New(defaultPath)
+	// Confine runtime folder-open / workspace-create requests to the configured
+	// allowed base (default: $HOME). The boot path above is the owner's explicit
+	// launch choice and is intentionally exempt from this restriction.
+	rootFolder.SetAllowedRoot(cfg.WorkspaceRoot)
 
 	// Workspace registry: the multi-project backbone. The boot workspace is adopted
 	// as the default workspace so the solo-user case works with zero setup; additional
 	// projects can be opened as further workspaces via /api/workspaces.
-	wsMgr := workspace.NewManager(cfg.FrameAncestors)
+	wsMgr := workspace.NewManager(cfg.FrameAncestors, cfg.WorkspaceRoot)
 	// The default workspace must exist so scoped /api/workspaces/{id}/... routes
 	// (and the frontend's auto-selected "default") resolve.
 	wsMgr.Register("default", rootFolder)
@@ -113,13 +117,18 @@ func main() {
 	protected.Handle("POST /api/tunnel/stop", ro(http.HandlerFunc(tunnelMgr.HandleStop)))
 
 	protected.HandleFunc("GET /api/folder", rootFolder.HandleGet)
-	protected.HandleFunc("POST /api/folder/open", rootFolder.HandleOpen)
+	// Opening a folder adopts a new workspace root and grants a shell/edit surface
+	// over it, so it is gated to editor+ (viewers are rejected) and the target path
+	// is restricted to the allowed base inside the handler.
+	protected.Handle("POST /api/folder/open", re(http.HandlerFunc(rootFolder.HandleOpen)))
 	protected.HandleFunc("GET /api/folder/browse", rootFolder.HandleBrowse)
 
 	// Workspace registry endpoints (multi-project backbone). Per-workspace scoping of the
 	// file/git/etc. routes under /api/workspaces/{id}/... is layered on in later slices.
 	protected.HandleFunc("GET /api/workspaces", wsMgr.HandleList)
-	protected.HandleFunc("POST /api/workspaces", wsMgr.HandleCreate)
+	// Creating a workspace is editor+ only (same rationale as /api/folder/open);
+	// the requested root is validated against the allowed base in HandleCreate.
+	protected.Handle("POST /api/workspaces", re(http.HandlerFunc(wsMgr.HandleCreate)))
 	protected.HandleFunc("GET /api/workspaces/{id}", wsMgr.HandleGet)
 	protected.HandleFunc("DELETE /api/workspaces/{id}", wsMgr.HandleClose)
 
@@ -179,7 +188,9 @@ func main() {
 	protected.HandleFunc("GET /api/workspaces/{id}/collab", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Collab().HandleWS }))
 	// CRDT document sync+awareness (ygo provider). {room...} is the file's
 	// workspace-relative path; the provider reads it via r.PathValue("workspace").
-	protected.HandleFunc("GET /api/workspaces/{id}/doc/{room...}", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DocServer().ServeHTTP }))
+	// Editor+ only: the doc socket drives DiskPersistence write-back to files, so
+	// viewers must not be able to connect and overwrite workspace files.
+	protected.Handle("GET /api/workspaces/{id}/doc/{room...}", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DocServer().ServeHTTP })))
 	// git tools (blame/tags read-only; cherry-pick/revert/reset/merge/tag mutate -> RequireEditor)
 	protected.HandleFunc("GET /api/workspaces/{id}/git/blame", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Blame }))
 	protected.HandleFunc("GET /api/workspaces/{id}/git/tags", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Git().Tags }))

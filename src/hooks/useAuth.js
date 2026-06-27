@@ -3,6 +3,21 @@ import { scopedUrl } from '../lib/activeWorkspace'
 
 const API = '/api'
 
+// SECURITY NOTE — session token storage.
+//
+// The session token is currently kept in localStorage so it survives reloads and
+// is readable by the WebSocket clients (terminal/collab/chat) that pass it as an
+// "auth.<token>" subprotocol. The downside is that any successful XSS could read
+// it. The primary stored-XSS vector (rendering collaborators' markdown) is now
+// closed by sanitizing with DOMPurify in MarkdownPreview, so a token-stealing
+// payload can no longer be planted via file content.
+//
+// The robust fix is to move the token to an HttpOnly, SameSite cookie so JS can
+// never read it. That is a backend change (Set-Cookie on login/redeem, read the
+// cookie in auth.Middleware, clear it on logout, and switch the WS handshake to
+// cookie auth) and is tracked as follow-up work; it is intentionally not done in
+// this change to avoid destabilizing the WS auth path. Until then, keep the XSS
+// surface minimal (DOMPurify above) and treat the token as sensitive.
 export function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('wede_token'))
   const [username, setUsername] = useState(() => localStorage.getItem('wede_username') || '')

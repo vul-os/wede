@@ -116,7 +116,42 @@ func (h *Handler) safePath(reqPath string) (string, bool) {
 	if full != ws && !strings.HasPrefix(full, wsWithSep) {
 		return "", false
 	}
+	// Symlink guard: the lexical check above can be defeated by a symlink that
+	// lives inside the workspace but points outside it. Resolve symlinks and
+	// confirm the real target still falls within the workspace, so a viewer/editor
+	// can't read or overwrite files outside the project via a planted symlink.
+	if !withinWorkspaceReal(ws, full) {
+		return "", false
+	}
 	return full, true
+}
+
+// withinWorkspaceReal reports whether full, after symlink resolution, stays inside
+// ws. Because the target may not exist yet (create/write), it walks up to the
+// deepest existing ancestor, resolves that, and re-appends the remaining segments.
+func withinWorkspaceReal(ws, full string) bool {
+	wsReal, err := filepath.EvalSymlinks(ws)
+	if err != nil {
+		wsReal = filepath.Clean(ws)
+	}
+	cur := full
+	tail := ""
+	for {
+		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+			target := resolved
+			if tail != "" {
+				target = filepath.Join(resolved, tail)
+			}
+			return target == wsReal || strings.HasPrefix(target, wsReal+string(filepath.Separator))
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			// Reached the filesystem root without resolving; the lexical check stands.
+			return true
+		}
+		tail = filepath.Join(filepath.Base(cur), tail)
+		cur = parent
+	}
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
