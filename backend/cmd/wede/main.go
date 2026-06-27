@@ -205,6 +205,10 @@ func main() {
 	protected.Handle("POST /api/workspaces/{id}/trust", ro(rs(trustFn)))
 	protected.Handle("DELETE /api/workspaces/{id}/trust", ro(rs(trustFn)))
 	protected.HandleFunc("GET /api/workspaces/{id}/lsp/available", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleAvailable }))
+	// Debug Adapter Protocol — listing is read-only; the debug session WS runs code,
+	// so it is editor-gated.
+	protected.HandleFunc("GET /api/workspaces/{id}/dap/available", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DAP().HandleAvailable }))
+	protected.Handle("GET /api/workspaces/{id}/dap", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DAP().HandleWS })))
 	protected.HandleFunc("GET /api/workspaces/{id}/lsp", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleWS }))
 	// collaboration socket (presence: roster + cursors)
 	protected.HandleFunc("GET /api/workspaces/{id}/collab", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Collab().HandleWS }))

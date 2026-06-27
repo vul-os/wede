@@ -29,6 +29,7 @@ import (
 	"wede/backend/internal/filewatcher"
 	"wede/backend/internal/folder"
 	"wede/backend/internal/git"
+	"wede/backend/internal/dap"
 	"wede/backend/internal/lsp"
 	"wede/backend/internal/presence"
 	"wede/backend/internal/search"
@@ -55,6 +56,7 @@ type Workspace struct {
 	watcher     *filewatcher.Handler
 	terminal    *terminal.Handler
 	lsp         *lsp.Handler
+	dap         *dap.Handler
 	presence    *presence.Hub
 	collab      *collab.Handler
 	chatPublic  *chat.Hub
@@ -133,6 +135,16 @@ func (r *Workspace) LSP() *lsp.Handler {
 		r.lsp = lsp.New(r.ws, r.frameAncestors)
 	}
 	return r.lsp
+}
+
+// DAP returns this workspace's debug-adapter proxy, lazily created on first use.
+func (r *Workspace) DAP() *dap.Handler {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.dap == nil {
+		r.dap = dap.New(r.ws, r.frameAncestors)
+	}
+	return r.dap
 }
 
 // Presence returns this workspace's presence hub (who is connected and what they are
