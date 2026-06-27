@@ -67,7 +67,19 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // Terminal sessions — shared between the docked panel and the floating windows.
   const terminalsApi = useTerminals(authFetch, workspaceId)
-  const [floatingTerminals, setFloatingTerminals] = useState(false)
+  // Terminal placement: 'hidden' | 'floating' (movable windows) | 'docked' (bottom).
+  const [terminalMode, setTerminalMode] = useState('hidden')
+  const lastTermModeRef = useRef('floating')
+  const toggleTerminal = useCallback(() => {
+    setTerminalMode((m) => {
+      if (m === 'hidden') return lastTermModeRef.current
+      lastTermModeRef.current = m
+      return 'hidden'
+    })
+  }, [])
+  const dockTerminal = useCallback(() => { lastTermModeRef.current = 'docked'; setTerminalMode('docked') }, [])
+  const floatTerminal = useCallback(() => { lastTermModeRef.current = 'floating'; setTerminalMode('floating') }, [])
+  const [terminalHeight, setTerminalHeight] = useState(260)
   useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
@@ -440,10 +452,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     resizingRef.current = { type, startX: e.clientX, startY: e.clientY }
     const handleMouseMove = (e) => {
       if (!resizingRef.current) return
-      const { type, startX } = resizingRef.current
+      const { type, startX, startY } = resizingRef.current
       if (type === 'sidebar') {
         setSidebarWidth((w) => Math.max(180, Math.min(500, w + (e.clientX - startX))))
         resizingRef.current.startX = e.clientX
+      } else if (type === 'terminal') {
+        setTerminalHeight((h) => Math.max(100, Math.min(600, h + (startY - e.clientY))))
+        resizingRef.current.startY = e.clientY
       } else if (type === 'settings') {
         setSettingsWidth((w) => Math.max(200, Math.min(500, w + (startX - e.clientX))))
         resizingRef.current.startX = e.clientX
@@ -982,9 +997,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           {role !== 'viewer' && (
             <ActivityBtn
               icon={TerminalSquare}
-              title={floatingTerminals ? 'Hide terminals' : 'Open terminals'}
-              active={floatingTerminals}
-              onClick={() => setFloatingTerminals((v) => !v)}
+              title={terminalMode !== 'hidden' ? 'Hide terminals' : 'Open terminals'}
+              active={terminalMode !== 'hidden'}
+              onClick={toggleTerminal}
             />
           )}
         </div>
@@ -1030,11 +1045,21 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div className="flex-1 min-h-0 relative">
               {renderTabContent()}
               {/* Floating terminal windows overlay the editor area. */}
-              {floatingTerminals && role !== 'viewer' && (
-                <FloatingTerminals token={token} workspaceId={workspaceId} term={terminalsApi} onDock={() => setFloatingTerminals(false)}
+              {terminalMode === 'floating' && role !== 'viewer' && (
+                <FloatingTerminals token={token} workspaceId={workspaceId} term={terminalsApi} onDock={dockTerminal}
                   sendWindow={sendWindow} onWindow={onWindow} />
               )}
             </div>
+            {/* Docked terminal — pinned to the bottom of the editor column. */}
+            {terminalMode === 'docked' && role !== 'viewer' && (
+              <>
+                <div className="resize-handle-v shrink-0" onMouseDown={handleMouseDown('terminal')} />
+                <div style={{ height: terminalHeight }} className="shrink-0">
+                  <TerminalPanel key={terminalKey} token={token} workspaceId={workspaceId} term={terminalsApi} visible
+                    onPopOut={floatTerminal} />
+                </div>
+              </>
+            )}
           </div>
 
         </div>
@@ -1073,7 +1098,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onNewFile={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFile() }}
         onNewFolder={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFolder() }}
         onOpenFolder={() => setShowFolderPicker(true)}
-        onToggleTerminal={() => role !== 'viewer' && setFloatingTerminals((v) => !v)}
+        onToggleTerminal={() => role !== 'viewer' && toggleTerminal()}
         onOpenSettings={() => setShowSettings((v) => !v)}
         onFocusExplorer={() => toggleSidebarTab('files')}
         onFocusGit={() => toggleSidebarTab('git')}

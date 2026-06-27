@@ -423,9 +423,9 @@ async function run() {
   await dragByText('Terminal 2', 150, 150);
   await shot(page, 'terminals');
   await shot(page, 'terminals_floating');
-  // Hide them so later shots aren't covered.
-  const hideBtn = page.getByText('Hide', { exact: true }).first();
-  if (await hideBtn.count() > 0) { await hideBtn.click(); await sleep(500); }
+  // Hide them (activity-rail toggle) so later shots aren't covered.
+  await page.locator('button[title="Hide terminals"]').first().click().catch(() => {});
+  await sleep(500);
 
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
