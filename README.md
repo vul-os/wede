@@ -89,7 +89,8 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
 | **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Replace across files. Results grouped by file; click to jump to exact line. |
 | **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
-| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. **Multiple terminals per workspace**, shared live with collaborators. Run shell commands, SSH, Docker — anything. |
+| **Web Terminal** | Full PTY terminal emulator via xterm.js and WebSocket. **Multiple terminals per workspace** (dockable or floating windows), shared live with collaborators. Run shell commands, SSH, Docker — anything. |
+| **Tasks** | Named build/test/run commands from `~/.wede/tasks.json`, listed in a Tasks panel and run in a terminal ([docs](docs/GETTING-STARTED.md#tasks--named-buildtestrun-commands)). |
 | **Git Client** | VS Code-grade: visual commit graph with branches &amp; merges, blame, side-by-side diff, staging + per-hunk staging, cherry-pick / revert / reset / merge, tags, branch management, push/pull/fetch, stash, merge-conflict resolution. |
 | **Comprehensive Search** | Workspace-wide search with regex, case &amp; whole-word toggles, include/exclude globs, context lines, and a filename mode — plus search &amp; replace across files. |
 | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |

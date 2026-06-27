@@ -3,13 +3,14 @@ import { Terminal as XTerminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 
-export default forwardRef(function Terminal({ token, workspaceId, sessionId, visible, terminalTheme, fontSize = 13 }, ref) {
+export default forwardRef(function Terminal({ token, workspaceId, sessionId, visible, terminalTheme, fontSize = 13, initialCommand, onInitialRun }, ref) {
   const containerRef = useRef(null)
   const termRef = useRef(null)
   const wsRef = useRef(null)
   const fitRef = useRef(null)
   const reconnectRef = useRef(null)
   const mountedRef = useRef(true)
+  const ranInitialRef = useRef(false)
 
   // Expose send function for external toolbar
   useImperativeHandle(ref, () => ({
@@ -89,6 +90,18 @@ export default forwardRef(function Terminal({ token, workspaceId, sessionId, vis
           term.clear()
         }
         ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+        // Run a one-shot task command once the PTY is connected (fresh sessions
+        // only; a small delay lets the shell print its prompt first).
+        if (!isReconnect && !ranInitialRef.current && initialCommand) {
+          ranInitialRef.current = true
+          const cmd = initialCommand
+          setTimeout(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(cmd + '\r')
+            }
+            onInitialRun?.()
+          }, 350)
+        }
       }
 
       ws.onmessage = (event) => {

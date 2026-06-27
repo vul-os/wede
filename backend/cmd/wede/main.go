@@ -14,6 +14,7 @@ import (
 	"wede/backend/internal/config"
 	"wede/backend/internal/folder"
 	"wede/backend/internal/lsp"
+	"wede/backend/internal/tasks"
 	"wede/backend/internal/tunnel"
 	"wede/backend/internal/workspace"
 )
@@ -136,6 +137,10 @@ func main() {
 	// Workspace registry endpoints (multi-project backbone). Per-workspace scoping of the
 	// file/git/etc. routes under /api/workspaces/{id}/... is layered on in later slices.
 	protected.HandleFunc("GET /api/workspaces", wsMgr.HandleList)
+
+	// Owner-defined tasks (~/.wede/tasks.json) — listed here; run client-side in a
+	// terminal, which is itself editor-gated.
+	protected.HandleFunc("GET /api/tasks", tasks.HandleList)
 	// Creating a workspace is editor+ only (same rationale as /api/folder/open);
 	// the requested root is validated against the allowed base in HandleCreate.
 	protected.Handle("POST /api/workspaces", re(http.HandlerFunc(wsMgr.HandleCreate)))

@@ -144,6 +144,27 @@ the built-ins for the same extension. Like the LSP config this is **global and
 owner-controlled** (`~/.wede/`) by design — a formatter runs a command on the
 host, so it is deliberately not read from the shared workspace.
 
+### Tasks — named build/test/run commands
+
+Define commands in `~/.wede/tasks.json`; they appear in a **Tasks** panel in the
+activity rail and run in a terminal:
+
+```json
+{
+  "tasks": [
+    { "name": "Build",  "command": "go build ./..." },
+    { "name": "Test",   "command": "go test ./...", "cwd": "backend" },
+    { "name": "Dev",    "command": "npm run dev" }
+  ]
+}
+```
+
+Click a task (or pick it from the panel) and wede opens a new terminal tab named
+after it and runs the command — `cwd` (relative to the workspace) is optional.
+Running uses the terminal, so it's editor-gated (viewers can see tasks but not
+run them). Like the LSP/formatter config it's **global + owner-controlled** for
+now; project-committed tasks will arrive behind a workspace-trust gate.
+
 VS Code `.vsix` extensions are **not** supported — they require a Node extension
 host, which is intentionally outside wede's single-binary design. LSP is the
 portable, editor-agnostic equivalent and covers the language-support use case.

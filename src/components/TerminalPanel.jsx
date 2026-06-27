@@ -8,7 +8,7 @@ import { useTheme } from '../hooks/useTheme'
 // floating window manager.
 export default function TerminalPanel({ token, workspaceId, term, visible, isFullscreen, onToggleFullscreen, onPopOut, isMobile }) {
   const { terminalTheme } = useTheme()
-  const { terminals, activeId, setActiveId, addTerminal, closeTerminal, termRefs } = term
+  const { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, termRefs } = term
 
   const handleToolbarSend = (data) => {
     const ref = termRefs.current[activeId]
@@ -92,6 +92,8 @@ export default function TerminalPanel({ token, workspaceId, term, visible, isFul
             sessionId={`term-${t.id}`}
             visible={activeId === t.id && visible}
             terminalTheme={terminalTheme}
+            initialCommand={t.initial}
+            onInitialRun={() => clearInitial?.(t.id)}
           />
         ))}
       </div>

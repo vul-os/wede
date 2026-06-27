@@ -43,7 +43,7 @@ function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClos
 
 export default function FloatingTerminals({ token, workspaceId, term, onDock, sendWindow, onWindow }) {
   const { terminalTheme } = useTheme()
-  const { terminals, addTerminal, closeTerminal, termRefs } = term
+  const { terminals, addTerminal, closeTerminal, clearInitial, termRefs } = term
   const [geos, setGeos] = useState({})
   const geosRef = useRef(geos)
   const zRef = useRef(20)
@@ -104,7 +104,8 @@ export default function FloatingTerminals({ token, workspaceId, term, onDock, se
             onClose={() => closeTerminal(t.id)}>
             <Terminal
               ref={(r) => { if (r) termRefs.current[t.id] = r; else delete termRefs.current[t.id] }}
-              token={token} workspaceId={workspaceId} sessionId={`term-${t.id}`} visible terminalTheme={terminalTheme} />
+              token={token} workspaceId={workspaceId} sessionId={`term-${t.id}`} visible terminalTheme={terminalTheme}
+              initialCommand={t.initial} onInitialRun={() => clearInitial?.(t.id)} />
           </FloatingWindow>
         )
       })}

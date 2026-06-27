@@ -55,16 +55,25 @@ export function useTerminals(authFetch, workspaceId) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('wede_terminals', JSON.stringify(terminals))
+      // Never persist `initial` (a one-shot task command) — it must not re-run on reload.
+      localStorage.setItem('wede_terminals', JSON.stringify(terminals.map((t) => ({ id: t.id, name: t.name }))))
       localStorage.setItem('wede_terminal_active', String(activeId))
     } catch { /* ignore */ }
   }, [terminals, activeId])
 
-  const addTerminal = useCallback(() => {
+  // addTerminal(name?, initial?) — `initial` is a command run once when the new
+  // terminal's PTY connects (used by the task runner).
+  const addTerminal = useCallback((name, initial) => {
     const id = nextId++
-    setTerminals((prev) => [...prev, { id, name: `Terminal ${id}` }])
+    setTerminals((prev) => [...prev, { id, name: name || `Terminal ${id}`, initial: initial || undefined }])
     setActiveId(id)
     return id
+  }, [])
+
+  // clearInitial drops a terminal's one-shot command so it can't re-run on a
+  // tab-switch remount within the session.
+  const clearInitial = useCallback((id) => {
+    setTerminals((prev) => prev.map((t) => (t.id === id ? { ...t, initial: undefined } : t)))
   }, [])
 
   const closeTerminal = useCallback((id) => {
@@ -81,5 +90,5 @@ export function useTerminals(authFetch, workspaceId) {
     })
   }, [activeId])
 
-  return { terminals, activeId, setActiveId, addTerminal, closeTerminal, termRefs }
+  return { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, termRefs }
 }

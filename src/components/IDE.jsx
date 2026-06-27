@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Files, GitBranch, TerminalSquare, LogOut, Save, FolderOpen,
   Globe, Settings as SettingsIcon, Moon, Sun, ChevronLeft, Search as SearchIcon,
-  Share2, MessageSquare, Webhook, PanelLeft,
+  Share2, MessageSquare, Webhook, PanelLeft, ListChecks,
 } from 'lucide-react'
 import { useMobile } from '../hooks/useMobile'
 import { useTheme } from '../hooks/useTheme'
@@ -35,6 +35,7 @@ import { useApiClient } from '../hooks/useApiClient'
 import GitGraphView from './GitGraphView'
 import FloatingTerminals from './FloatingTerminals'
 import RemoteCursors from './RemoteCursors'
+import TasksPanel from './TasksPanel'
 import { useTerminals } from '../hooks/useTerminals'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
@@ -67,6 +68,19 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // Terminal sessions — shared between the docked panel and the floating windows.
   const terminalsApi = useTerminals(authFetch, workspaceId)
+
+  // Owner-defined tasks (~/.wede/tasks.json) — run as a command in a new terminal.
+  const [tasks, setTasks] = useState([])
+  useEffect(() => {
+    if (!authFetch) return
+    authFetch('/api/tasks').then((r) => r.json()).then((d) => setTasks(d.tasks || [])).catch(() => {})
+  }, [authFetch])
+  const runTask = useCallback((task) => {
+    if (role === 'viewer' || !task?.command) return
+    const cmd = task.cwd ? `cd '${task.cwd}' && ${task.command}` : task.command
+    setTerminalMode((m) => (m === 'hidden' ? 'docked' : m))
+    terminalsApi.addTerminal(task.name || 'Task', cmd)
+  }, [role, terminalsApi])
   // Terminal placement: 'hidden' | 'floating' (movable windows) | 'docked' (bottom).
   const [terminalMode, setTerminalMode] = useState('hidden')
   const lastTermModeRef = useRef('floating')
@@ -994,6 +1008,14 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             active={sidebarTab === 'api' && showSidebar}
             onClick={() => { toggleSidebarTab('api'); openApiClient() }}
           />
+          {tasks.length > 0 && (
+            <ActivityBtn
+              icon={ListChecks}
+              title="Tasks"
+              active={sidebarTab === 'tasks' && showSidebar}
+              onClick={() => toggleSidebarTab('tasks')}
+            />
+          )}
           {role !== 'viewer' && (
             <ActivityBtn
               icon={TerminalSquare}
@@ -1029,6 +1051,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} onOpenGraph={openGitGraph} />}
               {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
               {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
+              {sidebarTab === 'tasks' && <TasksPanel tasks={tasks} onRun={runTask} readOnly={role === 'viewer'} />}
             </div>
             {/* Drag handle */}
             <div className="resize-handle-h shrink-0" onMouseDown={handleMouseDown('sidebar')} />
