@@ -250,6 +250,16 @@ func main() {
 
 	mux.Handle("/api/", authHandler.Middleware(protected))
 
+	// Standalone marketing site (landing + docs viewer) for wede.vulos.org,
+	// mounted at /site/* so it never shadows the IDE app at / (behind sign-in).
+	// The embedded docs viewer fetches ./docs/<slug>.md from this same route.
+	if siteHandler := newSiteHandler(); siteHandler != nil {
+		mux.Handle("/site/", http.StripPrefix("/site/", siteHandler))
+		mux.HandleFunc("/site", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/site/", http.StatusMovedPermanently)
+		})
+	}
+
 	// Frontend handler - provided by frontend_embed.go or frontend_dev.go
 	frontendHandler := newFrontendHandler()
 	mux.HandleFunc("/", frontendHandler)

@@ -2,6 +2,7 @@ node_modules/
 dist/
 backend/cmd/server/dist/
 backend/cmd/wede/dist/
+backend/cmd/wede/site/
 .env
 .env.local
 tmp/

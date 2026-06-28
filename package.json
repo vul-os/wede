@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:backend": "cd backend && go run ./cmd/wede",
     "build": "vite build",
-    "build:all": "vite build && cp -r dist backend/cmd/wede/dist && cd backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist",
+    "build:all": "vite build && cp -r dist backend/cmd/wede/dist && cp -r site backend/cmd/wede/site && cd backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist cmd/wede/site",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
