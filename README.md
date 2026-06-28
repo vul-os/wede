@@ -169,6 +169,33 @@ for the full reference.
 
 ---
 
+## Extensibility
+
+wede extends through **configuration, not a binary plugin host** — you add
+capabilities by pointing it at tools already on the machine, with no recompile.
+Each registry lives in `~/.wede/` (or a trusted project-local `.wede/`) and is
+merged over the built-ins at startup:
+
+| Extend | Config | Built-ins |
+|--------|--------|-----------|
+| **Language servers (LSP)** | `~/.wede/lsp.json` | `gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer` |
+| **Debug adapters (DAP)** | `~/.wede/debug.json` | `dlv` (Go), `debugpy` (Python) |
+| **Formatters** | `~/.wede/formatters.json` | per-language defaults |
+| **Tasks / runners** | `~/.wede/tasks.json` | — |
+
+LSP brings completion, diagnostics, hover and rename; DAP brings breakpoints,
+stepping, the call stack and variables — both speak the same standards as VS Code,
+so any language server or debug adapter drops in. See
+[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) for copy-paste configs.
+
+> **VS Code `.vsix` extensions are not supported** — they require a Node.js
+> extension host, intentionally outside wede's single-binary design; LSP + DAP are
+> the portable, editor-agnostic equivalents. A native **WASM plugin API** (sidebar
+> panels + editor commands) is planned — see [ROADMAP.md](ROADMAP.md) — with no
+> extension *marketplace* by design.
+
+---
+
 ## Documentation
 
 | Document | Description |
