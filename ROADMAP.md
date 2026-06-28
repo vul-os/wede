@@ -27,16 +27,25 @@ The core shift: **global singletons → per-`Room` state.** A `Room` *is* a proj
 The server holds a `RoomManager` (`map[roomID]*Room`); every request is room-scoped,
 so many people can work on many independent projects on one host at once.
 
-```
-Server
- └─ RoomManager  map[roomID]*Room
-     └─ Room { Root, members,
-               files, git, search,       // disk-backed, scoped to Root
-               watcher (fsnotify),        // one per room
-               lsp,                       // language servers per room (lazy)
-               terms  (terminal.Hub),     // SHARED terminals, output fan-out
-               docs   (collab.DocStore),  // ygo CRDT, server-authoritative
-               presence }                 // roster, cursors, who-views-what
+```mermaid
+flowchart TD
+    Server["Server"]
+    RoomManager["RoomManager — map[roomID]*Room"]
+    Room["Room — Root, members"]
+    Files["files, git, search<br/>(disk-backed, scoped to Root)"]
+    Watcher["watcher (fsnotify)<br/>(one per room)"]
+    LSP["lsp<br/>(language servers per room, lazy)"]
+    Terms["terms (terminal.Hub)<br/>(SHARED terminals, output fan-out)"]
+    Docs["docs (collab.DocStore)<br/>(ygo CRDT, server-authoritative)"]
+    Presence["presence<br/>(roster, cursors, who-views-what)"]
+    Server --> RoomManager
+    RoomManager --> Room
+    Room --> Files
+    Room --> Watcher
+    Room --> LSP
+    Room --> Terms
+    Room --> Docs
+    Room --> Presence
 ```
 
 - **Collab editing:** [reearth/ygo](https://github.com/reearth/ygo) — pure-Go, cgo-free,

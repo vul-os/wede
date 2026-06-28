@@ -6,31 +6,15 @@ wede is a single-binary Go + React web IDE. This document describes the internal
 
 ## Overview
 
-```
-┌─────────────────────────────────────┐
-│           Browser / Client          │
-│  React 19 + CodeMirror 6 + xterm.js │
-└──────────────┬──────────────────────┘
-               │  HTTP REST + WebSocket
-┌──────────────▼──────────────────────┐
-│        Go HTTP Server               │
-│  net/http · password auth · CSP     │
-├──────────────────────────────────────┤
-│  internal/auth      Session tokens, brute-force lockout │
-│  internal/config    JSON config loader                   │
-│  internal/files     File CRUD + format (gofmt/prettier)  │
-│  internal/filewatcher  SSE file-change events (fsnotify) │
-│  internal/git       Git operations (exec git)            │
-│  internal/lsp       Language server proxy (WS ↔ stdio)   │
-│  internal/search    Workspace search (ripgrep / walker)  │
-│  internal/terminal  PTY via WebSocket (os/exec + pty)    │
-│  internal/workspace Workspace path + folder picker       │
-└──────────────────────────────────────┘
-       │ embedded via go:embed
-┌──────▼──────────────────────────────┐
-│  dist/  (Vite build output)         │
-│  served from memory — no disk I/O   │
-└──────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Client["Browser / Client<br/>React 19 + CodeMirror 6 + xterm.js"]
+    Server["Go HTTP Server<br/>net/http · password auth · CSP"]
+    Internal["internal/auth — Session tokens, brute-force lockout<br/>internal/config — JSON config loader<br/>internal/files — File CRUD + format (gofmt/prettier)<br/>internal/filewatcher — SSE file-change events (fsnotify)<br/>internal/git — Git operations (exec git)<br/>internal/lsp — Language server proxy (WS ↔ stdio)<br/>internal/search — Workspace search (ripgrep / walker)<br/>internal/terminal — PTY via WebSocket (os/exec + pty)<br/>internal/workspace — Workspace path + folder picker"]
+    Dist["dist/ (Vite build output)<br/>served from memory — no disk I/O"]
+    Client -->|"HTTP REST + WebSocket"| Server
+    Server --- Internal
+    Internal -->|"embedded via go:embed"| Dist
 ```
 
 ---
@@ -125,12 +109,14 @@ Uses `fsnotify` to watch the workspace directory. Events are debounced (250 ms) 
 
 ## Build system
 
-```
-npm run build:all
-  └── vite build               → dist/
-  └── cp dist → backend/cmd/wede/dist
-  └── go build -tags embed_frontend → ./wede binary
-  └── rm -rf backend/cmd/wede/dist
+```mermaid
+flowchart TD
+    Start["npm run build:all"]
+    A["vite build → dist/"]
+    B["cp dist → backend/cmd/wede/dist"]
+    C["go build -tags embed_frontend → ./wede binary"]
+    D["rm -rf backend/cmd/wede/dist"]
+    Start --> A --> B --> C --> D
 ```
 
 The `embed_frontend` build tag switches between `frontend_embed.go` (serves from embedded `dist/`) and `frontend_dev.go` (serves from `./dist/` on disk, for hot-reload dev mode).
