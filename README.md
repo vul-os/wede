@@ -4,9 +4,9 @@
 
 # WEDE
 
-<sub>**WE IDE**</sub>
+<sub>**WEb IDE**</sub>
 
-***Putting WE in IDE.***<br>
+***Putting the WE in WEb IDE.***<br>
 **A self-hosted, collaborative web IDE in a single Go binary.**<br>
 **Real-time multi-user editing, shared terminals, VS Code-grade git, and chat — all in your browser.**
 
