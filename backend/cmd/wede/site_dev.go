@@ -36,3 +36,17 @@ func findSite() string {
 	}
 	return ""
 }
+
+// siteIndexHTML returns the raw bytes of site/index.html found on disk,
+// or nil if unavailable. Used by the root handler to serve the landing page.
+func siteIndexHTML() []byte {
+	dir := findSite()
+	if dir == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		return nil
+	}
+	return data
+}

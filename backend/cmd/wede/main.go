@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"wede/backend/internal/auth"
@@ -262,7 +263,34 @@ func main() {
 
 	// Frontend handler - provided by frontend_embed.go or frontend_dev.go
 	frontendHandler := newFrontendHandler()
-	mux.HandleFunc("/", frontendHandler)
+
+	// GET /login always serves the SPA so the React login form is reachable from
+	// logged-out visitors who click "Sign in" on the marketing landing.
+	mux.HandleFunc("GET /login", frontendHandler)
+
+	// Auth-gated root: logged-out browser visits get the marketing landing (200);
+	// authenticated visits (bearer token header, ?token=, or wede_session cookie)
+	// are served the IDE frontend.
+	var landingHTML []byte
+	if raw := siteIndexHTML(); len(raw) > 0 {
+		// Inject <base href="/site/"> so ./assets/… refs in the landing resolve to
+		// /site/assets/… (already mounted at /site/).
+		landingHTML = []byte(strings.Replace(string(raw), "<head>", `<head><base href="/site/">`, 1))
+	}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if authHandler.IsAuthenticated(r) {
+			frontendHandler(w, r)
+			return
+		}
+		if len(landingHTML) == 0 {
+			// No site HTML available — fall back to the SPA (shows login form).
+			frontendHandler(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(landingHTML) //nolint:errcheck
+	})
 
 	host := cfg.Host
 	if host == "" {

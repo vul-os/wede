@@ -26,3 +26,13 @@ func newSiteHandler() http.Handler {
 	}
 	return http.FileServer(http.FS(sub))
 }
+
+// siteIndexHTML returns the raw bytes of site/index.html from the embedded FS,
+// or nil if unavailable. Used by the root handler to serve the landing page.
+func siteIndexHTML() []byte {
+	data, err := fs.ReadFile(siteFS, "site/index.html")
+	if err != nil {
+		return nil
+	}
+	return data
+}

@@ -249,6 +249,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	username := sanitizeUsername(body.Username)
 	sessionToken := h.newSession(username, RoleOwner)
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "wede_session",
+		Value:    sessionToken,
+		Path:     "/",
+		MaxAge:   int(SessionTTL / time.Second),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	json.NewEncoder(w).Encode(map[string]string{
 		"token":    sessionToken,
 		"username": username,
@@ -316,6 +325,24 @@ func (h *Handler) SetUsername(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"username": name})
 }
 
+// IsAuthenticated reports whether r carries a valid session credential,
+// checking the Authorization header, ?token= query param, and the
+// wede_session cookie (set on browser login).
+func (h *Handler) IsAuthenticated(r *http.Request) bool {
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+	if token == "" {
+		if c, err := r.Cookie("wede_session"); err == nil {
+			token = c.Value
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.validSession(token)
+}
+
 // Username returns the username for a valid session token, or "" if the token is
 // unknown/expired. Used by the collab layer to attribute presence.
 func (h *Handler) Username(token string) string {
@@ -339,6 +366,15 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	delete(h.sessions, hashToken(token))
 	h.saveSessions()
 	h.mu.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "wede_session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
