@@ -33,8 +33,9 @@ jobs:
         run: |
           mkdir -p backend/cmd/wede/dist
           cp -r dist/* backend/cmd/wede/dist/
+          cp -r site backend/cmd/wede/site
           go build -tags embed_frontend -o wede ./backend/cmd/wede
-          rm -rf backend/cmd/wede/dist
+          rm -rf backend/cmd/wede/dist backend/cmd/wede/site
 
       - name: Verify binary
         run: ./wede --version
