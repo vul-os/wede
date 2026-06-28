@@ -2,7 +2,9 @@
 
 <img src="public/icon.svg" alt="wede" width="80" height="80">
 
-# WE IDE — WEDE
+# WEDE
+
+<sub>**WE IDE**</sub>
 
 ***Putting WE in IDE.***<br>
 **A self-hosted, collaborative web IDE in a single Go binary.**<br>
