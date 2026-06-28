@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.4.0] — 2026-06-28
+
+### Added
+- Standalone marketing **landing** + client-rendered **docs** (`site/`), served at `/` for logged-out visitors; authenticated users go straight to the IDE.
+- README: **"WEb IDE — WEDE"** branding ("Putting the WE in WEb IDE") + an **Extensibility** section (LSP, DAP, formatters, tasks; `.vsix` unsupported by design).
+- CI + tag-triggered release pipeline.
+
+### Changed
+- CI: eslint ignores vendored bundles; the Go build embeds `site/` so the single binary serves the landing + IDE.
+
+---
+
 ## [0.3.0] — 2026-06-16
 
 ### Added
