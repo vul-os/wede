@@ -42,10 +42,10 @@ type session struct {
 	id     string
 	ptmx   *os.File
 	cmd    *exec.Cmd
-	mu     sync.Mutex              // guards subs + closed
+	mu     sync.Mutex               // guards subs + closed
 	subs   map[*subscriber]struct{} // all connected viewers (shared terminal)
-	pmu    sync.Mutex              // serializes input writes to the pty
-	buf    *ringBuffer             // scrollback buffer for replay on (re)connect
+	pmu    sync.Mutex               // serializes input writes to the pty
+	buf    *ringBuffer              // scrollback buffer for replay on (re)connect
 	done   chan struct{}
 	closed bool
 }

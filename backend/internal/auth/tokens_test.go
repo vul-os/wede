@@ -90,8 +90,8 @@ func TestExpiredTokenRejected(t *testing.T) {
 
 func TestListTokensOmitsHash(t *testing.T) {
 	h := newTestHandler(t)
-	h.MintToken(RoleEditor, "a", 0)  //nolint:errcheck
-	h.MintToken(RoleViewer, "b", 0)  //nolint:errcheck
+	h.MintToken(RoleEditor, "a", 0) //nolint:errcheck
+	h.MintToken(RoleViewer, "b", 0) //nolint:errcheck
 
 	list := h.ListTokens()
 	if len(list) != 2 {

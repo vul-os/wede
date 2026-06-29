@@ -76,6 +76,16 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 - **Workspace chat** — per-workspace chat with two channels: **public** (committed to `.wede/chat.md` so the repo — and any LLM working on it — can read the conversation) and **private** (stored in `.wede/private/`, which wede auto-gitignores). Git activity (commits, uncommitted-change counts) is posted into the chat automatically.
 - **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* [frp](https://github.com/fatedier/frp) relay (owner-only). wede detects `frpc`, generates its config, runs it, and shows the live public URL — no inbound ports or static IP needed.
 
+> **Security — editor links grant full host shell access.**
+> An editor share link gives the recipient a login shell (`$SHELL -l`) running as
+> the OS user that started wede, with the complete process environment and no
+> filesystem sandbox. The same session also opens the LSP and DAP sockets, which
+> spawn language-server and debugger processes as children of the wede process.
+> Treat editor links like SSH keys — share them only with people you trust with a
+> shell on that machine. Viewer links are safe for read-only access.
+> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#no-sandbox-warning-for-shared-deployments)
+> for the full role model and security model.
+
 ---
 
 ## Features

@@ -94,14 +94,20 @@ type Handler struct {
 func New(password string) *Handler {
 	home, _ := os.UserHomeDir()
 	dataDir := filepath.Join(home, ".wede")
-	os.MkdirAll(dataDir, 0700)
+	return NewWithDataDir(password, dataDir)
+}
 
+// NewWithDataDir creates a Handler that stores sessions, tokens, and lockout state
+// in dir instead of the default ~/.wede. Useful when the storage location must be
+// explicitly controlled (e.g. tests, alternate deployment paths).
+func NewWithDataDir(password, dir string) *Handler {
+	os.MkdirAll(dir, 0700)
 	h := &Handler{
 		password:    password,
 		maxAttempts: 3,
 		sessions:    make(map[string]sessionEntry),
 		tokens:      make(map[string]shareToken),
-		dataDir:     dataDir,
+		dataDir:     dir,
 		redeemHits:  make(map[string]*redeemBucket),
 	}
 	h.loadSessions()

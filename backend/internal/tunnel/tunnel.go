@@ -87,7 +87,7 @@ func FrpcPath() (string, bool) {
 }
 
 func (m *Manager) configFile() string { return filepath.Join(m.dataDir, "tunnel.json") }
-func (m *Manager) frpcToml() string    { return filepath.Join(m.dataDir, "frpc.toml") }
+func (m *Manager) frpcToml() string   { return filepath.Join(m.dataDir, "frpc.toml") }
 
 func (m *Manager) loadConfig() {
 	data, err := os.ReadFile(m.configFile())

@@ -117,8 +117,8 @@ func TestHandleMintTokenNoExpiry(t *testing.T) {
 
 func TestHandleListTokens(t *testing.T) {
 	h := freshTokens(t)
-	h.MintToken(RoleViewer, "a", 0)  //nolint:errcheck
-	h.MintToken(RoleEditor, "b", 0)  //nolint:errcheck
+	h.MintToken(RoleViewer, "a", 0) //nolint:errcheck
+	h.MintToken(RoleEditor, "b", 0) //nolint:errcheck
 
 	req := httptest.NewRequest(http.MethodGet, "/api/auth/tokens", nil)
 	rec := httptest.NewRecorder()

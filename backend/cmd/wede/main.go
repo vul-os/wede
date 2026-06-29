@@ -144,7 +144,7 @@ func main() {
 	// the requested root is validated against the allowed base in HandleCreate.
 	protected.Handle("POST /api/workspaces", re(http.HandlerFunc(wsMgr.HandleCreate)))
 	protected.HandleFunc("GET /api/workspaces/{id}", wsMgr.HandleGet)
-	protected.HandleFunc("DELETE /api/workspaces/{id}", wsMgr.HandleClose)
+	protected.Handle("DELETE /api/workspaces/{id}", re(http.HandlerFunc(wsMgr.HandleClose))) // editor+ only: closing a workspace is a mutating/DoS-capable action
 
 	// Per-workspace service routes. Each resolves {id} -> Workspace and dispatches to a
 	// handler bound to that workspace's isolated workspace. The legacy /api/files,
@@ -210,7 +210,7 @@ func main() {
 	// so it is editor-gated.
 	protected.HandleFunc("GET /api/workspaces/{id}/dap/available", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DAP().HandleAvailable }))
 	protected.Handle("GET /api/workspaces/{id}/dap", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.DAP().HandleWS })))
-	protected.HandleFunc("GET /api/workspaces/{id}/lsp", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleWS }))
+	protected.Handle("GET /api/workspaces/{id}/lsp", re(rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.LSP().HandleWS }))) // editor+ only: spawns language server process (RCE-equivalent)
 	// collaboration socket (presence: roster + cursors)
 	protected.HandleFunc("GET /api/workspaces/{id}/collab", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Collab().HandleWS }))
 	// CRDT document sync+awareness (ygo provider). {room...} is the file's

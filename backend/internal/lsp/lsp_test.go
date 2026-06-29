@@ -168,7 +168,7 @@ type writerRecorder struct {
 }
 
 func (w *writerRecorder) Write(p []byte) (int, error) { return w.buf.Write(p) }
-func (w *writerRecorder) Close() error                 { return nil }
+func (w *writerRecorder) Close() error                { return nil }
 
 func TestContentLengthFraming(t *testing.T) {
 	body := []byte(`{"jsonrpc":"2.0","method":"initialized"}`)

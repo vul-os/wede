@@ -71,7 +71,9 @@ func TestSearch_CaseSensitive(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/search?q=hello", nil)
 	rec := httptest.NewRecorder()
 	h.Search(rec, req)
-	var resp struct{ Count int `json:"count"` }
+	var resp struct {
+		Count int `json:"count"`
+	}
 	json.NewDecoder(rec.Body).Decode(&resp)
 	if resp.Count != 3 {
 		t.Errorf("case-insensitive: expected 3, got %d", resp.Count)
@@ -81,7 +83,9 @@ func TestSearch_CaseSensitive(t *testing.T) {
 	req2 := httptest.NewRequest(http.MethodGet, "/api/search?q=hello&case=true", nil)
 	rec2 := httptest.NewRecorder()
 	h.Search(rec2, req2)
-	var resp2 struct{ Count int `json:"count"` }
+	var resp2 struct {
+		Count int `json:"count"`
+	}
 	json.NewDecoder(rec2.Body).Decode(&resp2)
 	if resp2.Count != 1 {
 		t.Errorf("case-sensitive: expected 1, got %d", resp2.Count)

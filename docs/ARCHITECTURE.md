@@ -96,6 +96,39 @@ Uses `fsnotify` to watch the workspace directory. Events are debounced (250 ms) 
 
 ## Security model
 
+### Role model
+
+Every authenticated session carries one of three roles:
+
+| Role | How it is obtained | Capabilities |
+|------|--------------------|--------------|
+| **owner** | Config-password login | Full access; can mint/revoke share tokens |
+| **editor** | Redeem an editor share link | Full access including terminal, LSP, DAP, file writes, git mutations |
+| **viewer** | Redeem a viewer share link | Read-only: file/git reads, search, collab presence — no shell, no writes |
+
+The role is stored in the session entry (server-side) and injected into the request context by `auth.Middleware`. Mutating and shell-access routes are wrapped with `auth.RequireEditor`, which rejects viewer sessions with 403 Forbidden before the underlying handler is reached. Owner-only operations (token management, tunnel control) use `auth.RequireOwner`.
+
+**Editor-gated routes** (viewer → 403): terminal WebSocket, LSP WebSocket, DAP WebSocket, file writes/creates/deletes/renames, git mutations, workspace create/delete, CRDT doc socket, search replace, API client send/save.
+
+### No-sandbox warning for shared deployments
+
+> **WARNING — shared editor access = unsandboxed host shell.**
+>
+> When you share an **editor** link, the recipient gains access to a full login shell
+> (`exec.Command(shell, "-l")`) running as the OS user that started wede, with the
+> complete process environment inherited (`os.Environ()`). The working directory
+> (`cmd.Dir`) is set to the workspace root as a UX convenience only — it does **not**
+> confine the shell in any way. The editor can `cd /`, read `~/.ssh`, run `sudo`,
+> install packages, or do anything the wede process owner can do.
+>
+> The same applies to the LSP WebSocket: connecting to it spawns a language server
+> binary (e.g. `rust-analyzer`, `gopls`) as a child of the wede process, with full
+> filesystem and network access.
+>
+> **This is by design** — wede is a developer tool, not a sandboxed IDE-as-a-service.
+> Treat editor links like SSH keys: share them only with people you would give a shell
+> account to. Viewer links are safe for read-only access.
+
 | Concern | Mitigation |
 |---------|-----------|
 | Path traversal | `safePath()` with separator-aware prefix check |
@@ -104,6 +137,7 @@ Uses `fsnotify` to watch the workspace directory. Events are debounced (250 ms) 
 | Brute force | 3-attempt lockout persisted to disk |
 | Token leakage | WS token in subprotocol, never in URL or logs |
 | Credential logging | Password redacted from all log output |
+| Viewer → shell escalation | Terminal, LSP, DAP, workspace-delete routes wrapped in `RequireEditor`; viewer sessions get 403 |
 
 ---
 

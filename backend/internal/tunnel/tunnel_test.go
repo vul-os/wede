@@ -44,7 +44,7 @@ func TestPublicURL(t *testing.T) {
 		{Config{Mode: ModeHTTP, Domain: "wede.example.com"}, "http://wede.example.com"},
 		{Config{Mode: ModeHTTP, Domain: "wede.example.com", HTTPS: true}, "https://wede.example.com"},
 		{Config{Mode: ModeTCP, ServerAddr: "1.2.3.4", RemotePort: 9090}, "http://1.2.3.4:9090"},
-		{Config{Mode: ModeHTTP}, ""},                    // no domain
+		{Config{Mode: ModeHTTP}, ""},                       // no domain
 		{Config{Mode: ModeTCP, ServerAddr: "1.2.3.4"}, ""}, // no remote port
 	}
 	for _, c := range cases {
@@ -84,10 +84,10 @@ func TestValidateConfig(t *testing.T) {
 		t.Errorf("valid tcp rejected: %v", err)
 	}
 	bad := []Config{
-		{Mode: ModeHTTP, Domain: "d"},                  // no serverAddr
-		{ServerAddr: "x", Mode: ModeHTTP},              // http, no domain
-		{ServerAddr: "x", Mode: ModeTCP},               // tcp, no port
-		{ServerAddr: "x", Mode: "bogus"},               // bad mode
+		{Mode: ModeHTTP, Domain: "d"},     // no serverAddr
+		{ServerAddr: "x", Mode: ModeHTTP}, // http, no domain
+		{ServerAddr: "x", Mode: ModeTCP},  // tcp, no port
+		{ServerAddr: "x", Mode: "bogus"},  // bad mode
 	}
 	for i, c := range bad {
 		if err := validateConfig(c); err == nil {
