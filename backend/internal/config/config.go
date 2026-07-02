@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -34,6 +35,13 @@ type Config struct {
 	// Default (empty): the user's home directory. Override with the
 	// WEDE_WORKSPACE_ROOT environment variable or this config key.
 	WorkspaceRoot string `json:"workspace_root,omitempty"`
+	// ServeLanding controls whether the marketing landing page and /site/*
+	// docs viewer are hosted. These are cloud-only assets (wede.vulos.org):
+	// a local, self-hosted wede should just serve the IDE app. When false
+	// (default), unauthenticated visits to / get the app's login form instead
+	// of the landing page, and /site/* is not mounted. Set to true only for
+	// the public cloud deployment.
+	ServeLanding bool `json:"serve_landing,omitempty"`
 }
 
 const configName = "wede.config.json"
@@ -88,14 +96,9 @@ func Load() *Config {
 
 	log.Printf("loaded config from %s", found)
 
-	cfg := &Config{Port: "9090", Host: "127.0.0.1"}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(cfg); err != nil {
-		log.Fatal("invalid wede.config.json:", err)
-	}
-	if cfg.Password == "" {
-		log.Fatal("password is required in wede.config.json")
+	cfg, err := parse(data)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Resolve the allowed workspace root: env override > config key > $HOME.
@@ -112,4 +115,22 @@ func Load() *Config {
 	}
 
 	return cfg
+}
+
+// parse decodes and validates the raw config JSON. It applies defaults (port,
+// host), rejects unknown keys, and requires a password. Kept separate from Load
+// so the decode/validation rules are unit-testable without touching the
+// filesystem. ServeLanding defaults to false (a local self-hosted wede serves
+// only the IDE; the marketing landing is cloud-only).
+func parse(data []byte) (*Config, error) {
+	cfg := &Config{Port: "9090", Host: "127.0.0.1"}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(cfg); err != nil {
+		return nil, fmt.Errorf("invalid wede.config.json: %w", err)
+	}
+	if cfg.Password == "" {
+		return nil, fmt.Errorf("password is required in wede.config.json")
+	}
+	return cfg, nil
 }

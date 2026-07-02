@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Plus, X, TerminalSquare, Maximize2, Minimize2, PictureInPicture2 } from 'lucide-react'
 import Terminal from './Terminal'
 import TerminalToolbar from './TerminalToolbar'
@@ -8,7 +9,13 @@ import { useTheme } from '../hooks/useTheme'
 // floating window manager.
 export default function TerminalPanel({ token, workspaceId, term, visible, isFullscreen, onToggleFullscreen, onPopOut, isMobile }) {
   const { terminalTheme } = useTheme()
-  const { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, termRefs } = term
+  const { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, renameTerminal, autoNameTerminal, termRefs } = term
+
+  // Inline rename: double-click a tab to edit its name.
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const startRename = (t) => { setEditingId(t.id); setEditName(t.name) }
+  const commitRename = () => { if (editingId != null) renameTerminal(editingId, editName); setEditingId(null) }
 
   const handleToolbarSend = (data) => {
     const ref = termRefs.current[activeId]
@@ -39,7 +46,22 @@ export default function TerminalPanel({ token, workspaceId, term, visible, isFul
                 }`}
               >
                 {isActive && <span className="absolute top-0 left-0 right-0 h-[1.5px] bg-accent" />}
-                <span>{t.name}</span>
+                {editingId === t.id ? (
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onBlur={commitRename}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename()
+                      else if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    className="bg-bg-input border border-accent/50 rounded px-1 py-0.5 text-[12px] text-text-primary w-24 focus:outline-none focus:border-accent"
+                  />
+                ) : (
+                  <span onDoubleClick={(e) => { e.stopPropagation(); startRename(t) }} title="Double-click to rename">{t.name}</span>
+                )}
                 {terminals.length > 1 && (
                   <span
                     onClick={(e) => { e.stopPropagation(); closeTerminal(t.id) }}
@@ -94,6 +116,7 @@ export default function TerminalPanel({ token, workspaceId, term, visible, isFul
             terminalTheme={terminalTheme}
             initialCommand={t.initial}
             onInitialRun={() => clearInitial?.(t.id)}
+            onTitle={(title) => autoNameTerminal(t.id, title)}
           />
         ))}
       </div>

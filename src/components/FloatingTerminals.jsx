@@ -8,7 +8,11 @@ import { TerminalSquare, X, Plus, PanelBottom } from 'lucide-react'
 import Terminal from './Terminal'
 import { useTheme } from '../hooks/useTheme'
 
-function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClose, children }) {
+function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClose, onRename, children }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const startRename = () => { setDraft(title); setEditing(true) }
+  const commit = () => { onRename?.(draft); setEditing(false) }
   const startDrag = (e) => {
     if (e.button !== 0) return
     onFocus()
@@ -28,9 +32,24 @@ function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClos
     <div onMouseDown={onFocus}
       style={{ left: geo.x, top: geo.y, width: geo.w, height: geo.h, zIndex: geo.z }}
       className={`absolute pointer-events-auto bg-bg-tertiary border rounded-lg shadow-2xl flex flex-col overflow-hidden ${focused ? 'border-accent/50 ring-1 ring-accent/20' : 'border-border'}`}>
-      <div onMouseDown={startDrag} className="flex items-center gap-1.5 px-2.5 h-7 bg-bg-secondary border-b border-border cursor-move select-none shrink-0">
+      <div onMouseDown={editing ? undefined : startDrag} className="flex items-center gap-1.5 px-2.5 h-7 bg-bg-secondary border-b border-border cursor-move select-none shrink-0">
         <TerminalSquare className="w-3 h-3 text-text-muted shrink-0" />
-        <span className="text-[11px] font-medium text-text-secondary truncate flex-1">{title}</span>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commit()
+              else if (e.key === 'Escape') setEditing(false)
+            }}
+            className="flex-1 bg-bg-input border border-accent/50 rounded px-1 py-0.5 text-[11px] text-text-primary focus:outline-none focus:border-accent"
+          />
+        ) : (
+          <span onDoubleClick={startRename} title="Double-click to rename" className="text-[11px] font-medium text-text-secondary truncate flex-1">{title}</span>
+        )}
         <button onClick={onClose} title="Close" className="w-4 h-4 flex items-center justify-center rounded text-text-muted hover:text-red hover:bg-bg-active"><X className="w-3 h-3" /></button>
       </div>
       <div className="flex-1 min-h-0 relative">{children}</div>
@@ -43,7 +62,7 @@ function FloatingWindow({ geo, title, focused, onFocus, onMove, onResize, onClos
 
 export default function FloatingTerminals({ token, workspaceId, term, onDock, sendWindow, onWindow }) {
   const { terminalTheme } = useTheme()
-  const { terminals, addTerminal, closeTerminal, clearInitial, termRefs } = term
+  const { terminals, addTerminal, closeTerminal, clearInitial, renameTerminal, autoNameTerminal, termRefs } = term
   const [geos, setGeos] = useState({})
   const geosRef = useRef(geos)
   const zRef = useRef(20)
@@ -101,11 +120,12 @@ export default function FloatingTerminals({ token, workspaceId, term, onDock, se
         return (
           <FloatingWindow key={t.id} geo={geo} title={t.name} focused={geo.z === topZ}
             onFocus={() => focus(t.id)} onMove={(x, y) => move(t.id, x, y)} onResize={(w, h) => resize(t.id, w, h)}
-            onClose={() => closeTerminal(t.id)}>
+            onClose={() => closeTerminal(t.id)} onRename={(name) => renameTerminal(t.id, name)}>
             <Terminal
               ref={(r) => { if (r) termRefs.current[t.id] = r; else delete termRefs.current[t.id] }}
               token={token} workspaceId={workspaceId} sessionId={`term-${t.id}`} visible terminalTheme={terminalTheme}
-              initialCommand={t.initial} onInitialRun={() => clearInitial?.(t.id)} />
+              initialCommand={t.initial} onInitialRun={() => clearInitial?.(t.id)}
+              onTitle={(title) => autoNameTerminal(t.id, title)} />
           </FloatingWindow>
         )
       })}
