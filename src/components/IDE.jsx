@@ -1173,7 +1173,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
                 }, 50)
               }} />}
               {sidebarTab === 'git' && <GitPanels authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} visible readOnly={role === 'viewer'} onOpenGraph={openGitGraph} />}
-              {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
+              {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} workspaceName={(workspacesApi?.workspaces || []).find((w) => w.id === workspaceId)?.name} token={token} username={username} color={colorFromName(username)} />}
               {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
               {sidebarTab === 'tasks' && <TasksPanel tasks={tasks} onRun={runTask} readOnly={role === 'viewer'} />}
               {sidebarTab === 'debug' && (
