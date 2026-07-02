@@ -5,7 +5,10 @@ import {
 } from 'lucide-react'
 import Logo from './Logo'
 
-export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
+// addMode: when true the picker does NOT switch the default workspace (no
+// POST /api/folder/open); it just hands the chosen path to onOpen so the caller
+// can add it as an additional root. Default (false) keeps the switch behavior.
+export default function FolderPicker({ authFetch, onOpen, recents, inline, addMode = false }) {
   const [currentPath, setCurrentPath] = useState('')
   const [dirs, setDirs] = useState([])
   const [roots, setRoots] = useState([])
@@ -32,6 +35,8 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleOpen = async (path) => {
+    // Add mode: don't repoint the default workspace — just surface the path.
+    if (addMode) { onOpen(path); return }
     try {
       const res = await authFetch('/api/folder/open', {
         method: 'POST',
@@ -175,8 +180,9 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
   if (inline) return content
 
   return (
-    <div className="min-h-screen bg-bg-tertiary flex items-center justify-center p-4">
-      <div className="w-full max-w-xl">
+    <div className="h-screen overflow-y-auto bg-bg-tertiary p-4">
+      <div className="min-h-full flex items-center justify-center">
+        <div className="w-full max-w-xl">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-bg-primary border border-border mb-3 overflow-hidden">
             <Logo size={34} />
@@ -186,6 +192,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline }) {
         </div>
         <div className="bg-bg-primary border border-border rounded-xl p-6 shadow-xl">
           {content}
+        </div>
         </div>
       </div>
     </div>

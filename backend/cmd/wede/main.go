@@ -254,11 +254,14 @@ func main() {
 	// Standalone marketing site (landing + docs viewer) for wede.vulos.org,
 	// mounted at /site/* so it never shadows the IDE app at / (behind sign-in).
 	// The embedded docs viewer fetches ./docs/<slug>.md from this same route.
-	if siteHandler := newSiteHandler(); siteHandler != nil {
-		mux.Handle("/site/", http.StripPrefix("/site/", siteHandler))
-		mux.HandleFunc("/site", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/site/", http.StatusMovedPermanently)
-		})
+	// Cloud-only: a local self-hosted wede leaves this off (cfg.ServeLanding).
+	if cfg.ServeLanding {
+		if siteHandler := newSiteHandler(); siteHandler != nil {
+			mux.Handle("/site/", http.StripPrefix("/site/", siteHandler))
+			mux.HandleFunc("/site", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "/site/", http.StatusMovedPermanently)
+			})
+		}
 	}
 
 	// Frontend handler - provided by frontend_embed.go or frontend_dev.go
@@ -270,12 +273,16 @@ func main() {
 
 	// Auth-gated root: logged-out browser visits get the marketing landing (200);
 	// authenticated visits (bearer token header, ?token=, or wede_session cookie)
-	// are served the IDE frontend.
+	// are served the IDE frontend. The landing is cloud-only (cfg.ServeLanding);
+	// when it's off, / always serves the SPA (login form when logged out) so the
+	// app's own /assets/* are never shadowed by landing HTML.
 	var landingHTML []byte
-	if raw := siteIndexHTML(); len(raw) > 0 {
-		// Inject <base href="/site/"> so ./assets/… refs in the landing resolve to
-		// /site/assets/… (already mounted at /site/).
-		landingHTML = []byte(strings.Replace(string(raw), "<head>", `<head><base href="/site/">`, 1))
+	if cfg.ServeLanding {
+		if raw := siteIndexHTML(); len(raw) > 0 {
+			// Inject <base href="/site/"> so ./assets/… refs in the landing resolve to
+			// /site/assets/… (already mounted at /site/).
+			landingHTML = []byte(strings.Replace(string(raw), "<head>", `<head><base href="/site/">`, 1))
+		}
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if authHandler.IsAuthenticated(r) {

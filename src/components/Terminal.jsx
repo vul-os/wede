@@ -3,7 +3,7 @@ import { Terminal as XTerminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 
-export default forwardRef(function Terminal({ token, workspaceId, sessionId, visible, terminalTheme, fontSize = 13, initialCommand, onInitialRun }, ref) {
+export default forwardRef(function Terminal({ token, workspaceId, sessionId, visible, terminalTheme, fontSize = 13, initialCommand, onInitialRun, onTitle }, ref) {
   const containerRef = useRef(null)
   const termRef = useRef(null)
   const wsRef = useRef(null)
@@ -11,6 +11,10 @@ export default forwardRef(function Terminal({ token, workspaceId, sessionId, vis
   const reconnectRef = useRef(null)
   const mountedRef = useRef(true)
   const ranInitialRef = useRef(false)
+  // Keep the latest onTitle callback in a ref so the PTY title handler (wired once
+  // in the setup effect below) always calls the current one without re-running setup.
+  const onTitleRef = useRef(onTitle)
+  useEffect(() => { onTitleRef.current = onTitle }, [onTitle])
 
   // Expose send function for external toolbar
   useImperativeHandle(ref, () => ({
@@ -56,6 +60,10 @@ export default forwardRef(function Terminal({ token, workspaceId, sessionId, vis
 
     fitRef.current = fitAddon
     termRef.current = term
+
+    // The PTY can self-name via an OSC 0/1/2 title escape (as macOS/Linux shells
+    // do); surface it so the tab can auto-name itself.
+    term.onTitleChange((title) => { if (mountedRef.current) onTitleRef.current?.(title) })
 
     setTimeout(() => fitAddon.fit(), 50)
 

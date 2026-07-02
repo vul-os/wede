@@ -11,7 +11,7 @@ import FileExplorer from './FileExplorer'
 import Editor from './Editor'
 import EditorTabs from './EditorTabs'
 import TerminalPanel from './TerminalPanel'
-import GitPanel from './GitPanel'
+import GitPanels from './GitPanels'
 import FolderPicker from './FolderPicker'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import PresenceRoster from './PresenceRoster'
@@ -39,6 +39,8 @@ import TasksPanel from './TasksPanel'
 import DebugPanel from './DebugPanel'
 import { useTerminals } from '../hooks/useTerminals'
 import { useDap } from '../hooks/useDap'
+import { workspaceUrl } from '../api'
+import { fileKey, parseFileKey, normalizeTabIdentity } from '../lib/fileKey'
 
 // colorFromName derives a stable per-user color for collaboration cursors.
 const COLLAB_PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6']
@@ -57,10 +59,16 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [tabs, setTabs] = useState(() => {
     try {
       const saved = localStorage.getItem('wede_tabs')
-      return saved ? JSON.parse(saved) : []
+      const parsed = saved ? JSON.parse(saved) : []
+      // Upgrade tabs persisted before multi-root composite keys (fills
+      // rel/workspaceId so save/format don't POST to /workspaces/undefined/...).
+      return Array.isArray(parsed) ? parsed.map((t) => normalizeTabIdentity(t, workspaceId)) : []
     } catch { return [] }
   })
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('wede_activeTab') || null)
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem('wede_activeTab')
+    return saved ? normalizeTabIdentity({ path: saved }, workspaceId).path : null
+  })
 
   // Collaboration presence: who else is in this workspace and what they're viewing.
   const { roster: collabRoster, setViewing: setCollabViewing, mice: collabMice, sendMouse, sendWindow, onWindow, sendTerminals, onTerminals } = useCollab(workspaceId, token, username)
@@ -96,6 +104,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       .catch(() => {})
   }, [authFetch, workspaceId])
   const [breakpoints, setBreakpoints] = useState({}) // { absolutePath: number[] }
+  // The active tab's path relative to its own workspace root (activeTab is a
+  // composite workspaceId+rel key; the DAP/lang helpers below want the rel part).
+  const activeRel = parseFileKey(activeTab || '').rel
   const wsRoot = (workspace || '').replace(/\/+$/, '')
   const absPath = useCallback((rel) => (wsRoot && rel ? `${wsRoot}/${rel}` : rel), [wsRoot])
   const langForPath = useCallback((rel) => {
@@ -109,17 +120,17 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (dap.status === 'running' || dap.status === 'stopped') dap.syncBreakpoints(abs, lines)
   }, [absPath, dap])
   const startDebug = useCallback(() => {
-    const rel = activeTab
+    const rel = activeRel
     const lang = langForPath(rel)
     if (!lang || role === 'viewer') return
     const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
     const program = lang === 'go' ? absPath(dir || '.') : absPath(rel)
     dap.start({ program, lang, breakpoints })
-  }, [activeTab, langForPath, role, absPath, dap, breakpoints])
-  const debugLang = langForPath(activeTab)
+  }, [activeRel, langForPath, role, absPath, dap, breakpoints])
+  const debugLang = langForPath(activeRel)
   const hasDebugAdapters = Object.keys(dapAvailable.available).length > 0
-  const currentStopLine = (dap.stopLine && activeTab &&
-    (dap.stopLine.path === absPath(activeTab) || dap.stopLine.path?.endsWith('/' + activeTab)))
+  const currentStopLine = (dap.stopLine && activeRel &&
+    (dap.stopLine.path === absPath(activeRel) || dap.stopLine.path?.endsWith('/' + activeRel)))
     ? dap.stopLine.line : null
   // Terminal placement: 'hidden' | 'floating' (movable windows) | 'docked' (bottom).
   const [terminalMode, setTerminalMode] = useState('hidden')
@@ -134,7 +145,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const dockTerminal = useCallback(() => { lastTermModeRef.current = 'docked'; setTerminalMode('docked') }, [])
   const floatTerminal = useCallback(() => { lastTermModeRef.current = 'floating'; setTerminalMode('floating') }, [])
   const [terminalHeight, setTerminalHeight] = useState(260)
-  useEffect(() => { setCollabViewing(activeTab || '', 0) }, [activeTab, setCollabViewing])
+  useEffect(() => { setCollabViewing(parseFileKey(activeTab || '').rel, 0) }, [activeTab, setCollabViewing])
 
   const [showSidebar, setShowSidebar] = useState(true)
   const [sidebarTab, setSidebarTab] = useState('files')
@@ -145,6 +156,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const [termFullscreen, setTermFullscreen] = useState(false)
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
+  const [pickerMode, setPickerMode] = useState('open') // 'open' = switch workspace; 'add' = add a root
   const [showShareModal, setShowShareModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -210,10 +222,11 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const resizingRef = useRef(null)
   const folderName = workspace?.split('/').pop() || 'wede'
 
-  // Persist open tabs to localStorage
+  // Persist open tabs to localStorage (rel + workspaceId let multi-root tabs be
+  // restored against their own workspace, not just the active one).
   useEffect(() => {
     try {
-      const toSave = tabs.map(t => ({ path: t.path, name: t.name, type: t.type, url: t.url }))
+      const toSave = tabs.map(t => ({ path: t.path, rel: t.rel, workspaceId: t.workspaceId, name: t.name, type: t.type, url: t.url }))
       localStorage.setItem('wede_tabs', JSON.stringify(toSave))
     } catch { /* ignore */ }
   }, [tabs])
@@ -229,8 +242,10 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     const needsContent = tabs.filter(t => t.type !== 'browser' && t.content === undefined)
     if (needsContent.length === 0) return
     Promise.all(needsContent.map(async (t) => {
+      const wsId = t.workspaceId || workspaceId
+      const rel = t.rel ?? parseFileKey(t.path).rel
       try {
-        const res = await authFetch(`/api/files/read?path=${encodeURIComponent(t.path)}`)
+        const res = await authFetch(workspaceUrl(wsId, `/files/read?path=${encodeURIComponent(rel)}`))
         const data = await res.json()
         if (data.fileType === 'image') return { path: t.path, content: '', fileType: 'image', dataUrl: data.dataUrl }
         if (data.fileType === 'binary') return { path: t.path, content: '', fileType: 'binary', size: data.size }
@@ -310,18 +325,18 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // ── Auto-save ──
   // After a configurable debounce (1.5 s by default) auto-save dirty tabs.
   const autoSaveTimerRef = useRef(null)
-  const triggerAutoSave = useCallback((path, content) => {
+  const triggerAutoSave = useCallback((tab, content) => {
     if (!editorSettings.autoSave) return
     clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving')
       try {
-        await authFetch('/api/files/write', {
+        await authFetch(workspaceUrl(tab.workspaceId, '/files/write'), {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path, content }),
+          body: JSON.stringify({ path: tab.rel, content }),
         })
         setTabs((prev) => prev.map((t) =>
-          t.path === path ? { ...t, originalContent: t.content, modified: false } : t
+          t.path === tab.path ? { ...t, originalContent: content, modified: t.content !== content } : t
         ))
         setAutoSaveStatus('saved')
         setTimeout(() => setAutoSaveStatus(''), 2000)
@@ -402,9 +417,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     const modifiedTabs = tabs.filter((t) => t.modified && t.type !== 'browser')
     await Promise.all(modifiedTabs.map(async (tab) => {
       try {
-        await authFetch('/api/files/write', {
+        await authFetch(workspaceUrl(tab.workspaceId, '/files/write'), {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: tab.path, content: tab.content }),
+          body: JSON.stringify({ path: tab.rel, content: tab.content }),
         })
         setTabs((prev) => prev.map((t) =>
           t.path === tab.path ? { ...t, originalContent: t.content, modified: false } : t
@@ -539,25 +554,60 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     onWorkspaceChange(path)
   }
 
+  // Multi-root: add another folder as an additional workspace root without
+  // disturbing the currently open tabs, then focus it.
+  const openAddFolder = useCallback(() => { setPickerMode('add'); setShowFolderPicker(true) }, [])
+  const handleAddFolder = useCallback(async (path) => {
+    setShowFolderPicker(false)
+    setPickerMode('open')
+    if (!workspacesApi?.createWorkspace) return
+    const norm = path.replace(/\/+$/, '')
+    // Already open as a root? Just focus it instead of adding a duplicate.
+    const existing = (workspacesApi.workspaces || []).find((w) => (w.root || '').replace(/\/+$/, '') === norm)
+    if (existing) { workspacesApi.setActiveWorkspaceId(existing.id); return }
+    const name = norm.split('/').filter(Boolean).pop() || 'folder'
+    try {
+      const ws = await workspacesApi.createWorkspace(name, path)
+      if (ws?.id) workspacesApi.setActiveWorkspaceId(ws.id)
+    } catch { /* ignore — createWorkspace surfaces its own errors */ }
+  }, [workspacesApi])
+
+  // Remove a folder root from the workspace: close its open tabs, then close the
+  // backend workspace. Never closes the last remaining root.
+  const handleCloseWorkspace = useCallback(async (id) => {
+    if (!workspacesApi?.closeWorkspace) return
+    if ((workspacesApi.workspaces || []).length <= 1) return
+    setTabs((prev) => prev.filter((t) => t.workspaceId !== id))
+    setActiveTab((cur) => (parseFileKey(cur || '').workspaceId === id ? null : cur))
+    try { await workspacesApi.closeWorkspace(id) } catch { /* ignore */ }
+  }, [workspacesApi])
+
   // openFile follows VS Code's preview-tab model: a single click opens the file
   // in a reusable "preview" tab (italic) that the next single-click replaces;
   // editing it — or a double-click ({ preview: false }) — pins it as a real tab.
   const openFile = useCallback(async (entry, { preview = true } = {}) => {
     if (entry.isDir) return
-    const existing = tabs.find((t) => t.path === entry.path)
+    // Entries from the file tree carry {workspaceId, rel}; entries from search /
+    // quick-open (which target the active workspace) carry only {path} — default
+    // those to the active workspace.
+    const wsId = entry.workspaceId || workspaceId
+    const rel = entry.rel ?? entry.path
+    const name = entry.name || rel.split('/').pop()
+    const key = fileKey(wsId, rel)
+    const existing = tabs.find((t) => t.path === key)
     if (existing) {
       if (!preview && existing.preview) {
-        setTabs((prev) => prev.map((t) => (t.path === entry.path ? { ...t, preview: false } : t)))
+        setTabs((prev) => prev.map((t) => (t.path === key ? { ...t, preview: false } : t)))
       }
-      setActiveTab(entry.path)
+      setActiveTab(key)
       if (isMobile) setMobilePanel('code')
       return
     }
     try {
-      const res = await authFetch(`/api/files/read?path=${encodeURIComponent(entry.path)}`)
+      const res = await authFetch(workspaceUrl(wsId, `/files/read?path=${encodeURIComponent(rel)}`))
       const data = await res.json()
       const tab = {
-        path: entry.path, name: entry.name, preview,
+        path: key, rel, workspaceId: wsId, name, preview,
         content: data.content || '', originalContent: data.content || '', modified: false,
       }
       if (data.fileType === 'image') {
@@ -575,16 +625,16 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         }
         return [...prev, tab]
       })
-      setActiveTab(entry.path)
+      setActiveTab(key)
       if (isMobile) setMobilePanel('code')
     } catch { /* ignore */ }
-  }, [tabs, authFetch, isMobile])
+  }, [tabs, authFetch, isMobile, workspaceId])
 
-  const updateContent = useCallback((path, newContent) => {
+  const updateContent = useCallback((key, newContent) => {
     setTabs((prev) => prev.map((t) => {
-      if (t.path !== path) return t
+      if (t.path !== key) return t
       const modified = newContent !== t.originalContent
-      if (modified) triggerAutoSave(path, newContent)
+      if (modified) triggerAutoSave({ ...t, content: newContent }, newContent)
       // Editing pins the tab (leaves preview mode), like VS Code.
       return { ...t, content: newContent, modified, preview: modified ? false : t.preview }
     }))
@@ -598,9 +648,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     const ext = tab.name.split('.').pop().toLowerCase()
     if (!FORMAT_EXTS.has(ext)) return
     try {
-      const res = await authFetch('/api/files/format', {
+      const res = await authFetch(workspaceUrl(tab.workspaceId, '/files/format'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: tab.path, content: tab.content }),
+        body: JSON.stringify({ path: tab.rel, content: tab.content }),
       })
       if (!res.ok) return
       const data = await res.json()
@@ -620,9 +670,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       const ext = tab.name.split('.').pop().toLowerCase()
       if (FORMAT_EXTS.has(ext)) {
         try {
-          const res = await authFetch('/api/files/format', {
+          const res = await authFetch(workspaceUrl(tab.workspaceId, '/files/format'), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: tab.path, content: tab.content }),
+            body: JSON.stringify({ path: tab.rel, content: tab.content }),
           })
           if (res.ok) {
             const data = await res.json()
@@ -634,9 +684,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               // We use a local variable so we don't need to wait for state flush.
               setSaving(true)
               try {
-                await authFetch('/api/files/write', {
+                await authFetch(workspaceUrl(tab.workspaceId, '/files/write'), {
                   method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ path: tab.path, content: data.content }),
+                  body: JSON.stringify({ path: tab.rel, content: data.content }),
                 })
                 setTabs((prev) => prev.map((t) =>
                   t.path === tab.path ? { ...t, originalContent: data.content, modified: false } : t
@@ -651,9 +701,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     }
     setSaving(true)
     try {
-      await authFetch('/api/files/write', {
+      await authFetch(workspaceUrl(tab.workspaceId, '/files/write'), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: tab.path, content: tab.content }),
+        body: JSON.stringify({ path: tab.rel, content: tab.content }),
       })
       setTabs((prev) => prev.map((t) =>
         t.path === activeTab ? { ...t, originalContent: t.content, modified: false } : t
@@ -665,10 +715,33 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
 
+  // Multi-root: the "active workspace" (which scopes git status, search, LSP,
+  // collab, terminals and the SSE watcher) follows the focused file's root, so
+  // those panels always reflect the folder you're editing in.
+  //
+  // Keyed off the tab's OWN workspace changing (via a ref), not off workspaceId,
+  // so a manual switch in the WorkspaceSwitcher isn't immediately reverted — the
+  // switch stands until you focus a file in a different root.
+  const setActiveWorkspaceId = workspacesApi?.setActiveWorkspaceId
+  const knownWorkspaces = workspacesApi?.workspaces
+  const lastTabWsRef = useRef(null)
+  useEffect(() => {
+    const wsId = currentTab?.workspaceId
+    if (wsId && wsId !== lastTabWsRef.current) {
+      lastTabWsRef.current = wsId
+      // Only follow to a workspace that still exists — a tab restored for a
+      // since-closed root must not repoint the active id to a dead workspace.
+      const known = (knownWorkspaces || []).some((w) => w.id === wsId)
+      if (known && wsId !== workspaceId && setActiveWorkspaceId) setActiveWorkspaceId(wsId)
+    }
+  }, [currentTab?.workspaceId, workspaceId, setActiveWorkspaceId, knownWorkspaces])
+
   // LSP — provides diagnostics + hover for supported languages.
   // Degrades gracefully when language server binaries are not installed.
   const { extension: lspExtension, available: lspAvailable } = useLSP({
-    file: currentTab,
+    // LSP identifies the document by relative path within the active workspace,
+    // so hand it the rel path (not the composite tab key).
+    file: currentTab ? { ...currentTab, path: currentTab.rel } : null,
     token,
     authFetch,
     lspEnabled: editorSettings.lsp ?? true,
@@ -684,7 +757,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   // the safe default and is completely unaffected when this is off.
   const collabEnabled = (editorSettings.collab ?? false)
   const collabPath = (collabEnabled && currentTab && !currentTab.type && currentTab.fileType == null)
-    ? currentTab.path
+    ? currentTab.rel
     : null
   const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
 
@@ -739,8 +812,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onRegisterActions={handleRegisterEditorActions}
         collab={collab}
         editable={editable}
-        breakpoints={breakpoints[absPath(activeTab)] || []}
-        onToggleBreakpoint={(ln, lines) => toggleBreakpoint(activeTab, lines)}
+        breakpoints={breakpoints[absPath(activeRel)] || []}
+        onToggleBreakpoint={(ln, lines) => toggleBreakpoint(activeRel, lines)}
         stopLine={currentStopLine}
       />
     )
@@ -795,18 +868,19 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   )
 
   if (showFolderPicker) {
+    const adding = pickerMode === 'add'
     return (
       <div className="h-screen flex flex-col bg-bg-primary">
         <div className="flex items-center px-4 py-2.5 bg-bg-tertiary border-b border-border">
-          <button onClick={() => setShowFolderPicker(false)}
+          <button onClick={() => { setShowFolderPicker(false); setPickerMode('open') }}
             className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors">
             <ChevronLeft className="w-4 h-4" /> Back
           </button>
         </div>
         <div className="flex-1 overflow-y-auto flex items-start justify-center p-6">
           <div className="w-full max-w-xl bg-bg-primary border border-border rounded-xl p-6 shadow-xl shadow-shadow">
-            <h2 className="text-base font-semibold text-text-primary mb-4">Open Folder</h2>
-            <FolderPicker authFetch={authFetch} recents={recents} onOpen={handleWorkspaceOpen} inline />
+            <h2 className="text-base font-semibold text-text-primary mb-4">{adding ? 'Add Folder to Workspace' : 'Open Folder'}</h2>
+            <FolderPicker authFetch={authFetch} recents={recents} onOpen={adding ? handleAddFolder : handleWorkspaceOpen} inline addMode={adding} />
           </div>
         </div>
       </div>
@@ -842,7 +916,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 min-h-0 relative">
           {mobilePanel === 'files' && (
             <div className="h-full animate-fade-in">
-              <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} workspaceId={workspaceId} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
+              <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={openFile} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={handleCloseWorkspace} roster={collabRoster} />
             </div>
           )}
           {mobilePanel === 'code' && (
@@ -858,7 +932,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </div>
           )}
           {mobilePanel === 'git' && (
-            <div className="h-full animate-fade-in"><GitPanel authFetch={authFetch} visible isMobile readOnly={role === 'viewer'} /></div>
+            <div className="h-full animate-fade-in"><GitPanels authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} visible readOnly={role === 'viewer'} /></div>
           )}
           {mobilePanel === 'settings' && (
             <div className="h-full animate-fade-in">
@@ -885,7 +959,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onSelect={(id) => { if (id === 'menu') { setMobileMenu(true); return }; setMobilePanel(id) }}
           hasModified={hasModified} />
         {mobileMenu && <MobileMenuOverlay />}
-        <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaceId={workspaceId} onOpenFile={openFile} />
+        <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} onOpenFile={openFile} />
         <CommandPalette
           visible={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
@@ -1084,23 +1158,21 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {/* File explorer stays mounted (hidden when inactive) so its tree + expansion persist across tab switches. */}
               <div className={`flex-1 min-h-0 ${sidebarTab === 'files' ? 'flex flex-col' : 'hidden'}`}>
-                <FileExplorer authFetch={authFetch} onFileSelect={openFile} selectedPath={activeTab} workspace={workspace} workspaceId={workspaceId} onRegisterActions={handleRegisterExplorerActions} roster={collabRoster} />
+                <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={openFile} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={handleCloseWorkspace} roster={collabRoster} />
               </div>
-              {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
-                openFile(entry).then?.(() => {
-                  // targetLine is used by Editor to scroll to the match.
-                  setTabs((prev) => prev.map((t) =>
-                    t.path === entry.path ? { ...t, targetLine: line } : t
-                  ))
-                })
-                // openFile is not async in the traditional sense, so set targetLine after a tick.
+              {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
+                // Search spans all roots; each result carries its own workspaceId,
+                // so the opened tab's key is the composite (that root, path).
+                const key = fileKey(entry.workspaceId || workspaceId, entry.rel ?? entry.path)
+                openFile(entry)
+                // openFile is not synchronous, so set targetLine after a tick.
                 setTimeout(() => {
                   setTabs((prev) => prev.map((t) =>
-                    t.path === entry.path ? { ...t, targetLine: line } : t
+                    t.path === key ? { ...t, targetLine: line } : t
                   ))
                 }, 50)
               }} />}
-              {sidebarTab === 'git' && <GitPanel authFetch={authFetch} visible readOnly={role === 'viewer'} onOpenGraph={openGitGraph} />}
+              {sidebarTab === 'git' && <GitPanels authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} visible readOnly={role === 'viewer'} onOpenGraph={openGitGraph} />}
               {sidebarTab === 'chat' && <Chat workspaceId={workspaceId} token={token} username={username} color={colorFromName(username)} />}
               {sidebarTab === 'api' && <ApiCollections api={apiClient} readOnly={role === 'viewer'} onOpenRequest={openApiClient} />}
               {sidebarTab === 'tasks' && <TasksPanel tasks={tasks} onRun={runTask} readOnly={role === 'viewer'} />}
@@ -1120,7 +1192,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           <div className="flex-1 flex flex-col min-h-0">
             <EditorTabs tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onClose={closeTab} />
             {currentTab && currentTab.type !== 'browser' && currentTab.type !== 'apiclient' && currentTab.type !== 'gitgraph' && currentTab.fileType == null && (
-              <Breadcrumbs path={currentTab.path} />
+              <Breadcrumbs path={currentTab.rel} />
             )}
             <div className="flex-1 min-h-0 relative">
               {renderTabContent()}
@@ -1170,7 +1242,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       </div>
 
       {/* ── Command palette ── */}
-      <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaceId={workspaceId} onOpenFile={openFile} />
+      <QuickOpen visible={showQuickOpen} onClose={() => setShowQuickOpen(false)} authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} onOpenFile={openFile} />
       <CommandPalette
         visible={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}

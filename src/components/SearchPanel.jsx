@@ -4,9 +4,15 @@ import {
   CaseSensitive, Regex, PenLine, RefreshCw, WholeWord,
   FileSearch, SlidersHorizontal,
 } from 'lucide-react'
+import { workspaceUrl } from '../api'
 
 // Context lines requested from the backend on each text search.
 const CONTEXT_LINES = 2
+
+// A NUL-joined (workspaceId, file) key — files with the same relative path in
+// different roots must not be merged into one result group.
+const NUL = String.fromCharCode(0)
+const groupKey = (m) => `${m.workspaceId || ""}${NUL}${m.file}`
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
@@ -18,7 +24,14 @@ const CONTEXT_LINES = 2
  *   onOpenFile (function)  – called with (entry, line) to open a file
  *   readOnly   (boolean)   – when true the replace UI is hidden entirely
  */
-export default function SearchPanel({ authFetch, onOpenFile, readOnly = false }) {
+export default function SearchPanel({ authFetch, onOpenFile, readOnly = false, workspaces = [], workspaceId }) {
+  // Roots to search across — every open workspace (multi-root), or a single
+  // synthetic entry so behavior is unchanged when only one is open.
+  const roots = useMemo(() => (
+    workspaces.length ? workspaces : (workspaceId ? [{ id: workspaceId, name: '' }] : [])
+  ), [workspaces, workspaceId])
+  const multiRoot = roots.length > 1
+
   // ── search state ────────────────────────────────────────────────────────────
   const [query, setQuery]               = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
@@ -94,15 +107,22 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
         if (rx)  params.set('regex',   'true')
         if (inc) params.set('include', inc)
         if (exc) params.set('exclude', exc)
-        const res  = await authFetch(`/api/search/files?${params}`, { signal: ctrl.signal })
-        const data = await res.json()
-        if (data.error) {
-          setError(data.error)
-          setFileResults(null)
-        } else {
-          setFileResults(data.files || [])
-          setCount(data.count || 0)
-          setTruncated(data.truncated || false)
+        // Fan out across roots; tag each hit with its workspace so it can be
+        // opened in the right root and labeled.
+        const per = await Promise.all(roots.map(async (ws) => {
+          try {
+            const res = await authFetch(workspaceUrl(ws.id, `/search/files?${params}`), { signal: ctrl.signal })
+            const data = await res.json()
+            if (data.error) return { error: data.error }
+            return { files: (data.files || []).map((f) => ({ ...f, workspaceId: ws.id, rootName: ws.name })), count: data.count || 0, truncated: data.truncated }
+          } catch (e) { if (e.name === 'AbortError') throw e; return { error: 'search failed' } }
+        }))
+        const files = per.flatMap((r) => r.files || [])
+        if (files.length === 0 && per.every((r) => r.error)) { setError(per[0].error); setFileResults(null) }
+        else {
+          setFileResults(files)
+          setCount(per.reduce((a, r) => a + (r.count || 0), 0))
+          setTruncated(per.some((r) => r.truncated))
           setResults(null)
         }
       } else {
@@ -113,16 +133,21 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
         if (inc) params.set('include', inc)
         if (exc) params.set('exclude', exc)
         params.set('context', String(CONTEXT_LINES))
-        const res  = await authFetch(`/api/search?${params}`, { signal: ctrl.signal })
-        const data = await res.json()
-        if (data.error) {
-          setError(data.error)
-          setResults(null)
-        } else {
-          setResults(data.matches || [])
-          setTruncated(data.truncated || false)
-          setCount(data.count || 0)
-          setFileCount(data.fileCount || 0)
+        const per = await Promise.all(roots.map(async (ws) => {
+          try {
+            const res = await authFetch(workspaceUrl(ws.id, `/search?${params}`), { signal: ctrl.signal })
+            const data = await res.json()
+            if (data.error) return { error: data.error }
+            return { matches: (data.matches || []).map((m) => ({ ...m, workspaceId: ws.id, rootName: ws.name })), count: data.count || 0, fileCount: data.fileCount || 0, truncated: data.truncated }
+          } catch (e) { if (e.name === 'AbortError') throw e; return { error: 'search failed' } }
+        }))
+        const matches = per.flatMap((r) => r.matches || [])
+        if (matches.length === 0 && per.every((r) => r.error)) { setError(per[0].error); setResults(null) }
+        else {
+          setResults(matches)
+          setTruncated(per.some((r) => r.truncated))
+          setCount(per.reduce((a, r) => a + (r.count || 0), 0))
+          setFileCount(per.reduce((a, r) => a + (r.fileCount || 0), 0))
           setFileResults(null)
         }
       }
@@ -130,7 +155,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
       if (e.name !== 'AbortError') setError('Search failed')
     }
     setLoading(false)
-  }, [authFetch])
+  }, [authFetch, roots])
 
   // Debounced trigger — cancels previous timer on each keystroke.
   const triggerSearch = useCallback((q, cs, ww, rx, inc, exc, mode) => {
@@ -213,11 +238,11 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
 
   // ── result click / keyboard ──────────────────────────────────────────────────
   const handleResultClick = (match) => {
-    onOpenFile?.({ path: match.file, name: match.file.split('/').pop(), isDir: false }, match.line)
+    onOpenFile?.({ workspaceId: match.workspaceId, rel: match.file, path: match.file, name: match.file.split('/').pop(), isDir: false }, match.line)
   }
 
   const handleFileResultClick = (fileMatch) => {
-    onOpenFile?.({ path: fileMatch.path, name: fileMatch.path.split('/').pop(), isDir: false }, 1)
+    onOpenFile?.({ workspaceId: fileMatch.workspaceId, rel: fileMatch.path, path: fileMatch.path, name: fileMatch.path.split('/').pop(), isDir: false }, 1)
   }
 
   // Navigate result buttons with arrow keys; Escape returns focus to query.
@@ -252,18 +277,22 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
       if (useRegex)      params.set('regex', 'true')
       if (includeGlob)   params.set('include', includeGlob)
       if (excludeGlob)   params.set('exclude', excludeGlob)
-      const res  = await authFetch(`/api/search/replace-preview?${params}`)
-      const data = await res.json()
-      if (data.error) {
-        setReplaceError(data.error)
-      } else {
-        setPreviewResults(data.matches || [])
-      }
+      const per = await Promise.all(roots.map(async (ws) => {
+        try {
+          const res = await authFetch(workspaceUrl(ws.id, `/search/replace-preview?${params}`))
+          const data = await res.json()
+          if (data.error) return { error: data.error }
+          return { matches: (data.matches || []).map((m) => ({ ...m, workspaceId: ws.id, rootName: ws.name })) }
+        } catch { return { error: 'preview failed' } }
+      }))
+      const matches = per.flatMap((r) => r.matches || [])
+      if (matches.length === 0 && per.every((r) => r.error)) setReplaceError(per[0].error)
+      else setPreviewResults(matches)
     } catch (e) {
       setReplaceError(e.message || 'Preview failed')
     }
     setReplacePreviewing(false)
-  }, [authFetch, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob])
+  }, [authFetch, roots, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob])
 
   const handleReplaceAll = useCallback(async () => {
     if (!query.trim()) return
@@ -272,32 +301,32 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
     setReplaceResult(null)
     setPreviewResults(null)
     try {
-      const res  = await authFetch('/api/search/replace', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          query:         query.trim(),
-          replace:       replaceQuery,
-          caseSensitive,
-          wholeWord,
-          useRegex,
-          includeGlob,
-          excludeGlob,
-          paths: [],
-        }),
-      })
-      const data = await res.json()
-      if (data.error) {
-        setReplaceError(data.error)
-      } else {
-        setReplaceResult({ filesChanged: data.filesChanged, replacements: data.replacements })
+      const body = {
+        query: query.trim(), replace: replaceQuery,
+        caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, paths: [],
+      }
+      const per = await Promise.all(roots.map(async (ws) => {
+        try {
+          const res = await authFetch(workspaceUrl(ws.id, '/search/replace'), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          })
+          const data = await res.json()
+          if (data.error) return { error: data.error }
+          return { filesChanged: data.filesChanged || 0, replacements: data.replacements || 0 }
+        } catch { return { error: 'replace failed' } }
+      }))
+      const filesChanged = per.reduce((a, r) => a + (r.filesChanged || 0), 0)
+      const replacements = per.reduce((a, r) => a + (r.replacements || 0), 0)
+      if (replacements === 0 && per.every((r) => r.error)) setReplaceError(per[0].error)
+      else {
+        setReplaceResult({ filesChanged, replacements })
         doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
       }
     } catch (e) {
       setReplaceError(e.message || 'Replace failed')
     }
     setReplacing(false)
-  }, [authFetch, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode, doSearch])
+  }, [authFetch, roots, query, replaceQuery, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode, doSearch])
 
   const toggleReplaceMode = () => {
     setReplaceMode((v) => !v)
@@ -549,10 +578,11 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
               )}
             </div>
 
-            {displayGrouped && displayGrouped.map(({ file, matches }, groupIdx) => (
+            {displayGrouped && displayGrouped.map(({ key, file, rootName, matches }, groupIdx) => (
               <FileGroup
-                key={file}
+                key={key}
                 file={file}
+                rootName={multiRoot ? rootName : ''}
                 matches={matches}
                 groupStartIdx={groupIdx === 0
                   ? 0
@@ -575,8 +605,9 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
             </div>
             {fileResults.map((fm, idx) => (
               <FileResultRow
-                key={fm.path}
+                key={`${fm.workspaceId}:${fm.path}`}
                 fileMatch={fm}
+                rootName={multiRoot ? fm.rootName : ''}
                 idx={idx}
                 query={query}
                 caseSensitive={caseSensitive}
@@ -607,7 +638,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false })
 
 // ── FileGroup ─────────────────────────────────────────────────────────────────
 
-function FileGroup({ file, matches, groupStartIdx, onResultClick, onResultKeyDown, resultButtonsRef, isPreview }) {
+function FileGroup({ file, rootName, matches, groupStartIdx, onResultClick, onResultKeyDown, resultButtonsRef, isPreview }) {
   const [open, setOpen] = useState(true)
   const filename = file.split('/').pop()
   const dir      = file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : ''
@@ -622,6 +653,7 @@ function FileGroup({ file, matches, groupStartIdx, onResultClick, onResultKeyDow
         <ChevronRight className={`w-3 h-3 text-text-muted shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
         <span className="text-[12px] font-medium text-text-primary truncate">{filename}</span>
         {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
+        {rootName && <span className="shrink-0 text-[9px] px-1 py-px rounded bg-bg-hover text-text-muted">{rootName}</span>}
         <span className="ml-auto shrink-0 text-[10px] text-text-muted font-mono">{matches.length}</span>
       </button>
 
@@ -706,7 +738,7 @@ function MatchLine({ match, onClick, onKeyDown, buttonRef, isPreview }) {
 
 // ── FileResultRow (filename search) ───────────────────────────────────────────
 
-function FileResultRow({ fileMatch, idx, query, caseSensitive, onClick, onKeyDown, buttonRef }) {
+function FileResultRow({ fileMatch, rootName, idx, query, caseSensitive, onClick, onKeyDown, buttonRef }) {
   const parts = fileMatch.path.split('/')
   const filename = parts.pop()
   const dir      = parts.join('/')
@@ -724,6 +756,7 @@ function FileResultRow({ fileMatch, idx, query, caseSensitive, onClick, onKeyDow
       <span className="text-[10px] text-text-muted font-mono shrink-0 w-5 text-right">{idx + 1}</span>
       <span className="text-[12px] font-medium text-text-primary truncate">{hiFilename}</span>
       {dir && <span className="text-[10px] text-text-muted truncate shrink">{dir}</span>}
+      {rootName && <span className="ml-auto shrink-0 text-[9px] px-1 py-px rounded bg-bg-hover text-text-muted">{rootName}</span>}
     </button>
   )
 }
@@ -744,10 +777,13 @@ function EmptyResults() {
 function groupByFile(matches) {
   const map = new Map()
   for (const m of matches) {
-    if (!map.has(m.file)) map.set(m.file, [])
-    map.get(m.file).push(m)
+    const k = groupKey(m)
+    if (!map.has(k)) map.set(k, [])
+    map.get(k).push(m)
   }
-  return Array.from(map.entries()).map(([file, ms]) => ({ file, matches: ms }))
+  return Array.from(map.entries()).map(([k, ms]) => ({
+    key: k, file: ms[0].file, rootName: ms[0].rootName, matches: ms,
+  }))
 }
 
 /**

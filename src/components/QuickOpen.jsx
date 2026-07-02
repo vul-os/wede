@@ -17,14 +17,23 @@ function score(query, path) {
   return qi === q.length ? 100 : 0
 }
 
-// QuickOpen — VS Code-style Cmd+P fuzzy file finder. Fetches a flat file index
-// from the backend and opens the chosen file. Defensive: any fetch failure
-// yields an empty list and the modal still closes cleanly.
-export default function QuickOpen({ visible, onClose, authFetch, workspaceId, onOpenFile }) {
+// QuickOpen — VS Code-style Cmd+P fuzzy file finder. In multi-root workspaces it
+// indexes EVERY open root and merges the results (each labeled with its folder),
+// so one search spans all folders. Defensive: any fetch failure yields an empty
+// list and the modal still closes cleanly.
+export default function QuickOpen({ visible, onClose, authFetch, workspaces = [], workspaceId, onOpenFile }) {
+  // Each entry: { path (rel), workspaceId, rootName }.
   const [files, setFiles] = useState([])
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
   const inputRef = useRef(null)
+
+  // The set of roots to index — the full workspace list, or a synthetic single
+  // entry from workspaceId for callers that don't pass the list.
+  const roots = useMemo(() => (
+    workspaces.length ? workspaces : (workspaceId ? [{ id: workspaceId, name: '' }] : [])
+  ), [workspaces, workspaceId])
+  const multiRoot = roots.length > 1
 
   // Load the file index each time the finder opens (cheap; reflects new files).
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -33,13 +42,14 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaceId, on
     setQuery('')
     setSel(0)
     let cancelled = false
-    const url = workspaceId ? workspaceUrl(workspaceId, '/files/tree') : '/api/files/tree'
-    authFetch(url)
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) setFiles(Array.isArray(data.files) ? data.files : []) })
-      .catch(() => { if (!cancelled) setFiles([]) })
+    Promise.all(roots.map((ws) =>
+      authFetch(workspaceUrl(ws.id, '/files/tree'))
+        .then((r) => r.json())
+        .then((data) => (Array.isArray(data.files) ? data.files : []).map((path) => ({ path, workspaceId: ws.id, rootName: ws.name })))
+        .catch(() => [])
+    )).then((lists) => { if (!cancelled) setFiles(lists.flat()) })
     return () => { cancelled = true }
-  }, [visible, workspaceId, authFetch])
+  }, [visible, roots, authFetch])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => { if (visible) inputRef.current?.focus() }, [visible])
@@ -47,16 +57,16 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaceId, on
   const results = useMemo(() => {
     if (!query) return files.slice(0, 50)
     return files
-      .map((f) => ({ f, s: score(query, f) }))
+      .map((f) => ({ f, s: score(query, f.path) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s)
       .slice(0, 50)
       .map((x) => x.f)
   }, [files, query])
 
-  const choose = useCallback((path) => {
-    if (!path) return
-    onOpenFile({ path, name: path.split('/').pop(), isDir: false })
+  const choose = useCallback((entry) => {
+    if (!entry) return
+    onOpenFile({ workspaceId: entry.workspaceId, rel: entry.path, path: entry.path, name: entry.path.split('/').pop(), isDir: false })
     onClose()
   }, [onOpenFile, onClose])
 
@@ -89,11 +99,11 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaceId, on
             <div className="px-3 py-6 text-center text-[12px] text-text-muted">No matching files</div>
           )}
           {results.map((f, i) => {
-            const name = f.split('/').pop()
-            const dir = f.slice(0, f.length - name.length)
+            const name = f.path.split('/').pop()
+            const dir = f.path.slice(0, f.path.length - name.length)
             return (
               <button
-                key={f}
+                key={`${f.workspaceId}:${f.path}`}
                 onMouseEnter={() => setSel(i)}
                 onClick={() => choose(f)}
                 className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
@@ -102,6 +112,9 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaceId, on
                 <File className="w-3.5 h-3.5 shrink-0 text-text-muted" />
                 <span className="truncate font-medium">{name}</span>
                 {dir && <span className="truncate text-[11px] text-text-muted">{dir.replace(/\/$/, '')}</span>}
+                {multiRoot && f.rootName && (
+                  <span className="ml-auto shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-bg-hover text-text-muted">{f.rootName}</span>
+                )}
               </button>
             )
           })}

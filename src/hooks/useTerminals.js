@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { workspaceUrl } from '../api'
+import { applyAutoName } from '../lib/terminalName'
 
 function loadTerminals() {
   try {
@@ -82,7 +83,8 @@ export function useTerminals(authFetch, workspaceId, sync = {}) {
   useEffect(() => {
     try {
       // Never persist `initial` (a one-shot task command) — it must not re-run on reload.
-      localStorage.setItem('wede_terminals', JSON.stringify(terminals.map((t) => ({ id: t.id, name: t.name }))))
+      // `manual` is kept so a user-chosen name survives reload and still wins over OSC titles.
+      localStorage.setItem('wede_terminals', JSON.stringify(terminals.map((t) => ({ id: t.id, name: t.name, manual: t.manual || undefined }))))
       localStorage.setItem('wede_terminal_active', String(activeId))
     } catch { /* ignore */ }
   }, [terminals, activeId])
@@ -102,6 +104,21 @@ export function useTerminals(authFetch, workspaceId, sync = {}) {
     setTerminals((prev) => prev.map((t) => (t.id === id ? { ...t, initial: undefined } : t)))
   }, [])
 
+  // renameTerminal sets a user-chosen name. `manual` pins it so PTY title
+  // escapes (autoNameTerminal) no longer override it — the explicit name wins.
+  const renameTerminal = useCallback((id, name) => {
+    const v = (name || '').trim()
+    if (!v) return
+    setTerminals((prev) => prev.map((t) => (t.id === id ? { ...t, name: v, manual: true } : t)))
+  }, [])
+
+  // autoNameTerminal applies a title emitted by the PTY via an OSC 0/1/2 escape
+  // (what macOS/Linux terminals use to self-name from the running program/shell).
+  // It only takes effect when the user hasn't manually renamed the terminal.
+  const autoNameTerminal = useCallback((id, title) => {
+    setTerminals((prev) => applyAutoName(prev, id, title))
+  }, [])
+
   const closeTerminal = useCallback((id) => {
     setTerminals((prev) => {
       const next = prev.filter((t) => t.id !== id)
@@ -116,5 +133,5 @@ export function useTerminals(authFetch, workspaceId, sync = {}) {
     })
   }, [activeId])
 
-  return { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, termRefs }
+  return { terminals, activeId, setActiveId, addTerminal, closeTerminal, clearInitial, renameTerminal, autoNameTerminal, termRefs }
 }

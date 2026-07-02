@@ -78,12 +78,17 @@ function App() {
     )
   }
 
+  // The active root path tracks the focused workspace (which follows the active
+  // editor tab in multi-root), so the top bar / status bar / DAP reflect it.
+  const activeWs = workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId)
+  const activeRoot = activeWs?.root || workspace.current
+
   return (
     <IDE
       token={token}
       authFetch={authFetch}
       onLogout={logout}
-      workspace={workspace.current}
+      workspace={activeRoot}
       recents={workspace?.recents || []}
       onWorkspaceChange={(path) => setWorkspace({ ...workspace, current: path, hasWorkspace: true })}
       workspaceId={workspacesApi.activeWorkspaceId}

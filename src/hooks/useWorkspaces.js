@@ -46,11 +46,22 @@ export function useWorkspaces(token, authFetch) {
     return workspace
   }, [authFetch, refresh])
 
+  // closeWorkspace removes a workspace root (editor+ only, server-side). The
+  // caller is responsible for closing any tabs belonging to it first.
+  const closeWorkspace = useCallback(async (id) => {
+    const res = await authFetch(`${workspacesUrl}/${id}`, { method: 'DELETE' })
+    if (!res.ok && res.status !== 404) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'failed to close workspace')
+    }
+    await refresh()
+  }, [authFetch, refresh])
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (token) refresh()
   }, [token, refresh])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  return { workspaces, activeWorkspaceId, setActiveWorkspaceId, createWorkspace, refresh }
+  return { workspaces, activeWorkspaceId, setActiveWorkspaceId, createWorkspace, closeWorkspace, refresh }
 }

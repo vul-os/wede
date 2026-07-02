@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
-  FilePlus, FolderPlus, RefreshCw, Copy, Clipboard, Trash2, Pencil
+  FilePlus, FolderPlus, RefreshCw, Copy, Clipboard, Trash2, Pencil, FolderPlus as AddRoot, X as XIcon,
 } from 'lucide-react'
+import { makeWsFetch } from '../lib/wsScope'
+import { fileKey } from '../lib/fileKey'
 
 /* ── File type icon colours (VS Code style) ── */
 const EXT_ICON = {
@@ -122,14 +124,14 @@ function InlineInput({ placeholder, value, onChange, onSubmit, onBlur }) {
 
 /* ── Tree node ── */
 function TreeNode({
-  entry, depth, onSelect, onToggle, expanded, authFetch,
+  entry, depth, rootId, onSelect, onToggle, expanded, authFetch,
   onRefresh, selectedPath, gitMap, presenceMap, clipboard, setClipboard,
   onPaste, onDelete, onRename, onFocusDir,
 }) {
   const [children, setChildren] = useState(null)
   const [ctx, setCtx] = useState(null)
   const isOpen     = expanded.has(entry.path)
-  const isSelected = selectedPath === entry.path
+  const isSelected = selectedPath === fileKey(rootId, entry.path)
   const gitStatus  = gitMap?.[entry.path]
   const viewers    = presenceMap?.[entry.path]
   const nameColor  = gitStatus ? GIT_COLOR[gitStatus] : 'text-text-primary'
@@ -252,7 +254,7 @@ function TreeNode({
         <div className="relative">
           {children.map((child) => (
             <TreeNode
-              key={child.path} entry={child} depth={depth + 1}
+              key={child.path} entry={child} depth={depth + 1} rootId={rootId}
               onSelect={onSelect} onToggle={onToggle} expanded={expanded}
               authFetch={authFetch} onRefresh={onRefresh} selectedPath={selectedPath}
               gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
@@ -291,17 +293,23 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   )
 }
 
-/* ── Main explorer ── */
-export default function FileExplorer({ authFetch, onFileSelect, selectedPath, workspace, workspaceId, onRegisterActions, roster = [] }) {
-  // Map file path -> members currently viewing it (for presence dots).
+/* ── One workspace root: a collapsible section with its own scoped file tree. ──
+   `ws` is { id, name, root }. All file/git calls are rewritten to this root's
+   /api/workspaces/<id>/... endpoints, so several roots coexist independently. */
+function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, register, collapsed, onToggleCollapse, onFocus, onClose, canClose, showHeader }) {
+  // wsFetch mirrors authFetch but pins every legacy /api/<service> path to THIS
+  // workspace, so the tree, git status, and mutations act on this root alone.
+  const wsFetch = useMemo(() => makeWsFetch(authFetch, ws.id), [authFetch, ws.id])
+
   const presenceMap = useMemo(() => {
     const m = {}
-    for (const mem of roster) {
+    for (const mem of roster || []) {
       if (!mem.file) continue
       ;(m[mem.file] ||= []).push(mem)
     }
     return m
   }, [roster])
+
   const [files, _setFiles] = useState([])
   const setFiles = (v) => _setFiles(Array.isArray(v) ? v : [])
   const [expanded, setExpanded] = useState(new Set())
@@ -311,26 +319,26 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
   const [gitMap, setGitMap] = useState({})
   const [renaming, setRenaming] = useState(null)
   const [renameName, setRenameName] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState(null) // path to confirm-delete
-  const [focusedDir, setFocusedDir] = useState('') // last directory clicked in tree
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [focusedDir, setFocusedDir] = useState('')
 
   const loadRoot = useCallback(async () => {
     try {
-      const res = await authFetch('/api/files?path=')
+      const res = await wsFetch('/api/files?path=')
       const data = await res.json()
       if (Array.isArray(data)) setFiles(data)
     } catch { /* ignore */ }
-  }, [authFetch])
+  }, [wsFetch])
 
   const loadGitStatus = useCallback(async () => {
     try {
-      const res = await authFetch('/api/git/status')
+      const res = await wsFetch('/api/git/status')
       const data = await res.json()
       const map = {}
       for (const f of (data.files || [])) { map[f.path] = f.status }
       setGitMap(map)
     } catch { /* ignore */ }
-  }, [authFetch])
+  }, [wsFetch])
 
   useEffect(() => {
     setFiles([])
@@ -339,16 +347,18 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     loadGitStatus()
     const interval = setInterval(loadGitStatus, 8000)
     return () => clearInterval(interval)
-  }, [loadRoot, loadGitStatus, workspace, workspaceId])
+  }, [loadRoot, loadGitStatus])
 
-  // Register refresh + new-file/folder triggers with the parent (for command palette).
+  // Register per-section actions so the parent can route global new-file/refresh
+  // triggers (command palette / SSE watcher) to the focused root.
   useEffect(() => {
-    onRegisterActions?.({
+    register(ws.id, {
       refresh: () => { loadRoot(); loadGitStatus() },
-      newFile: () => setShowNew('file'),
-      newFolder: () => setShowNew('folder'),
+      newFile: () => { onFocus(); setShowNew('file') },
+      newFolder: () => { onFocus(); setShowNew('folder') },
     })
-  }, [onRegisterActions, loadRoot, loadGitStatus])
+    return () => register(ws.id, null)
+  }, [register, ws.id, loadRoot, loadGitStatus, onFocus])
 
   const toggleExpand = (path) => {
     setExpanded((prev) => {
@@ -361,9 +371,10 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!newName.trim()) return
-    await authFetch('/api/files/create', {
+    const base = focusedDir ? `${focusedDir}/` : ''
+    await wsFetch('/api/files/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: newName, isDir: showNew === 'folder' }),
+      body: JSON.stringify({ path: base + newName, isDir: showNew === 'folder' }),
     })
     setShowNew(null); setNewName(''); loadRoot()
   }
@@ -373,8 +384,7 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     const name = clipboard.path.split('/').pop()
     const dest = targetDir ? `${targetDir}/${name}` : name
     try {
-      // Use the recursive copy endpoint for both files and directories.
-      await authFetch('/api/files/copy', {
+      await wsFetch('/api/files/copy', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ src: clipboard.path, dst: dest }),
       })
@@ -382,15 +392,13 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     } catch { /* ignore */ }
   }
 
-  const handleDelete = (path) => {
-    setConfirmDelete(path)
-  }
+  const handleDelete = (path) => setConfirmDelete(path)
 
   const confirmAndDelete = async () => {
     if (!confirmDelete) return
     const path = confirmDelete
     setConfirmDelete(null)
-    await authFetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    await wsFetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
     loadRoot()
   }
 
@@ -404,7 +412,7 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
     if (!renameName.trim() || !renaming) return
     const dir = renaming.includes('/') ? renaming.slice(0, renaming.lastIndexOf('/')) : ''
     const newPath = dir ? `${dir}/${renameName}` : renameName
-    await authFetch('/api/files/rename', {
+    await wsFetch('/api/files/rename', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath: renaming, newPath }),
     })
@@ -413,68 +421,75 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
 
   useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) {
-        // Paste into the focused directory if one is tracked; otherwise workspace root.
-        handlePaste(focusedDir)
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) handlePaste(focusedDir)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [clipboard, focusedDir]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const folderLabel = workspace ? workspace.split('/').pop() : 'Explorer'
+  const selectFromRoot = useCallback((entry, opts) => {
+    onFileSelect({ ...entry, workspaceId: ws.id, rel: entry.path }, opts)
+  }, [onFileSelect, ws.id])
+
+  const isCollapsed = showHeader && collapsed
 
   return (
-    <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted truncate">
-          {folderLabel}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <IconBtn icon={FilePlus} title="New File"   onClick={() => setShowNew('file')} />
-          <IconBtn icon={FolderPlus} title="New Folder" onClick={() => setShowNew('folder')} />
-          <IconBtn icon={RefreshCw}  title="Refresh"    onClick={() => { loadRoot(); loadGitStatus() }} />
+    <div className="border-b border-border/40 last:border-b-0" onMouseDownCapture={onFocus}>
+      {/* Root header — only shown when multiple roots are open (VS Code parity). */}
+      {showHeader && (
+        <div className="group flex items-center h-[26px] px-2 sticky top-0 z-10 bg-bg-secondary hover:bg-bg-hover/60 cursor-pointer select-none"
+          onClick={onToggleCollapse}>
+          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+            {collapsed ? <ChevronRight className="w-3 h-3 text-text-muted" /> : <ChevronDown className="w-3 h-3 text-text-muted" />}
+          </span>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-text-secondary truncate flex-1" title={ws.root}>{ws.name}</span>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <IconBtn icon={FilePlus} title="New File" onClick={(e) => { e.stopPropagation(); onFocus(); setShowNew('file') }} />
+            <IconBtn icon={FolderPlus} title="New Folder" onClick={(e) => { e.stopPropagation(); onFocus(); setShowNew('folder') }} />
+            <IconBtn icon={RefreshCw} title="Refresh" onClick={(e) => { e.stopPropagation(); loadRoot(); loadGitStatus() }} />
+            {canClose && <IconBtn icon={XIcon} title="Remove folder from workspace" onClick={(e) => { e.stopPropagation(); onClose() }} />}
+          </div>
         </div>
-      </div>
-
-      {/* New file/folder */}
-      {showNew && (
-        <InlineInput
-          placeholder={showNew === 'file' ? 'filename.ext' : 'folder-name'}
-          value={newName}
-          onChange={setNewName}
-          onSubmit={handleCreate}
-          onBlur={() => { setShowNew(null); setNewName('') }}
-        />
       )}
 
-      {/* Rename */}
-      {renaming && (
-        <InlineInput
-          placeholder="new name"
-          value={renameName}
-          onChange={setRenameName}
-          onSubmit={submitRename}
-          onBlur={() => setRenaming(null)}
-        />
+      {!isCollapsed && (
+        <>
+          {showNew && (
+            <InlineInput
+              placeholder={showNew === 'file' ? 'filename.ext' : 'folder-name'}
+              value={newName}
+              onChange={setNewName}
+              onSubmit={handleCreate}
+              onBlur={() => { setShowNew(null); setNewName('') }}
+            />
+          )}
+          {renaming && (
+            <InlineInput
+              placeholder="new name"
+              value={renameName}
+              onChange={setRenameName}
+              onSubmit={submitRename}
+              onBlur={() => setRenaming(null)}
+            />
+          )}
+          <div className="py-0.5">
+            {files.map((entry) => (
+              <TreeNode
+                key={entry.path} entry={entry} depth={0} rootId={ws.id}
+                onSelect={selectFromRoot} onToggle={toggleExpand} expanded={expanded}
+                authFetch={wsFetch} onRefresh={loadRoot} selectedPath={selectedPath}
+                gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
+                onPaste={handlePaste} onDelete={handleDelete} onRename={handleRename}
+                onFocusDir={setFocusedDir}
+              />
+            ))}
+            {files.length === 0 && (
+              <div className="px-3 py-1.5 text-[11px] text-text-muted italic">empty</div>
+            )}
+          </div>
+        </>
       )}
 
-      {/* File tree */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden py-0.5 select-none">
-        {Array.isArray(files) && files.map((entry) => (
-          <TreeNode
-            key={entry.path} entry={entry} depth={0}
-            onSelect={onFileSelect} onToggle={toggleExpand} expanded={expanded}
-            authFetch={authFetch} onRefresh={loadRoot} selectedPath={selectedPath}
-            gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
-            onPaste={handlePaste} onDelete={handleDelete} onRename={handleRename}
-            onFocusDir={setFocusedDir}
-          />
-        ))}
-      </div>
-
-      {/* Delete confirmation dialog */}
       {confirmDelete && (
         <ConfirmDialog
           message={`Delete "${confirmDelete.split('/').pop()}"? This cannot be undone.`}
@@ -482,6 +497,75 @@ export default function FileExplorer({ authFetch, onFileSelect, selectedPath, wo
           onCancel={() => setConfirmDelete(null)}
         />
       )}
+    </div>
+  )
+}
+
+/* ── Main explorer: renders every open workspace as a root section. ── */
+export default function FileExplorer({ authFetch, workspaces = [], onFileSelect, selectedPath, onRegisterActions, onAddFolder, onCloseWorkspace, roster = [] }) {
+  const [focusedRoot, setFocusedRoot] = useState(null)
+  const [collapsed, setCollapsed] = useState(() => new Set())
+  const sectionActions = useRef({})
+
+  const register = useCallback((wsId, actions) => {
+    if (actions) sectionActions.current[wsId] = actions
+    else delete sectionActions.current[wsId]
+  }, [])
+
+  const roots = workspaces
+  const activeRoot = (focusedRoot && roots.some((r) => r.id === focusedRoot)) ? focusedRoot : roots[0]?.id
+
+  // Route the command-palette / SSE global triggers to the focused root (new
+  // file/folder) or fan out to every root (refresh).
+  useEffect(() => {
+    onRegisterActions?.({
+      refresh: () => Object.values(sectionActions.current).forEach((a) => a?.refresh?.()),
+      newFile: () => sectionActions.current[activeRoot]?.newFile?.(),
+      newFolder: () => sectionActions.current[activeRoot]?.newFolder?.(),
+    })
+  }, [onRegisterActions, activeRoot])
+
+  const toggleCollapse = (id) => setCollapsed((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  return (
+    <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
+      {/* Header — single root shows the folder name; multi-root shows "Explorer". */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted truncate">
+          {roots.length === 1 ? roots[0].name : 'Explorer'}
+        </span>
+        <div className="flex items-center gap-0.5">
+          {/* New file/folder route to the focused root (used when its own header is hidden). */}
+          <IconBtn icon={FilePlus} title="New File" onClick={() => sectionActions.current[activeRoot]?.newFile?.()} />
+          <IconBtn icon={FolderPlus} title="New Folder" onClick={() => sectionActions.current[activeRoot]?.newFolder?.()} />
+          {onAddFolder && <IconBtn icon={AddRoot} title="Add Folder to Workspace" onClick={onAddFolder} />}
+          <IconBtn icon={RefreshCw} title="Refresh All" onClick={() => Object.values(sectionActions.current).forEach((a) => a?.refresh?.())} />
+        </div>
+      </div>
+
+      {/* Roots */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden select-none">
+        {roots.length === 0 && (
+          <div className="px-3 py-4 text-[12px] text-text-muted">No folders open.</div>
+        )}
+        {roots.map((ws) => (
+          <RootSection
+            key={ws.id} ws={ws} authFetch={authFetch}
+            onFileSelect={onFileSelect} selectedPath={selectedPath} roster={roster}
+            register={register}
+            showHeader={roots.length > 1}
+            collapsed={collapsed.has(ws.id)}
+            onToggleCollapse={() => toggleCollapse(ws.id)}
+            onFocus={() => setFocusedRoot(ws.id)}
+            canClose={roots.length > 1 && !!onCloseWorkspace}
+            onClose={() => onCloseWorkspace?.(ws.id)}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -498,4 +582,3 @@ function IconBtn({ icon: Icon, title, onClick }) {
     </button>
   )
 }
-
