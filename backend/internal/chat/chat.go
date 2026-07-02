@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ const (
 	readLimit       = 4 << 10 // 4 KiB — chat messages are tiny
 	gitPollInterval = 5 * time.Second
 	peerBuf         = 64 // outbound channel buffer per peer
+	gitHistoryLimit = 30 // recent commits merged into chat history on join
 )
 
 // Message is one chat event in the workspace room.
@@ -142,7 +144,11 @@ func (h *Hub) chatFile() string {
 }
 
 // loadHistory reads .wede/chat.md (if present) and appends parsed messages to
-// h.history. Malformed lines are silently skipped.
+// h.history. Malformed lines are silently skipped. Git-activity lines are
+// ignored: commit history is derived live from `git log` on join (see
+// recentCommits), so it is never persisted — projects move in and out of a
+// workspace, and git, not chat.md, is the source of truth for commits. This also
+// drops any git noise written by older wede versions.
 func (h *Hub) loadHistory() {
 	f, err := os.Open(h.chatFile())
 	if err != nil {
@@ -152,6 +158,9 @@ func (h *Hub) loadHistory() {
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if msg, ok := parseLine(sc.Text()); ok {
+			if msg.Kind == "git" {
+				continue
+			}
 			h.history = append(h.history, msg)
 		}
 	}
@@ -255,7 +264,13 @@ func (h *Hub) post(user, color, text, kind string) {
 		return
 	}
 	msg.ID = h.nextID()
-	h.history = append(h.history, msg)
+	// Git activity is ephemeral: broadcast live to current peers, but never added
+	// to history or persisted to chat.md (it is re-derived from git log on join).
+	// This keeps the committed chat.md free of transient commit/dirty noise.
+	persist := kind != "git"
+	if persist {
+		h.history = append(h.history, msg)
+	}
 	data, _ := json.Marshal(outEnvelope{Type: "msg", Message: &msg})
 	peers := make([]*peer, 0, len(h.peers))
 	for _, p := range h.peers {
@@ -264,7 +279,9 @@ func (h *Hub) post(user, color, text, kind string) {
 	h.mu.Unlock()
 
 	// Disk and channel operations happen outside the lock.
-	h.appendToDisk(msg)
+	if persist {
+		h.appendToDisk(msg)
+	}
 	for _, p := range peers {
 		select {
 		case p.out <- data:
@@ -307,6 +324,16 @@ func (h *Hub) Join(username, color string) (string, <-chan []byte) {
 	hist := make([]Message, len(h.history))
 	copy(hist, h.history)
 	h.mu.Unlock()
+
+	// Fill in git activity from git itself (source of truth), merged into the
+	// timeline by commit time — rather than persisting it into chat.md. root/gitOn
+	// are immutable after construction, so reading them outside the lock is safe.
+	if h.gitOn {
+		if commits := recentCommits(h.root, gitHistoryLimit); len(commits) > 0 {
+			hist = append(hist, commits...)
+			sort.SliceStable(hist, func(i, j int) bool { return hist[i].Time.Before(hist[j].Time) })
+		}
+	}
 
 	// Send the full history as a single frame (best-effort; buffer is peerBuf).
 	if len(hist) > 0 {
@@ -414,6 +441,39 @@ func shouldPostCommit(prev, next string) bool {
 // had a prior sample (prev >= 0).
 func shouldPostDirty(prev, next int) bool {
 	return prev >= 0 && prev != next
+}
+
+// recentCommits derives up to n recent commit events straight from `git log`,
+// so the chat timeline reflects real commit history without any of it being
+// stored in chat.md. Returns nil when root is not a git repo / has no commits.
+// Each field is separated by US (0x1f) to survive subjects containing spaces.
+func recentCommits(root string, n int) []Message {
+	out, err := gitCmd(root, "log", fmt.Sprintf("-%d", n), "--pretty=format:%h\x1f%cI\x1f%s")
+	if err != nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		return nil
+	}
+	var msgs []Message
+	for _, line := range strings.Split(trimmed, "\n") {
+		parts := strings.SplitN(line, "\x1f", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, parts[1])
+		if err != nil {
+			continue
+		}
+		msgs = append(msgs, Message{
+			ID:   "git-" + parts[0],
+			Kind: "git",
+			Text: fmt.Sprintf("📦 committed %s: %s", parts[0], parts[2]),
+			Time: t.UTC(),
+		})
+	}
+	return msgs
 }
 
 // gitCmd runs a git sub-command under root and returns combined stdout.

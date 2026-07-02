@@ -59,6 +59,8 @@ func TestNewHubReplaysHistory(t *testing.T) {
 	if err := os.MkdirAll(wedeDir, 0755); err != nil {
 		t.Fatal(err)
 	}
+	// A persisted git line must be IGNORED on load — git is derived live from
+	// git log now, not stored in chat.md. Only the user message is replayed.
 	existing := "- 2026-06-26T15:30:00Z [user] alice: hello world\n" +
 		"- 2026-06-26T15:31:00Z [git] 📦 committed a1b2c3: fix typo\n"
 	if err := os.WriteFile(filepath.Join(wedeDir, "chat.md"), []byte(existing), 0644); err != nil {
@@ -68,8 +70,8 @@ func TestNewHubReplaysHistory(t *testing.T) {
 	h := NewHub(dir, ChannelPublic, "")
 	defer h.Close()
 
-	if len(h.history) != 2 {
-		t.Fatalf("expected 2 history messages, got %d", len(h.history))
+	if len(h.history) != 1 {
+		t.Fatalf("expected 1 history message (git ignored), got %d", len(h.history))
 	}
 
 	id, ch := h.Join("bob", "#60a5fa")
@@ -84,8 +86,8 @@ func TestNewHubReplaysHistory(t *testing.T) {
 		if !strings.Contains(s, "hello world") {
 			t.Fatalf("expected history content 'hello world', got: %s", s)
 		}
-		if !strings.Contains(s, "fix typo") {
-			t.Fatalf("expected history content 'fix typo', got: %s", s)
+		if strings.Contains(s, "fix typo") {
+			t.Fatalf("persisted git line should be ignored, but appeared: %s", s)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for history frame")
@@ -149,6 +151,77 @@ func TestPostGitAndSystemKinds(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for system message")
+	}
+}
+
+// TestGitNotPersisted verifies git activity is broadcast live but never written
+// to chat.md (which stays clean for the committed repo).
+func TestGitNotPersisted(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHub(dir, ChannelPublic, "")
+	defer h.Close()
+
+	h.Post("alice", "#fff", "real message")
+	h.PostGit("📦 committed deadbee: should not persist")
+	h.PostGit("✏️ 3 uncommitted change(s)")
+	time.Sleep(20 * time.Millisecond)
+
+	b, err := os.ReadFile(filepath.Join(dir, ".wede", "chat.md"))
+	if err != nil {
+		t.Fatalf("chat.md not written: %v", err)
+	}
+	content := string(b)
+	if !strings.Contains(content, "real message") {
+		t.Errorf("user message should persist, chat.md=%q", content)
+	}
+	if strings.Contains(content, "committed") || strings.Contains(content, "uncommitted") {
+		t.Errorf("git activity must NOT be persisted to chat.md, got: %q", content)
+	}
+}
+
+// TestRecentCommitsFromGitLog verifies commit history is derived from git itself
+// (not chat.md), including subjects with spaces.
+func TestRecentCommitsFromGitLog(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		if _, err := gitCmd(dir, args...); err != nil {
+			t.Fatalf("git %v: %v", args, err)
+		}
+	}
+	if _, err := gitCmd(dir, "init"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+	run("config", "user.email", "t@example.com")
+	run("config", "user.name", "Tester")
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", ".")
+	run("commit", "-m", "first commit with spaces")
+
+	commits := recentCommits(dir, 10)
+	if len(commits) != 1 {
+		t.Fatalf("expected 1 derived commit, got %d", len(commits))
+	}
+	c := commits[0]
+	if c.Kind != "git" {
+		t.Errorf("kind = %q, want git", c.Kind)
+	}
+	if !strings.Contains(c.Text, "first commit with spaces") {
+		t.Errorf("subject not preserved: %q", c.Text)
+	}
+	if !strings.HasPrefix(c.ID, "git-") {
+		t.Errorf("id = %q, want git-<hash>", c.ID)
+	}
+	if c.Time.IsZero() {
+		t.Error("commit time should be parsed from git log")
+	}
+}
+
+func TestRecentCommitsNonRepo(t *testing.T) {
+	if got := recentCommits(t.TempDir(), 10); got != nil {
+		t.Errorf("non-repo should yield nil commits, got %v", got)
 	}
 }
 
