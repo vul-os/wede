@@ -17,8 +17,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// HandleGet returns the current tunnel state (frpc detected, status, public URL,
-// config with the token redacted, recent log).
+// HandleGet returns the current tunnel state (status, public URL, config with the
+// token redacted, recent log).
 func (m *Manager) HandleGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m.Snapshot())
 }

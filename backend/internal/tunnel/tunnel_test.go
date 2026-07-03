@@ -1,93 +1,20 @@
 package tunnel
 
 import (
-	"strings"
 	"testing"
+	"time"
 )
 
-func TestRenderTOML_HTTP(t *testing.T) {
-	c := Config{ServerAddr: "vps.example.com", ServerPort: 7000, Token: "secret", Mode: ModeHTTP, Domain: "wede.example.com"}
-	out := renderTOML(c, "9090")
-	for _, want := range []string{
-		`serverAddr = "vps.example.com"`,
-		`serverPort = 7000`,
-		`auth.token = "secret"`,
-		`type = "http"`,
-		`localPort = 9090`,
-		`customDomains = ["wede.example.com"]`,
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("renderTOML missing %q in:\n%s", want, out)
-		}
-	}
-	if strings.Contains(out, "remotePort") {
-		t.Error("http config should not contain remotePort")
-	}
-}
-
-func TestRenderTOML_TCP_NoToken(t *testing.T) {
-	c := Config{ServerAddr: "1.2.3.4", ServerPort: 7000, Mode: ModeTCP, RemotePort: 9090}
-	out := renderTOML(c, "9090")
-	if !strings.Contains(out, "remotePort = 9090") || !strings.Contains(out, `type = "tcp"`) {
-		t.Errorf("tcp config wrong:\n%s", out)
-	}
-	if strings.Contains(out, "auth.token") {
-		t.Error("empty token should omit auth.token")
-	}
-}
-
-func TestPublicURL(t *testing.T) {
-	cases := []struct {
-		c    Config
-		want string
-	}{
-		{Config{Mode: ModeHTTP, Domain: "wede.example.com"}, "http://wede.example.com"},
-		{Config{Mode: ModeHTTP, Domain: "wede.example.com", HTTPS: true}, "https://wede.example.com"},
-		{Config{Mode: ModeTCP, ServerAddr: "1.2.3.4", RemotePort: 9090}, "http://1.2.3.4:9090"},
-		{Config{Mode: ModeHTTP}, ""},                       // no domain
-		{Config{Mode: ModeTCP, ServerAddr: "1.2.3.4"}, ""}, // no remote port
-	}
-	for _, c := range cases {
-		if got := PublicURL(c.c); got != c.want {
-			t.Errorf("PublicURL(%+v) = %q, want %q", c.c, got, c.want)
-		}
-	}
-}
-
-func TestStatusFromLine(t *testing.T) {
-	cases := []struct {
-		line string
-		cur  Status
-		want Status
-	}{
-		{"[I] login to server success", StatusStarting, StatusConnected},
-		{"start proxy success", StatusStarting, StatusConnected},
-		{"login to server failed: token mismatch", StatusStarting, StatusError},
-		{"connect to server error", StatusConnected, StatusError},
-		{"authentication failed", StatusStarting, StatusError},
-		{"some unrelated log line", StatusConnected, StatusConnected}, // unchanged
-	}
-	for _, c := range cases {
-		if got := statusFromLine(c.line, c.cur); got != c.want {
-			t.Errorf("statusFromLine(%q, %s) = %s, want %s", c.line, c.cur, got, c.want)
-		}
-	}
-}
-
 func TestValidateConfig(t *testing.T) {
-	validHTTP := Config{ServerAddr: "x", Mode: ModeHTTP, Domain: "d"}
-	validTCP := Config{ServerAddr: "x", Mode: ModeTCP, RemotePort: 1}
-	if err := validateConfig(validHTTP); err != nil {
-		t.Errorf("valid http rejected: %v", err)
-	}
-	if err := validateConfig(validTCP); err != nil {
-		t.Errorf("valid tcp rejected: %v", err)
+	valid := Config{ServerURL: "wss://relay.example.com", Token: "secret", Name: "wede"}
+	if err := validateConfig(valid); err != nil {
+		t.Errorf("valid config rejected: %v", err)
 	}
 	bad := []Config{
-		{Mode: ModeHTTP, Domain: "d"},     // no serverAddr
-		{ServerAddr: "x", Mode: ModeHTTP}, // http, no domain
-		{ServerAddr: "x", Mode: ModeTCP},  // tcp, no port
-		{ServerAddr: "x", Mode: "bogus"},  // bad mode
+		{Token: "secret", Name: "wede"},                    // no serverUrl
+		{ServerURL: "wss://relay.example.com", Name: "wede"}, // no token
+		{ServerURL: "wss://relay.example.com", Token: "secret"}, // no name
+		{}, // empty
 	}
 	for i, c := range bad {
 		if err := validateConfig(c); err == nil {
@@ -96,10 +23,95 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
+// TestConfigPersistRoundTrip verifies SetConfig persists to ~/.wede/tunnel.json and
+// a fresh Manager loads it back — using a temp HOME so the real one is untouched.
+func TestConfigPersistRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	m := &Manager{localAddr: "127.0.0.1:9090", dataDir: dir}
+
+	want := Config{ServerURL: "wss://relay.example.com", Token: "supersecret", Name: "myhost"}
+	if err := m.SetConfig(want); err != nil {
+		t.Fatalf("SetConfig: %v", err)
+	}
+
+	m2 := &Manager{localAddr: "127.0.0.1:9090", dataDir: dir}
+	m2.loadConfig()
+	if m2.cfg != want {
+		t.Errorf("loaded config = %+v, want %+v", m2.cfg, want)
+	}
+}
+
 func TestSnapshotRedactsToken(t *testing.T) {
-	m := &Manager{cfg: Config{ServerAddr: "x", Token: "supersecret", Mode: ModeHTTP, Domain: "d"}, status: StatusStopped}
+	m := &Manager{cfg: Config{ServerURL: "wss://relay.example.com", Token: "supersecret", Name: "wede"}}
 	s := m.Snapshot()
 	if s.Config.Token != "" {
 		t.Errorf("Snapshot leaked token: %q", s.Config.Token)
+	}
+	// non-secret fields survive redaction
+	if s.Config.ServerURL != "wss://relay.example.com" || s.Config.Name != "wede" {
+		t.Errorf("Snapshot dropped non-secret config: %+v", s.Config)
+	}
+}
+
+func TestSnapshotStoppedWhenIdle(t *testing.T) {
+	m := &Manager{cfg: Config{ServerURL: "wss://relay.example.com", Token: "x", Name: "wede"}}
+	if got := m.Snapshot().Status; got != StatusStopped {
+		t.Errorf("idle status = %q, want %q", got, StatusStopped)
+	}
+	if m.PublicURL() != "" {
+		t.Errorf("idle PublicURL should be empty")
+	}
+}
+
+// TestStartInvalidConfigErrors ensures Start on an unconfigured Manager fails
+// (validation) and does NOT leave a dangling agent.
+func TestStartInvalidConfigErrors(t *testing.T) {
+	m := &Manager{localAddr: "127.0.0.1:9090", dataDir: t.TempDir()}
+	if err := m.Start(); err == nil {
+		t.Fatal("Start with empty config should fail validation")
+	}
+	if m.agent != nil {
+		t.Error("failed Start left a dangling agent")
+	}
+	// The failure is surfaced as an error status in the snapshot.
+	if got := m.Snapshot().Status; got != StatusError {
+		t.Errorf("post-failed-Start status = %q, want %q", got, StatusError)
+	}
+}
+
+// TestStartAgainstDeadRelay drives a real agent against an unreachable relay
+// (no live server). Start must return nil (async dial), the tunnel must NOT be
+// connected, and Stop must clean up. No network dependency beyond a refused dial.
+func TestStartAgainstDeadRelay(t *testing.T) {
+	m := &Manager{
+		localAddr: "127.0.0.1:9090",
+		dataDir:   t.TempDir(),
+		// ws:// (not wss) + a closed loopback port -> dial fails fast, no TLS needed.
+		cfg: Config{ServerURL: "ws://127.0.0.1:1", Token: "x", Name: "wede"},
+	}
+	if err := m.Start(); err != nil {
+		t.Fatalf("Start should return quickly (async dial): %v", err)
+	}
+	defer m.Stop()
+
+	// Give the async loop a moment; it must be starting or error, never connected.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		s := m.Snapshot()
+		if s.Status == StatusConnected {
+			t.Fatalf("tunnel reported connected against a dead relay")
+		}
+		if s.Status == StatusError {
+			break // reached error as expected
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if m.PublicURL() != "" {
+		t.Errorf("PublicURL non-empty while not connected: %q", m.PublicURL())
+	}
+
+	m.Stop()
+	if got := m.Snapshot().Status; got != StatusStopped {
+		t.Errorf("post-Stop status = %q, want %q", got, StatusStopped)
 	}
 }

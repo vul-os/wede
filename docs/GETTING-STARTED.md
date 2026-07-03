@@ -242,54 +242,40 @@ instance like any other app. Keep wede bound to loopback and set
 See [Embedding in Vulos OS](#embedding-in-vulos-os) below and
 [CONFIGURATION.md](CONFIGURATION.md#embedding-in-an-iframe) for details.
 
-### 3. Public internet — a VPS with frp
+### 3. Public internet — a sovereign Vulos Relay
 
 To reach wede from anywhere without opening ports on your home network, put it
-behind a small public relay using [frp](https://github.com/fatedier/frp) (Fast
-Reverse Proxy, MIT-licensed). You run the frp **server** (`frps`) on a cheap VPS
-with a public IP, and the frp **client** (`frpc`) next to wede. The client dials
-out to the server, so the wede machine needs no inbound ports or static IP.
+behind your **own** [Vulos Relay](https://github.com/vul-os/vulos-relay) server —
+a small sovereign reverse-tunnel relay you run on a cheap VPS with a public IP.
+wede embeds the relay **agent** in-process: there is no third-party `frp` binary
+to install. The agent dials a single outbound `wss://` connection to your relay,
+so the wede machine needs no inbound ports or static IP.
 
-**On the VPS** — `frps.toml`:
+**On the VPS** — run the Vulos Relay server (see the vulos-relay repo for the
+build/deploy details) with a public HTTPS endpoint, e.g. `relay.example.com`, and
+mint a bearer token authorizing your chosen public name (`wede`). Point a DNS
+record for the relay (and the name's subdomain, if your relay uses vhost routing)
+at the VPS.
 
-```toml
-bindPort     = 7000
-auth.token   = "a-long-random-shared-secret"
-vhostHTTPPort = 80
-```
+**In wede** — no config files. Open **Settings → Public access (Vulos Relay)** as
+the owner and fill in:
 
-```bash
-./frps -c frps.toml
-```
+| Field | Example | Notes |
+|-------|---------|-------|
+| relay server URL | `wss://relay.example.com` | `http`/`https`/`ws`/`wss` all accepted |
+| relay token | `a-long-random-secret` | the token your relay minted; authorizes the name |
+| public name | `wede` | must be authorized by the token |
 
-**On the wede machine** — `frpc.toml`:
-
-```toml
-serverAddr = "your.vps.public.ip"
-serverPort = 7000
-auth.token = "a-long-random-shared-secret"   # must match frps
-
-[[proxies]]
-name          = "wede"
-type          = "http"
-localPort     = 9090                          # wede's port
-customDomains = ["wede.example.com"]          # DNS A-record -> your VPS
-```
-
-```bash
-./frpc -c frpc.toml
-```
-
-wede is now reachable at `http://wede.example.com`, mapped straight to
-`localhost:9090` on your machine. No domain? Use a raw TCP tunnel instead —
-set `type = "tcp"` and `remotePort = 9090`, then browse to
-`http://your.vps.public.ip:9090`.
+Click **Start tunnel**. wede's agent dials the relay, claims the name, and the
+panel shows the live public URL — mapped straight to wede's loopback port on your
+machine. The config is persisted to `~/.wede/tunnel.json` (token file-mode `0600`,
+and always redacted when read back over the API).
 
 > **Security:** A public tunnel means anyone who finds the URL hits your login
-> page. Use a strong wede `password`, a long random frp `auth.token`, and
-> terminate TLS at the VPS (frp supports HTTPS vhosts, or front `frps` with
-> Caddy/nginx for automatic certificates). Run multiple wede instances or other
-> local services by adding more `[[proxies]]` blocks.
+> page. Use a strong wede `password` and a long random relay token, and terminate
+> TLS at the relay (`wss://`). The agent only ever proxies to wede's own loopback
+> port — it refuses any non-loopback target (SSRF guard) — and dials outbound
+> only, so your home network stays closed.
 
 ---
 

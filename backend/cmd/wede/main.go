@@ -99,7 +99,11 @@ func main() {
 	wsMgr.Register("default", rootFolder)
 
 	authHandler := auth.New(cfg.Password)
-	tunnelMgr := tunnel.New(cfg.Port) // optional frp public tunnel (owner-only)
+	// Optional sovereign public tunnel (owner-only): the Vulos Relay agent dials
+	// the owner's own relay and proxies to wede's loopback listen addr. Pin the
+	// agent's local target to loopback regardless of cfg.Host (never expose an
+	// off-loopback bind through the tunnel).
+	tunnelMgr := tunnel.New("127.0.0.1:" + cfg.Port)
 
 	mux := http.NewServeMux()
 
@@ -121,9 +125,9 @@ func main() {
 	protected.Handle("GET /api/auth/tokens", ro(http.HandlerFunc(authHandler.HandleListTokens)))
 	protected.Handle("DELETE /api/auth/tokens/{id}", ro(http.HandlerFunc(authHandler.HandleRevokeToken)))
 
-	// Public-tunnel (frp) management — owner-only. Lets an owner expose a
-	// loopback-bound wede via their own frps relay; wede auto-detects frpc,
-	// generates its config, runs it, and reports the live public URL.
+	// Public-tunnel management — owner-only. Lets an owner expose a loopback-bound
+	// wede via their OWN sovereign Vulos Relay server; wede runs the embedded relay
+	// agent and reports the live public URL. No third-party frp binary.
 	protected.Handle("GET /api/tunnel", ro(http.HandlerFunc(tunnelMgr.HandleGet)))
 	protected.Handle("PUT /api/tunnel/config", ro(http.HandlerFunc(tunnelMgr.HandleSetConfig)))
 	protected.Handle("POST /api/tunnel/start", ro(http.HandlerFunc(tunnelMgr.HandleStart)))
@@ -317,7 +321,7 @@ func main() {
 		log.Printf("tip: run with a path to open directly: ./wede /path/to/project")
 	}
 
-	// Stop the frp tunnel on shutdown so we don't leave a public tunnel open to
+	// Stop the relay tunnel on shutdown so we don't leave a public tunnel open to
 	// a dead local port.
 	go func() {
 		sig := make(chan os.Signal, 1)
