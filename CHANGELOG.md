@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Deprecated
+- **wede is deprioritized and no longer under active development.** The Vulos
+  suite's focus is now Mail + OS. wede remains available and self-hostable as-is
+  (community-maintained, use at your own risk); no functionality has been removed,
+  but no further roadmap work is planned.
+- README quick-start no longer recommends `curl … | bash`. The prebuilt-release
+  path is unmaintained (no guaranteed release asset, no checksum verification), so
+  the recommended install is now **build from source**; the `install.sh`
+  convenience path is documented with a review-first/verify-checksum caveat.
+
 ---
 
 ## [0.4.0] — 2026-06-28

@@ -26,6 +26,16 @@
 
 ---
 
+> **Status: deprioritized.**
+> wede is **not under active development**. The Vulos suite's current focus is
+> **Mail** and **OS**; wede is kept available as-is and is effectively
+> community-maintained. It has not been deprecated or removed — but expect no
+> roadmap work, and **use it at your own risk**. If you depend on it, build from
+> source (see [Quick start](#quick-start)), pin a commit, and be prepared to
+> maintain your own fork.
+
+---
+
 ## Overview
 
 wede is a single ~10 MB Go binary that serves a full **collaborative** web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser, alone or with your whole team.
@@ -122,19 +132,40 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 
 ## Quick start
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/vul-os/wede/main/install.sh | bash
-```
-
-The installer downloads the binary, generates a random password, and prints it. Then:
+Because wede is now community-maintained (see the status note above), the
+recommended install is **build from source** — you get a binary you built and can
+audit yourself, with no reliance on a hosted release artifact:
 
 ```bash
-wede /path/to/your/project
+git clone https://github.com/vul-os/wede.git
+cd wede
+npm install
+npm run build:all   # outputs ./wede (single binary with embedded frontend)
 ```
 
-Open [http://localhost:9090](http://localhost:9090) and log in.
+Requires Go 1.25+ and Node.js 18+. Then run it against a project:
 
-Or download a binary directly from [GitHub Releases](https://github.com/vul-os/wede/releases).
+```bash
+./wede /path/to/your/project
+```
+
+On first run set a strong password in `wede.config.json` (start from
+[`wede.config.example.json`](wede.config.example.json)), then open
+[http://localhost:9090](http://localhost:9090) and log in.
+
+> **Convenience installer (`install.sh`).** The repo also ships an `install.sh`
+> that pulls a prebuilt binary from [GitHub Releases](https://github.com/vul-os/wede/releases)
+> via the `releases/latest` API. Since wede is no longer actively maintained, a
+> matching release asset for your OS/arch is **not guaranteed to exist**, and the
+> script performs **no checksum verification** — so we no longer recommend piping
+> it straight into a shell. If you use it, download and read it first, and verify
+> the downloaded binary against the checksums on the release page:
+>
+> ```bash
+> curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/install.sh
+> less install.sh          # review before running
+> bash install.sh
+> ```
 
 ---
 
