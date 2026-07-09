@@ -18,10 +18,11 @@
 <!-- Favicon -->
 <link rel="icon" type="image/svg+xml" href="https://cdn.vulos.org/wede/icon.svg">
 
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- SOVEREIGNTY: no runtime Google Fonts fetch (no user-IP leak, air-gappable).
+     This standalone file falls back to the local Inter / JetBrains Mono / system
+     stack defined in --sans / --mono below. NOTE: the SERVED wede marketing site
+     is site/ (embedded into the backend), which already uses system fonts; this
+     landing/index.html is a legacy standalone copy that is not built or served. -->
 
 
 <style>

@@ -40,10 +40,9 @@
     <meta name="theme-color" content="#0a0f1a" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)" />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <!-- SOVEREIGNTY: fonts (Inter, JetBrains Mono, Space Grotesk) are vendored
+         locally via @fontsource, imported from src/index.css — NOT fetched from
+         Google Fonts at runtime (no user-IP leak to Google, air-gappable). -->
   </head>
   <body>
     <div id="root"></div>

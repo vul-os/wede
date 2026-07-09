@@ -1,5 +1,12 @@
 @import "tailwindcss";
 @import "@xterm/xterm/css/xterm.css";
+/* SOVEREIGNTY: fonts vendored locally via @fontsource (self-hosted woff2), not
+ * fetched from Google Fonts at runtime — no user-IP leak to Google, air-gappable.
+ * Variable wght axes cover the same weights used previously. Fallbacks preserved
+ * in the --font-* tokens below. */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+@import "@fontsource-variable/space-grotesk/wght.css";
 
 /* ── Design System: Wede Midnight (warm-indigo) ── */
 :root {
