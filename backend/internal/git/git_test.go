@@ -1203,3 +1203,58 @@ func TestTagDelete_InvalidName(t *testing.T) {
 		}
 	}
 }
+
+// TestConflictRegionsSymlinkEscape verifies that a ?file= path which resolves —
+// via an in-repo symlink — to a file outside the workspace is rejected, closing
+// the lexical-only confinement gap. A plain HasPrefix check would have let the
+// read through because the symlink itself lives inside the workspace.
+func TestConflictRegionsSymlinkEscape(t *testing.T) {
+	repo := initTestRepo(t)
+
+	// A secret outside the workspace tree.
+	outside := t.TempDir()
+	secret := outside + "/secret.txt"
+	if err := os.WriteFile(secret, []byte("<<<<<<< HEAD\ntop secret\n=======\nother\n>>>>>>> x\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A symlink INSIDE the workspace pointing at the outside secret.
+	link := repo + "/leak.txt"
+	if err := os.Symlink(secret, link); err != nil {
+		t.Skipf("symlinks unsupported on this platform: %v", err)
+	}
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodGet, "/api/git/conflict?file=leak.txt", nil)
+	rec := httptest.NewRecorder()
+	h.ConflictRegions(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for symlink escape, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "top secret") {
+		t.Fatalf("out-of-tree content leaked through symlink: %s", rec.Body.String())
+	}
+}
+
+// TestConflictRegionsInWorkspaceOK confirms a genuine in-workspace conflict file
+// is still readable after the symlink-resolving confinement change.
+func TestConflictRegionsInWorkspaceOK(t *testing.T) {
+	repo := initTestRepo(t)
+	if err := os.WriteFile(repo+"/conflict.txt",
+		[]byte("<<<<<<< HEAD\nmine\n=======\ntheirs\n>>>>>>> branch\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := New(&staticWS{root: repo})
+	req := httptest.NewRequest(http.MethodGet, "/api/git/conflict?file=conflict.txt", nil)
+	rec := httptest.NewRecorder()
+	h.ConflictRegions(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for in-workspace file, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "regions") {
+		t.Fatalf("expected regions in response, got: %s", rec.Body.String())
+	}
+}

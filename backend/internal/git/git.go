@@ -64,6 +64,60 @@ func (h *Handler) checkWorkspace(w http.ResponseWriter) bool {
 	return true
 }
 
+// safeWorkspacePath joins reqPath under the current workspace and confirms the
+// result stays inside the workspace both lexically and after symlink resolution,
+// mirroring the files package's withinWorkspaceReal confinement. This closes the
+// gap where a plain HasPrefix check is defeated by an in-repo symlink pointing
+// out of tree. Returns ("", false) on any escape (fail-closed).
+func (h *Handler) safeWorkspacePath(reqPath string) (string, bool) {
+	ws := h.ws.Current()
+	if ws == "" {
+		return "", false
+	}
+	full := filepath.Join(ws, reqPath)
+	// Lexical containment: exact root or strictly inside (separator-guarded so
+	// "/ws2/evil" can't pass the "/ws" prefix check).
+	wsWithSep := ws + string(filepath.Separator)
+	if full != ws && !strings.HasPrefix(full, wsWithSep) {
+		return "", false
+	}
+	// Real-path containment: resolve symlinks and confirm the target still falls
+	// within the workspace, so a planted symlink can't leak out-of-tree content.
+	if !withinWorkspaceReal(ws, full) {
+		return "", false
+	}
+	return full, true
+}
+
+// withinWorkspaceReal reports whether full, after symlink resolution, stays inside
+// ws. Because the target may not exist yet, it walks up to the deepest existing
+// ancestor, resolves that, and re-appends the remaining segments. Mirrors the
+// identically named helper in the files package.
+func withinWorkspaceReal(ws, full string) bool {
+	wsReal, err := filepath.EvalSymlinks(ws)
+	if err != nil {
+		wsReal = filepath.Clean(ws)
+	}
+	cur := full
+	tail := ""
+	for {
+		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+			target := resolved
+			if tail != "" {
+				target = filepath.Join(resolved, tail)
+			}
+			return target == wsReal || strings.HasPrefix(target, wsReal+string(filepath.Separator))
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			// Reached the filesystem root without resolving; the lexical check stands.
+			return true
+		}
+		tail = filepath.Join(filepath.Base(cur), tail)
+		cur = parent
+	}
+}
+
 type StatusFile struct {
 	Path       string `json:"path"`
 	Status     string `json:"status"`
@@ -825,9 +879,8 @@ func (h *Handler) ConflictRegions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	full := filepath.Join(h.ws.Current(), reqPath)
-	wsWithSep := h.ws.Current() + string(filepath.Separator)
-	if full != h.ws.Current() && !strings.HasPrefix(full, wsWithSep) {
+	full, ok := h.safeWorkspacePath(reqPath)
+	if !ok {
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]string{"error": "path outside workspace"})
 		return
@@ -923,9 +976,8 @@ func (h *Handler) ConflictResolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	full := filepath.Join(h.ws.Current(), body.Path)
-	wsWithSep := h.ws.Current() + string(filepath.Separator)
-	if full != h.ws.Current() && !strings.HasPrefix(full, wsWithSep) {
+	full, ok := h.safeWorkspacePath(body.Path)
+	if !ok {
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]string{"error": "path outside workspace"})
 		return
