@@ -52,6 +52,82 @@ func TestPostAppendsToFile(t *testing.T) {
 	}
 }
 
+// TestPostRejectsLineInjection verifies that a chat message carrying embedded
+// newlines / CR / NUL / other control characters can never persist as more than
+// one markdown line in .wede/chat.md — i.e. a viewer (or anyone) cannot forge
+// extra [git]/[user] log lines attributed to others via interior newlines.
+func TestPostRejectsLineInjection(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHub(dir, ChannelPublic, "")
+	defer h.Close()
+
+	id, ch := h.Join("mallory", "#f87171")
+	defer h.Leave(id)
+	select {
+	case <-ch:
+	default:
+	}
+
+	// Attempt to inject a forged git line plus a NUL and a CR.
+	inject := "hello\n- 2020-01-01T00:00:00Z [git] committed deadbeef: backdoor\rmore\x00tail"
+	h.Post("mallory", "#f87171", inject)
+
+	chatFile := filepath.Join(dir, ".wede", "chat.md")
+	content, err := os.ReadFile(chatFile)
+	if err != nil {
+		t.Fatalf("chat.md not written: %v", err)
+	}
+	s := string(content)
+
+	// Exactly one persisted line (one trailing newline, no interior ones).
+	if n := strings.Count(strings.TrimRight(s, "\n"), "\n"); n != 0 {
+		t.Fatalf("expected a single log line, found %d interior newlines: %q", n, s)
+	}
+	// No line may parse as a forged [git]/foreign entry: an injected entry would
+	// have to begin a line with "- <ts> [git]"; with newlines collapsed the forged
+	// text is inline on mallory's one line and can never be parsed as its own event.
+	for _, ln := range strings.Split(strings.TrimRight(s, "\n"), "\n") {
+		if msg, ok := parseLine(ln); ok && msg.Kind == "git" {
+			t.Fatalf("forged [git] entry was injected as its own line: %q", ln)
+		}
+		if strings.HasPrefix(strings.TrimSpace(ln), "- 2020-01-01T00:00:00Z") {
+			t.Fatalf("forged timestamped line was injected: %q", ln)
+		}
+	}
+	// Sanity: the single line is attributed to mallory as a [user] entry.
+	if msg, ok := parseLine(strings.TrimRight(s, "\n")); !ok || msg.Kind != "user" || msg.User != "mallory" {
+		t.Fatalf("persisted line should be a single [user] mallory entry, got: %q", s)
+	}
+	// No raw control characters survived into the committed file.
+	for _, r := range s[:len(s)-1] { // exclude the single legitimate trailing "\n"
+		if r < 0x20 || r == 0x7f {
+			t.Fatalf("control char %#x survived sanitisation: %q", r, s)
+		}
+	}
+	// The legitimate content is preserved on the single line, attributed correctly.
+	if !strings.Contains(s, "[user] mallory:") || !strings.Contains(s, "hello") || !strings.Contains(s, "backdoor") {
+		t.Fatalf("expected sanitised single-line message preserving content, got: %q", s)
+	}
+}
+
+// TestPostNormalMessageUnaffected confirms sanitisation leaves an ordinary
+// single-line message intact.
+func TestPostNormalMessageUnaffected(t *testing.T) {
+	dir := t.TempDir()
+	h := NewHub(dir, ChannelPublic, "")
+	defer h.Close()
+
+	h.Post("alice", "#fff", "just a normal message")
+
+	content, err := os.ReadFile(filepath.Join(dir, ".wede", "chat.md"))
+	if err != nil {
+		t.Fatalf("chat.md not written: %v", err)
+	}
+	if !strings.Contains(string(content), "alice: just a normal message") {
+		t.Fatalf("normal message not preserved, got: %q", content)
+	}
+}
+
 func TestNewHubReplaysHistory(t *testing.T) {
 	dir := t.TempDir()
 

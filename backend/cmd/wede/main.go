@@ -234,6 +234,10 @@ func main() {
 	// comprehensive search: filename mode
 	protected.HandleFunc("GET /api/workspaces/{id}/search/files", rs(func(ws *workspace.Workspace) http.HandlerFunc { return ws.Search().SearchFiles }))
 	// workspace chat (live + .wede/chat.md + git activity); ?channel=public|private
+	// No RequireEditor: chat is a deliberately public channel — any authenticated
+	// role (viewers included) may read and post. Viewers persist only to the public
+	// chat.md, not to any other file; inbound text is control-char sanitised so a
+	// post can never inject extra log lines. See internal/chat package doc.
 	protected.HandleFunc("GET /api/workspaces/{id}/chat", rs(func(ws *workspace.Workspace) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) { ws.Chat(r.URL.Query().Get("channel")).HandleWS(w, r) }
 	}))

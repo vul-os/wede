@@ -6,7 +6,10 @@
 // Route the integrator must wire:
 //
 //	GET /api/workspaces/{id}/chat -> workspace.Chat().HandleWS
-//	(behind auth middleware, public-read OK)
+//	(behind auth middleware only — no RequireEditor. Chat is a deliberately public
+//	channel: any authenticated role, viewers included, may read AND post. The
+//	public channel persists to .wede/chat.md; viewers cannot write any other file.
+//	Inbound text is control-char sanitised so a post is always one markdown line.)
 package chat
 
 import (
@@ -22,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/gorilla/websocket"
 
@@ -290,8 +294,31 @@ func (h *Hub) post(user, color, text, kind string) {
 	}
 }
 
+// sanitizeText neutralises a user-authored chat message so a single message can
+// never inject extra log lines into the committed .wede/chat.md. Every control
+// character — newlines, carriage returns, NUL, and any other C0/C1 control or DEL
+// — is collapsed to a space, then leading/trailing whitespace is trimmed. This
+// defeats forged-line injection (e.g. an embedded "\n- <ts> [git] …") regardless
+// of the sender's role, while leaving ordinary single-line messages intact.
+func sanitizeText(text string) string {
+	mapped := strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, text)
+	return strings.TrimSpace(mapped)
+}
+
 // Post posts a user-authored message attributed to user with the given hex color.
+// The text is sanitised (interior control characters collapsed to spaces) before
+// it is recorded, so it always serialises to exactly one markdown line. A message
+// that is empty after sanitisation is dropped.
 func (h *Hub) Post(user, color, text string) {
+	text = sanitizeText(text)
+	if text == "" {
+		return
+	}
 	h.post(user, color, text, "user")
 }
 
@@ -525,7 +552,8 @@ func checkOrigin(r *http.Request, allowedOrigins map[string]struct{}) bool {
 // Route the integrator must wire:
 //
 //	GET /api/workspaces/{id}/chat -> workspace.Chat().HandleWS
-//	(behind auth middleware, public-read OK)
+//	(behind auth middleware only — public read+post by any authenticated role,
+//	viewers included; see the package doc for the rationale)
 //
 // Query params:
 //

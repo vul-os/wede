@@ -79,7 +79,7 @@ See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the full gallery and how to r
 
 wede turns one machine into a shared workspace for your whole team — no accounts, no cloud, no external services.
 
-- **Share links + roles** — the owner mints invite links (`?invite=…`) scoped to a role: **editor** (full access, including terminals) or **viewer** (read-only — no terminal, file writes, or git mutations). Tokens are hashed at rest and compared in constant time; the owner can list and revoke them anytime.
+- **Share links + roles** — the owner mints invite links (`?invite=…`) scoped to a role: **editor** (full access, including terminals) or **viewer** (read-only — no terminal, file writes, or git mutations). Viewers *may* post to the shared **public chat** channel (a deliberately public conversation that persists to `.wede/chat.md`); they cannot write any other file. Tokens are hashed at rest and compared in constant time; the owner can list and revoke them anytime.
 - **Workspaces** — open multiple independent projects on one host and switch between them from the top bar. Everyone connected sees the same set of workspaces.
 - **Multiplayer presence & cursors** — see who else is in a workspace and which file they're viewing, with live cursors. Collaborative editing is CRDT-backed (pure-Go [reearth/ygo](https://github.com/reearth/ygo), Yjs-compatible).
 - **Shared terminals** — everyone in a workspace shares the same PTY sessions: open a terminal and your teammates see the same output in real time.
