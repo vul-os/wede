@@ -125,7 +125,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Editor Settings** | Font size, tab width, word wrap, minimap, auto-save — all live-applied without reopening files, persisted to `localStorage`. |
 | **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes with Space Grotesk / Inter / JetBrains Mono font stack. |
 | **Mobile Friendly** | Fully responsive UI for tablets and phones. |
-| **Secure Access** | Owner password with 3-attempt lockout (persisted across restarts). Per-user share tokens with viewer/editor roles, hashed at rest + constant-time compare. Session TTL, server-side logout, WebSocket token in subprotocol (not URL), WS origin checks. |
+| **Secure Access** | Owner password with 3-attempt lockout (persisted across restarts). Per-user share tokens with viewer/editor roles, hashed at rest + constant-time compare. Session TTL, server-side logout, WebSocket token via `auth.<token>` subprotocol (recommended, so it stays out of URLs/logs) — a `?token=` query param is also accepted as a fallback, WS origin checks. |
 | **Single binary** | Go embeds the entire frontend — one ~10 MB file to deploy anywhere. |
 
 ---
