@@ -2,6 +2,8 @@ module wede
 
 go 1.25.6
 
+toolchain go1.25.12
+
 require (
 	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.10.1
