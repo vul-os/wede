@@ -11,8 +11,8 @@ func TestValidateConfig(t *testing.T) {
 		t.Errorf("valid config rejected: %v", err)
 	}
 	bad := []Config{
-		{Token: "secret", Name: "wede"},                    // no serverUrl
-		{ServerURL: "wss://relay.example.com", Name: "wede"}, // no token
+		{Token: "secret", Name: "wede"},                         // no serverUrl
+		{ServerURL: "wss://relay.example.com", Name: "wede"},    // no token
 		{ServerURL: "wss://relay.example.com", Token: "secret"}, // no name
 		{}, // empty
 	}
