@@ -36,3 +36,15 @@ func siteIndexHTML() []byte {
 	}
 	return data
 }
+
+// licensesTxt returns the third-party notices from the embedded site/ dir. The
+// build (scripts/gen-notices.sh) writes THIRD-PARTY-NOTICES.txt into site/ as
+// licenses.txt so it travels with the embedded assets. Served publicly at
+// /licenses.txt.
+func licensesTxt() []byte {
+	data, err := fs.ReadFile(siteFS, "site/licenses.txt")
+	if err != nil {
+		return nil
+	}
+	return data
+}

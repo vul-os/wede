@@ -2,6 +2,7 @@
   "name": "wede",
   "private": true,
   "version": "0.4.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

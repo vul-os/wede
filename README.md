@@ -317,6 +317,25 @@ Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`) befor
 
 [MIT](LICENSE) — free to use, modify, and distribute.
 
+### Third-party notices
+
+wede redistributes third-party software: Go modules compiled into the backend
+binary, the npm packages bundled into the embedded React IDE (CodeMirror, xterm,
+Yjs, React, Tailwind and more — including the **Inter**, **JetBrains Mono** and
+**Space Grotesk** webfonts, whose OFL-1.1 licence must travel with the shipped
+`.woff2` files), and the mermaid/marked bundles vendored into the marketing
+site. Their licences (MIT, BSD, ISC, Apache-2.0, MPL-2.0, OFL-1.1) require the
+copyright notice and licence text to accompany every copy.
+
+- [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) — name, version, licence and
+  full text for every component. Generated from the real dependency graph by
+  `make notices` (`scripts/gen-notices.sh`: go-licence-detector for Go,
+  license-checker for npm); never hand-edited.
+- A running wede serves it at **`/licenses.txt`** (public, before the sign-in
+  gate); the marketing site links it from its footer.
+- Vendored site bundles carry their upstream licence next to them, e.g.
+  `site/assets/vendor/mermaid.min.js.LICENSE`.
+
 ---
 
 <div align="center">

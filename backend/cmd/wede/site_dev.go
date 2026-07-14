@@ -50,3 +50,21 @@ func siteIndexHTML() []byte {
 	}
 	return data
 }
+
+// licensesTxt returns the third-party notices. In dev builds it reads the
+// generated file from the repo root (THIRD-PARTY-NOTICES.txt) so /licenses.txt
+// works without a full embed build; falls back to site/licenses.txt. Returns
+// nil if neither exists (run scripts/gen-notices.sh).
+func licensesTxt() []byte {
+	dir := findSite()
+	if dir != "" {
+		if data, err := os.ReadFile(filepath.Join(dir, "licenses.txt")); err == nil {
+			return data
+		}
+		// site/ sits next to the repo root; the canonical file lives at the root.
+		if data, err := os.ReadFile(filepath.Join(filepath.Dir(dir), "THIRD-PARTY-NOTICES.txt")); err == nil {
+			return data
+		}
+	}
+	return nil
+}

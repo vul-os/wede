@@ -272,6 +272,19 @@ func main() {
 		}
 	}
 
+	// Third-party notices, served publicly (before the auth gate) so anyone
+	// running or evaluating wede can read them. wede redistributes MIT/BSD/ISC/
+	// Apache-2.0/MPL-2.0/OFL-1.1 code — Go modules in this binary, the bundled
+	// React IDE, and the webfonts — whose licences require the notice to travel
+	// with the copy. Regenerate with ./scripts/gen-notices.sh.
+	if notices := licensesTxt(); len(notices) > 0 {
+		mux.HandleFunc("GET /licenses.txt", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			w.Write(notices) //nolint:errcheck
+		})
+	}
+
 	// Frontend handler - provided by frontend_embed.go or frontend_dev.go
 	frontendHandler := newFrontendHandler()
 
