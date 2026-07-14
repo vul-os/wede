@@ -27,7 +27,31 @@ jobs:
       - name: JS lint
         run: npm run lint
 
+      # CI never ran the JS unit tests at all.
+      - name: JS unit tests
+        run: npm test
+
       - run: npm run build
+
+      # `npm run build` exiting 0 proves nothing about whether the bundle RUNS.
+      # Two apps in this suite shipped a blank screen behind a green build. wede's
+      # ~1 MB of CodeMirror/xterm/Yjs had never been loaded in a browser by any
+      # test — and the IDE is gated behind ThemePicker + Login, so the heavy code
+      # only evaluates on the THIRD surface. Boot all three in real chromium and
+      # fail on any uncaught exception or empty root.
+      - name: Install chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Boot guard + IDE E2E
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wede-playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Build Go binary
         run: |

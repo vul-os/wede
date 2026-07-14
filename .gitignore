@@ -21,3 +21,8 @@ wede.config.json
 
 # screenshotter runtime artifacts in the demo workspace
 scripts/demo-workspace/.wede/
+
+# Playwright (E2E boot guard) output
+test-results/
+playwright-report/
+blob-report/

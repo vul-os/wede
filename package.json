@@ -10,6 +10,9 @@
     "build:all": "vite build && cp -r dist backend/cmd/wede/dist && cp -r site backend/cmd/wede/site && cd backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist cmd/wede/site",
     "lint": "eslint .",
     "test": "vitest run",
+    "pretest:e2e": "vite build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
     "screenshots": "node scripts/screenshots.mjs"
   },
@@ -53,6 +56,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
