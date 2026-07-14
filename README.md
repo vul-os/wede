@@ -46,6 +46,20 @@ One host serves many people: open multiple projects as **workspaces**, invite ot
 
 ---
 
+## Deployment modes
+
+wede is a single self-hosted binary. Against the wider Vulos
+[three-shape model](https://github.com/vul-os/vulos/blob/dev/docs/ARCHITECTURE.md#deployment-modes)
+(self-host / OS-managed / cloud):
+
+- **Standalone (self-host)** — run `./wede /path/to/project` on a laptop, server, NAS, or Pi; loopback by default, LAN with `"host": "0.0.0.0"`. This is the primary shape.
+- **Embedded in the Vulos OS shell** — set `frame_ancestors` (e.g. `https://vulos.org`) so the OS gateway can host wede as an app tile behind its own routing and auth; the same binary either way.
+- **Public exposure** — expose a loopback-bound wede over *your own* [Vulos Relay](https://github.com/vul-os/vulos-relay) server via the embedded relay agent (no inbound ports, no static IP).
+
+There is **no Vulos-hosted multi-tenant cloud** for wede: it is community-maintained (see the status note above), and every shape runs on hardware you control. Details in [Remote access](#remote-access) and [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
+
+---
+
 ## Screenshots
 
 <table>
