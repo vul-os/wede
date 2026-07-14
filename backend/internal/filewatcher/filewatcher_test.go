@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -147,12 +148,24 @@ func TestHandlerSSE_ReceivesChangeEvent(t *testing.T) {
 }
 
 // flushRecorder wraps httptest.ResponseRecorder and implements http.Flusher.
+// The SSE handler writes from its own goroutine while the test polls body(), so
+// both the write and the read are guarded by mu — httptest.ResponseRecorder's
+// underlying bytes.Buffer is not safe for concurrent access.
 type flushRecorder struct {
 	*httptest.ResponseRecorder
+	mu sync.Mutex
 }
 
 func (f *flushRecorder) Flush() {} // ResponseRecorder buffers; no-op for test
 
+func (f *flushRecorder) Write(p []byte) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.ResponseRecorder.Write(p)
+}
+
 func (f *flushRecorder) body() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.ResponseRecorder.Body.String()
 }
