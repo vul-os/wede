@@ -28,7 +28,8 @@
 
 > **Status: deprioritized.**
 > wede is **not under active development**. The Vulos suite's current focus is
-> **Mail** and **OS**; wede is kept available as-is and is effectively
+> the **sovereign OS and its owned apps** (OS, Office, Board, Files, Relay,
+> llmux); wede is kept available as-is and is effectively
 > community-maintained. It has not been deprecated or removed — but expect no
 > roadmap work, and **use it at your own risk**. If you depend on it, build from
 > source (see [Quick start](#quick-start)), pin a commit, and be prepared to
