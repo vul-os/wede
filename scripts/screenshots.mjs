@@ -429,10 +429,19 @@ async function run() {
 
   // ── 7. Settings panel ─────────────────────────────────────────────────────
   console.log('Capturing: settings...');
-  let settingsOpened = await clickSidebar(/settings/i);
-  if (!settingsOpened) {
-    await page.keyboard.press('Control+,');
-    await sleep(600);
+  // Settings is a modal opened from the account (avatar) menu in the top-right —
+  // it is not a sidebar activity button. Open the menu, then the Settings item.
+  await page.locator('button[title="Ava Chen"], button[title="Account"]').first()
+    .click().catch(() => {});
+  await sleep(400);
+  const settingsItem = page.getByText('Settings', { exact: true }).first();
+  if (await settingsItem.count() > 0) {
+    await settingsItem.click().catch(() => {});
+    await page.waitForFunction(() =>
+      /Appearance|Editor|Theme|self-hosted web IDE/.test(document.body.innerText),
+      { timeout: 4000 }
+    ).catch(() => {});
+    await sleep(700);
   }
   await shot(page, 'settings');
   await page.keyboard.press('Escape');
