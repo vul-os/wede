@@ -18,7 +18,7 @@
 
 *Vulos — rooted in **vula**, the Zulu and Xhosa word for **open**.*
 
-<sub>Part of the <strong><a href="https://vulos.org">Vulos</a></strong> OS suite &nbsp;<img src="docs/assets/vulos-logo.png" alt="Vulos" height="14" style="vertical-align:middle" /></sub>
+<sub><img src="docs/assets/vulos-logo.png" alt="VulOS" height="14" style="vertical-align:middle" /> Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or embedded as an app in the Vulos OS.</sub>
 
 ![wede IDE](docs/screenshots/hero.png)
 
@@ -44,7 +44,7 @@ wede is a single ~10 MB Go binary that serves a full **collaborative** web IDE s
 
 One host serves many people: open multiple projects as **workspaces**, invite others with **share links**, edit the same files with **multiplayer cursors**, share the same **terminals**, and talk in per-workspace **chat** — all with no accounts and no external services. It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
 
-[Website](https://wede.vulos.org/) · [Quick start](#quick-start) · [Docs](#documentation) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
+[GitHub](https://github.com/vul-os/wede) · [Quick start](#quick-start) · [Docs](#documentation) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 ---
 
@@ -356,7 +356,7 @@ copyright notice and licence text to accompany every copy.
 
 <div align="center">
 
-<a href="https://wede.vulos.org">Website</a> · <a href="https://github.com/vul-os/wede/issues">Issues</a> · <a href="https://github.com/vul-os/wede/releases">Releases</a>
+<a href="https://github.com/vul-os/wede">GitHub</a> · <a href="https://github.com/vul-os/wede/issues">Issues</a> · <a href="https://github.com/vul-os/wede/releases">Releases</a>
 
 <br>
 

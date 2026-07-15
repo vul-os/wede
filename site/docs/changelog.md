@@ -172,8 +172,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Version is now logged at startup (`wede vX.Y.Z running on http://...`).
 
 ### Changed
-- **Rebrand to Vulos / wede** — repository moved to `github.com/vul-os/wede`;
-  hosted at `wede.vulos.org`. All internal references updated.
+- **Rebrand to Vulos / wede** — repository moved to `github.com/vul-os/wede`.
+  All internal references updated.
 - **IDE redesign** — overhauled UI with Midnight (dark) and Daylight (light) themes;
   Space Grotesk / Inter / JetBrains Mono font stack; responsive mobile layout; tabbed
   terminal panel.
