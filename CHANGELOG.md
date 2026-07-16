@@ -9,19 +9,118 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Deprecated
-- **wede is deprioritized and no longer under active development.** The Vulos
-  suite's focus is now the OS. wede remains available and self-hostable as-is
-  (community-maintained, use at your own risk); no functionality has been removed,
-  but no further roadmap work is planned.
-- README quick-start no longer recommends `curl … | bash`. The prebuilt-release
-  path is unmaintained (no guaranteed release asset, no checksum verification), so
-  the recommended install is now **build from source**; the `install.sh`
-  convenience path is documented with a review-first/verify-checksum caveat.
+No unreleased changes.
 
 ---
 
-## [0.4.0] — 2026-06-28
+## [0.5.0] - 2026-07-17
+
+### Added
+- **Multi-root workspaces** — open multiple folders together in one workspace (VS
+  Code style), implemented frontend-only by reusing existing per-workspace
+  isolation. File explorer renders every open workspace as a collapsible root
+  with per-root scoped fetches; tabs carry a composite `{workspaceId, rel}`
+  identity so file reads/writes/formatting target the owning root explicitly
+  (legacy single-tab state is migrated so saves don't silently fail after
+  upgrade). Search and Quick Open fan out across all roots with results labeled
+  by root; Git gets one panel per root, stacked.
+- **Terminal naming** — manual rename (double-click a terminal tab or the
+  floating title) and automatic PTY OSC self-naming via `xterm`'s
+  `onTitleChange`.
+- **`serve_landing` config flag** — the marketing landing page is opt-in
+  (cloud-only) and off by default, so it never shadows the IDE's `/assets/*`.
+- **Third-party notices** — `THIRD-PARTY-NOTICES.txt` with name, version,
+  licence id, and full licence text for every npm package (including the
+  OFL-1.1 bundled webfonts), the Go standard library, all Go module
+  dependencies, and the vendored marketing-site bundles (mermaid, marked).
+  Generated from the real dependency graph by `scripts/gen-notices.sh`
+  (fails closed if a package has no readable licence text; two packages with
+  missing upstream `LICENSE` files are covered by verified text overrides).
+  Served publicly at `/licenses.txt` (before the sign-in gate) and linked from
+  the marketing site and README.
+- **Browser end-to-end test suite** — Playwright (chromium) now drives the
+  production build (`vite preview`) with the Go backend mocked in-browser, so
+  the actual emitted bundle is proven to boot and run: a boot guard across all
+  three gated top-level surfaces (ThemePicker, Login, IDE), plus core IDE flows
+  (login lockout warning, opening a file into a real CodeMirror instance,
+  editing, and `Mod-s` persisting the correct bytes to the workspace-scoped
+  write endpoint). CI now also runs the frontend unit test suite, which it
+  previously did not.
+- **Deployment modes** — README section mapping wede's three run shapes:
+  standalone self-host binary (primary), embedded as an app tile inside the
+  Vulos OS shell via `frame_ancestors`, and public exposure over your own
+  Vulos Relay.
+
+### Changed
+- **Public tunnel now uses the sovereign Vulos Relay agent instead of external
+  `frpc`** — wede's public-tunnel feature no longer shells out to the
+  third-party `frpc` binary. It embeds the Vulos Relay agent
+  (`github.com/vul-os/vulos-relay/tunnel/agent`), which dials a single
+  outbound `wss://` connection to the owner's own Vulos Relay server and
+  proxies to wede's loopback port (SSRF-guarded). New persisted config shape
+  `{ServerURL, Token, Name}` at `~/.wede/tunnel.json` (token redacted on
+  read); the HTTP API shape (`GET /api/tunnel`, `PUT /api/tunnel/config`,
+  start/stop) is unchanged. `frpc` detection, TOML config rendering, and the
+  old mode/port/domain fields are dropped.
+- **Chat: git activity is no longer persisted** — commits and working-tree
+  churn are derived live from `git log` on join instead of being written into
+  `.wede/chat.md`, so the file only ever holds human (and system) messages.
+  Per-edit "N uncommitted change(s)" churn is now folded into a single hidden
+  "+ N hidden git status events" toggle instead of burying real chat messages;
+  commits render as compact hash+subject rows, consecutive same-author
+  messages are grouped, and the panel header shows the active workspace name.
+- **Fonts are now vendored locally** instead of loaded from Google Fonts at
+  runtime — Inter, JetBrains Mono, and Space Grotesk ship as self-hosted
+  `@fontsource-variable` woff2 assets; a self-host product must not fetch
+  runtime assets from a third party.
+- Go toolchain bumped to go1.25.12 and `golang.org/x/sys` bumped to v0.44.0 to
+  clear reachable stdlib/dependency vulnerabilities (govulncheck: 0 reachable
+  after the bump).
+- Docs reconciled to the sovereign-OS product framing: the Vulos suite's focus
+  is the OS and its owned apps (OS, Office, Files, Relay, llmux), not "Mail";
+  dead `wede.vulos.org` links replaced with the GitHub repo throughout;
+  README made self-contained (dropped the retired suite map); screenshots
+  regenerated against the seeded demo workspace for the post-pivot UI.
+- **Backend test coverage** raised significantly: `internal/folder`
+  (path/root confinement, symlink-escape, prefix-collision) from 0% to 84%,
+  `internal/collab` (WebSocket origin / anti-CSWSH checks) from 25% to 45%,
+  plus new frontend coverage for workspace-scoped URL building.
+
+### Fixed
+- **Security (HIGH) — LSP RCE gate.** The LSP WebSocket route was registered
+  with the same (viewer-reachable) gate as read-only routes, letting a viewer
+  session open `/api/workspaces/{id}/lsp` and trigger `exec.Command` for
+  `rust-analyzer`/`gopls` — effectively RCE on the host. Now requires the
+  editor role, matching terminal and DAP.
+- **Security (MED) — ungated workspace delete.** `DELETE
+  /api/workspaces/{id}` was reachable by any authenticated session (unlike
+  workspace create, which was already editor-gated), letting a viewer
+  unregister any workspace. Now requires the editor role.
+- **Security (LOW) — symlink escape in conflict handlers.** The git
+  conflict-region and conflict-resolve handlers confined `?file=` paths with a
+  lexical prefix check only, unlike the file handlers, which resolve real
+  paths. An in-repo symlink pointing outside the workspace could leak
+  out-of-tree file content. Both handlers now go through the same
+  symlink-resolving, fail-closed containment as the file handlers.
+- **Security (LOW) — chat message forgery.** The viewer-reachable chat
+  WebSocket wrote user text straight into the git-committed `.wede/chat.md`;
+  a message with interior newlines could forge extra log lines attributed to
+  others. Messages are now sanitized (control characters collapsed to
+  spaces) so a post always serialises to exactly one line, regardless of the
+  sender's role. Also documents that viewers may post to the shared public
+  chat channel by design (they still cannot write any other file).
+- **Data race** in the filewatcher SSE test helper — the handler wrote to the
+  `httptest.ResponseRecorder` from its own goroutine while the test polled it
+  concurrently; both are now guarded by a mutex.
+- **README** — corrected the WebSocket token claim: the `auth.<token>`
+  subprotocol is the recommended path, but `?token=` is also accepted as a
+  fallback and can appear in URLs/logs.
+- Missing `go.sum` for the demo-workspace module, which prevented it from
+  building reproducibly.
+
+---
+
+## [0.4.0] - 2026-06-28
 
 ### Added
 - Standalone marketing **landing** + client-rendered **docs** (`site/`), served at `/` for logged-out visitors; authenticated users go straight to the IDE.
@@ -33,7 +132,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.3.0] — 2026-06-16
+## [0.3.0] - 2026-06-16
 
 ### Added
 - **Merge-conflict resolution** — conflicted files (porcelain `UU`, `AA`, `DD`, `DU`, `UD`) are
@@ -62,11 +161,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   visible) that stages only that hunk via `POST /api/git/stage-hunk` (pipes the patch to
   `git apply --cached`). For staged diffs an "–" button unstages the hunk via `--reverse`.
   The patch is built from the file header and the specific hunk lines.
-
-### Changed
-- `GET /api/git/diff` response is now parsed as JSON (`{diff: string}`) in all frontend diff views
-  (was fetched as raw text in `FileDiffPanel`). The backend response shape is unchanged.
-
 - **Git diff viewer** — clicking any staged or unstaged file in the Changes tab expands an inline
   unified diff panel. Lines coloured green/red for additions/deletions; hunk headers muted.
   Truncates at 200 lines with a "N more lines" note. Uses `GET /api/git/diff?file=&staged=`.
@@ -181,7 +275,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.2.0] — 2026-06-15
+## [0.2.0] - 2026-06-15
 
 ### Added
 - **Vulos OS embed support** — new `frame_ancestors` config field. When set, wede emits
@@ -217,7 +311,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.1.2] — 2024-12-xx
+## [0.1.2] - 2024-12-xx
 
 Initial public release under the `vul-os/wede` namespace.
 
@@ -235,7 +329,9 @@ Initial public release under the `vul-os/wede` namespace.
 
 ---
 
-[Unreleased]: https://github.com/vul-os/wede/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/vul-os/wede/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/vul-os/wede/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/vul-os/wede/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vul-os/wede/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vul-os/wede/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/vul-os/wede/releases/tag/v0.1.2
