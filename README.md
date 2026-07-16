@@ -18,8 +18,6 @@
 
 *Vulos — rooted in **vula**, the Zulu and Xhosa word for **open**.*
 
-<sub><img src="docs/assets/vulos-logo.png" alt="VulOS" height="14" style="vertical-align:middle" /> Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or embedded as an app in the Vulos OS.</sub>
-
 ![wede IDE](docs/screenshots/hero.png)
 
 </div>
@@ -27,10 +25,7 @@
 ---
 
 > **Status: deprioritized.**
-> wede is **not under active development**. The Vulos suite's current focus is
-> the **sovereign OS and its owned apps** (OS, Office, Files, Relay, llmux) plus
-> the two paid services (Relay reachability + backup storage); wede is kept
-> available as-is and is effectively
+> wede is **not under active development** and is effectively
 > community-maintained. It has not been deprecated or removed — but expect no
 > roadmap work, and **use it at your own risk**. If you depend on it, build from
 > source (see [Quick start](#quick-start)), pin a commit, and be prepared to
@@ -50,15 +45,14 @@ One host serves many people: open multiple projects as **workspaces**, invite ot
 
 ## Deployment modes
 
-wede is a single self-hosted binary. Against the wider Vulos
-[three-shape model](https://github.com/vul-os/vulos/blob/dev/docs/ARCHITECTURE.md#deployment-modes)
-(self-host / OS-managed / cloud):
+wede is a single self-hosted binary that runs three ways — every shape on
+hardware you control:
 
 - **Standalone (self-host)** — run `./wede /path/to/project` on a laptop, server, NAS, or Pi; loopback by default, LAN with `"host": "0.0.0.0"`. This is the primary shape.
-- **Embedded in the Vulos OS shell** — set `frame_ancestors` (e.g. `https://vulos.org`) so the OS gateway can host wede as an app tile behind its own routing and auth; the same binary either way.
+- **Embedded behind an iframe host** — set `frame_ancestors` (e.g. `https://vulos.org`) so a host shell can embed wede as an app tile behind its own routing and auth; the same binary either way.
 - **Public exposure** — expose a loopback-bound wede over *your own* [Vulos Relay](https://github.com/vul-os/vulos-relay) server via the embedded relay agent (no inbound ports, no static IP).
 
-There is **no Vulos-hosted multi-tenant cloud** for wede: it is community-maintained (see the status note above), and every shape runs on hardware you control. Details in [Remote access](#remote-access) and [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
+Details in [Remote access](#remote-access) and [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
 ---
 
@@ -367,3 +361,7 @@ shared terminal, browser code editor, remote development, online terminal, git c
 open source IDE, developer tools, Go web server, single binary IDE.</sub>
 
 </div>
+
+---
+
+<sub><img src="docs/assets/vulos-logo.png" height="16" alt="VulOS"> · <strong>Built with purpose. Open by design.</strong></sub>
