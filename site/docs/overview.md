@@ -74,7 +74,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 - **Multiplayer presence & cursors** — see who else is in a workspace and which file they're viewing, with live cursors. Collaborative editing is CRDT-backed (pure-Go [reearth/ygo](https://github.com/reearth/ygo), Yjs-compatible).
 - **Shared terminals** — everyone in a workspace shares the same PTY sessions: open a terminal and your teammates see the same output in real time.
 - **Workspace chat** — per-workspace chat with two channels: **public** (committed to `.wede/chat.md` so the repo — and any LLM working on it — can read the conversation) and **private** (stored in `.wede/private/`, which wede auto-gitignores). Git activity (commits, uncommitted-change counts) is posted into the chat automatically.
-- **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* [frp](https://github.com/fatedier/frp) relay (owner-only). wede detects `frpc`, generates its config, runs it, and shows the live public URL — no inbound ports or static IP needed.
+- **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* sovereign [Vulos Relay](https://github.com/vul-os/vulos-relay) server (owner-only). wede embeds the relay agent — it dials your relay over a single outbound connection and shows the live public URL — no third-party binary, inbound ports, or static IP needed.
 
 ---
 
@@ -86,7 +86,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Workspaces** | Open multiple independent projects on one host and switch between them; everyone connected shares the same set. |
 | **Share Links + Roles** | Owner mints invite links scoped to **editor** (full) or **viewer** (read-only) roles. Tokens hashed at rest, constant-time compare, listable and revocable. |
 | **Workspace Chat** | Per-workspace chat with **public** (committed `.wede/chat.md`, LLM-readable) and **private** (auto-gitignored) channels, plus automatic git-activity messages. |
-| **Public Tunnel (frp)** | One-click expose wede to the internet via your own frp relay (owner-only) — auto-detects `frpc`, generates config, shows the live URL. No inbound ports or static IP. |
+| **Public Tunnel (Vulos Relay)** | One-click expose wede to the internet via your own sovereign Vulos Relay server (owner-only) — embedded relay agent dials out and shows the live URL. No third-party binary, inbound ports, or static IP. |
 | **File Explorer** | VS Code-style project tree with git status colours. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
 | **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
 | **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
@@ -158,8 +158,9 @@ it. Start from [`wede.config.example.json`](wede.config.example.json).
 wede binds to `127.0.0.1` by default. To reach it from elsewhere you can bind to
 the LAN (`"host": "0.0.0.0"`), run it as an app inside **Vulos** (the Vulos
 gateway handles routing and auth — no exposed port), or put it on the public
-internet via a **VPS running [frp](https://github.com/fatedier/frp)** — the frp
-client dials out from your machine, so no inbound ports or static IP are needed.
+internet via your own **[Vulos Relay](https://github.com/vul-os/vulos-relay)
+server** — wede's embedded relay agent dials out from your machine, so no inbound
+ports or static IP are needed.
 See [Exposing wede over a network](docs/GETTING-STARTED.md#exposing-wede-over-a-network)
 for copy-paste configs.
 
