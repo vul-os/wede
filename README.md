@@ -10,7 +10,9 @@
 **A self-hosted, collaborative web IDE in a single Go binary.**<br>
 **Real-time multi-user editing, shared terminals, VS Code-grade git, and chat — all in your browser.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<sub><img src="docs/assets/vulos-logo.png" height="14" alt="VulOS"> Part of <strong><a href="https://vulos.org">VulOS</a></strong> — the open, self-hostable web OS &amp; app suite. Runs standalone, or as an app hosted by the Vulos OS.</sub>
+
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Release](https://img.shields.io/github/v/release/vul-os/wede?style=flat-square)](https://github.com/vul-os/wede/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/vul-os/wede/ci.yml?branch=main&style=flat-square)](https://github.com/vul-os/wede/actions)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://golang.org)
@@ -325,7 +327,8 @@ Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`) befor
 
 ## License
 
-[MIT](LICENSE) — free to use, modify, and distribute.
+[MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE) — © VulOS. wede is a VulOS
+project; source and issues at [github.com/vul-os/wede](https://github.com/vul-os/wede).
 
 ### Third-party notices
 
