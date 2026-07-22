@@ -1,0 +1,266 @@
+package crdt
+
+// posLRUSize is the number of (index → item) pairs cached per abstractType.
+// 80 entries matches the value used by the Yjs reference implementation and
+// gives O(1) average-case performance for sequential and nearby insertions.
+const posLRUSize = 80
+
+// posCacheEntry maps a logical cumulative character count to the item at that
+// boundary. "index" is the total counted characters up to and including item.
+type posCacheEntry struct {
+	index int
+	item  *Item
+}
+
+// SharedType is the public interface satisfied by every exported CRDT type
+// (YArray, YMap, YText, YXmlFragment, …). It exists so external callers can
+// name the element type of NewUndoManager's scope slice
+// (`[]crdt.SharedType{txt, arr}`). Its methods are unexported, so only ygo's own
+// types can satisfy it — external code can pass and hold values, but not
+// implement it. It is a type alias for the internal sharedType, so existing
+// in-package call sites are unaffected.
+type SharedType = sharedType
+
+// sharedType is implemented by every exported CRDT type (YArray, YMap, YText).
+// Doc.share stores sharedType values so it can fire per-type observers after
+// each transaction without knowing the concrete type.
+type sharedType interface {
+	baseType() *abstractType
+	// prepareFire is called inside the document write lock in Transact.
+	// It snapshots the current observer slice and builds the event struct,
+	// then returns a closure that calls all snapshotted observers. The closure
+	// is invoked after the lock is released, so observers may safely call back
+	// into any Doc method. Returning nil means there are no observers to fire.
+	// This pattern eliminates the data race between concurrent Observe() calls
+	// and the observer fire loop (N-C1).
+	prepareFire(txn *Transaction, keysChanged map[string]struct{}) func()
+}
+
+// deepSub pairs a unique subscription ID with an ObserveDeep callback.
+// The ID-based design allows out-of-order unsubscription without the
+// index-capture bug that affects slice-index closures.
+type deepSub struct {
+	id uint64
+	fn func(*Transaction)
+}
+
+// abstractType is the base embedded in every shared type (YArray, YMap, YText).
+// It owns the doubly-linked list of Items that backs the type's content and
+// provides the bookkeeping that Item integration needs.
+type abstractType struct {
+	doc     *Doc
+	start   *Item
+	itemMap map[string]*Item // last live item per key; non-nil only for map-based types
+	length  int              // logical length (non-deleted, countable items only)
+	item    *Item            // the Item containing this type when nested
+	owner   sharedType       // back-pointer to the concrete wrapper
+	name    string           // root type name; used during V1 update encoding
+	// deepSubIDGen issues unique IDs for ObserveDeep subscriptions so that
+	// out-of-order unsubscription removes the correct entry (C5).
+	deepSubIDGen  uint64
+	deepObservers []deepSub
+
+	// posCache is a small circular cache of (cumulativeIndex → *Item) pairs
+	// used by leftNeighbourAt to skip linear scan from t.start on repeat
+	// accesses. posCacheLen tracks how many slots are filled (capped at
+	// posLRUSize). posCacheWr is the next write position; it wraps around once
+	// the cache is full, giving O(1) FIFO eviction instead of the previous
+	// O(posLRUSize) min-scan.
+	posCache    [posLRUSize]posCacheEntry
+	posCacheLen int
+	posCacheWr  int
+
+	// insertHint is set by Insert callers to the logical index of an imminent
+	// local insertion. When non-zero, item.integrate uses partial cache
+	// invalidation (discarding only entries ≥ insertHint) instead of clearing
+	// the entire cache, so that entries before the insertion point survive for
+	// subsequent nearby lookups. Zero means "no hint; do a full clear".
+	insertHint int
+
+	// firstLiveCache memoises the first live (non-deleted) item from t.start.
+	// Used by linked-list walks that would otherwise re-skip the same leading
+	// tombstones on every call (deleteRange when many head-deletes accumulate,
+	// per issue #86). Updated lazily by firstLiveFromStart; invalidated on
+	// item.integrate when a new head replaces t.start. Because tombstoning
+	// is monotonic, advancing the cache forward from its current value is
+	// always safe — once we walk past a deleted item we never need to revisit.
+	firstLiveCache *Item
+
+	// hasFormatting becomes true the first time a ContentFormat item is
+	// integrated into this type (locally via YText.Format or remotely via
+	// an update). Mirrors Yjs's _hasFormatting flag. YText.Delete uses this
+	// to skip the (expensive) per-deleted-item cleanup walk on types that
+	// have never had formatting applied — the dominant cost on head-delete
+	// workloads in plain-text documents. Once true, stays true.
+	hasFormatting bool
+}
+
+// firstLiveFromStart returns the first non-deleted item reachable from t.start
+// by walking Right, or nil if every item is tombstoned. The result is memoised
+// in t.firstLiveCache: subsequent calls advance the cache past any tombstones
+// that accumulated since the last call rather than restarting from t.start.
+//
+// Cache invariant: t.firstLiveCache is either nil, the true first-live item,
+// or an earlier item that may or may not still be live. The forward walk from
+// the cache is always correct because tombstoning is monotonic — an item that
+// is currently deleted stays deleted, so once we walk past it we never have
+// to revisit it. The cache MUST be reset (to nil) only when a new item is
+// inserted strictly before the cached pointer, which currently only happens
+// when item.integrate replaces t.start (see item.go).
+//
+// Closes the O(N²) sequential-head-delete behaviour described in issue #86.
+func (t *abstractType) firstLiveFromStart() *Item {
+	node := t.firstLiveCache
+	if node == nil {
+		node = t.start
+	}
+	for node != nil && node.Deleted {
+		node = node.Right
+	}
+	t.firstLiveCache = node
+	return node
+}
+
+// invalidateFirstLiveCache clears the first-live memoisation. Callers must
+// invoke this whenever a new item is inserted at the head of the linked list
+// (i.e. as the new t.start) so the next firstLiveFromStart call resumes its
+// walk from the new head rather than skipping past it.
+func (t *abstractType) invalidateFirstLiveCache() {
+	t.firstLiveCache = nil
+}
+
+// invalidatePosCache clears all cached position entries. Must be called
+// whenever an insertion or deletion changes the logical positions of items
+// in this type's linked list.
+func (t *abstractType) invalidatePosCache() {
+	t.posCacheLen = 0
+	t.posCacheWr = 0
+}
+
+// invalidatePosCacheFrom removes all cached entries with cumulative index ≥ pos.
+// Entries before pos remain valid and can be reused by the next leftNeighbourAt
+// call near the same location, avoiding a full O(n) rescan from t.start.
+func (t *abstractType) invalidatePosCacheFrom(pos int) {
+	n := 0
+	for i := 0; i < t.posCacheLen; i++ {
+		if t.posCache[i].index < pos {
+			t.posCache[n] = t.posCache[i]
+			n++
+		}
+	}
+	t.posCacheLen = n
+	t.posCacheWr = 0 // reset write cursor; the compacted entries sit at [0..n-1]
+}
+
+// storePosCache records the entry (index, item) in the circular cache.
+// When the cache is not yet full entries are appended; once full the oldest
+// entry is overwritten in FIFO order. This gives O(1) insertion cost vs the
+// previous O(posLRUSize) min-scan eviction strategy.
+func (t *abstractType) storePosCache(index int, item *Item) {
+	if t.posCacheLen < posLRUSize {
+		t.posCache[t.posCacheLen] = posCacheEntry{index, item}
+		t.posCacheLen++
+		return
+	}
+	// Cache full: circular overwrite.
+	t.posCache[t.posCacheWr] = posCacheEntry{index, item}
+	t.posCacheWr++
+	if t.posCacheWr >= posLRUSize {
+		t.posCacheWr = 0
+	}
+}
+
+// leftNeighbourAt returns the item that should be the left neighbour when
+// inserting at logical position index, plus the offset within that item.
+//
+// If offset == 0, the insertion point is right after the returned item.
+// If offset > 0, the insertion point is inside the returned item and the
+// caller must split it before inserting.
+// Returns (nil, 0) when index == 0 (insert at the very beginning).
+//
+// The LRU position cache is consulted first so that repeated insertions near
+// the same position avoid re-scanning from t.start.
+func (t *abstractType) leftNeighbourAt(index int) (*Item, int) {
+	if index == 0 {
+		return nil, 0
+	}
+
+	// Find the cache entry with the largest cumulative index ≤ requested index.
+	// Deleted cached items are skipped (they are no longer at their recorded position).
+	startCounted := 0
+	var startItem *Item // first item to scan from (the Right of the cached boundary item)
+	for i := 0; i < t.posCacheLen; i++ {
+		e := t.posCache[i]
+		if e.index <= index && e.index > startCounted && !e.item.Deleted {
+			startCounted = e.index
+			startItem = e.item
+		}
+	}
+
+	counted := startCounted
+	var lastItem *Item
+	scanFrom := t.start
+	if startItem != nil {
+		// Resume scan from the item right after the cached boundary.
+		lastItem = startItem
+		scanFrom = startItem.Right
+	}
+
+	for item := scanFrom; item != nil; item = item.Right {
+		if !item.Deleted && item.Content.IsCountable() {
+			n := item.Content.Len()
+			newCounted := counted + n
+			// Store this boundary in the cache for future nearby lookups.
+			t.storePosCache(newCounted, item)
+			if newCounted >= index {
+				offset := index - counted
+				if offset == n {
+					// Position is at the very end of item — insert right after it.
+					return item, 0
+				}
+				if offset == 0 {
+					// Position is at the very start of item — insert right after
+					// lastItem (i.e. before this item). The cache can cause counted
+					// to equal index at the start of a scan, producing offset=0 for
+					// the first item encountered; returning that item would tell the
+					// caller to insert after it (too far right).
+					return lastItem, 0
+				}
+				return item, offset
+			}
+			counted = newCounted
+			lastItem = item
+		}
+	}
+	// index >= length: insert after the last item (append).
+	return lastItem, 0
+}
+
+// observeDeep registers fn to be called after any transaction that modifies
+// this type or any nested shared type within it. Returns an unsubscribe
+// function. Uses an ID-based lookup so out-of-order unsubscription is safe.
+//
+// Acquiring doc.mu.Lock() here serialises observer registration against
+// Transact, which reads deepObservers under the same lock (N-C1).
+func (t *abstractType) observeDeep(fn func(*Transaction)) func() {
+	doc := t.doc
+	if doc != nil {
+		doc.mu.Lock()
+		defer doc.mu.Unlock()
+	}
+	t.deepSubIDGen++
+	id := t.deepSubIDGen
+	t.deepObservers = append(t.deepObservers, deepSub{id: id, fn: fn})
+	return func() {
+		if doc := t.doc; doc != nil {
+			doc.mu.Lock()
+			defer doc.mu.Unlock()
+		}
+		for i, s := range t.deepObservers {
+			if s.id == id {
+				t.deepObservers = append(t.deepObservers[:i], t.deepObservers[i+1:]...)
+				return
+			}
+		}
+	}
+}

@@ -1,33 +1,36 @@
 // Package tunnel exposes a loopback-bound wede on the public internet without
-// opening ports — using the owner's OWN sovereign Vulos Relay server.
+// opening ports.
 //
-// wede does NOT bundle a public relay and no longer shells out to a third-party
-// frp binary. Instead it embeds the Vulos Relay agent
-// (github.com/vul-os/vulos-relay/tunnel/agent), which dials a single outbound
-// wss:// connection to the relay server the owner runs, authenticates with a
-// bearer token, claims its token-authorized public name, and proxies inbound
-// requests to wede's ONE local loopback port (never an arbitrary host).
+// The actual tunneling mechanism sits behind the Provider seam (see
+// provider.go): Manager never names a specific implementation. By default
+// wede wires in the embedded Vulos Relay agent (see provider_relay.go), which
+// dials a single outbound wss:// connection to the relay server the owner
+// runs, authenticates with a bearer token, claims its token-authorized
+// public name, and proxies inbound requests to wede's ONE local loopback port
+// (never an arbitrary host). That's the shipped default, not a hard
+// requirement — an alternate Provider (Cloudflare Tunnel, ngrok, frp,
+// Tailscale Funnel, ...) can be substituted via NewWithProvider without
+// touching Manager, main.go, or the HTTP handlers. See also
+// docs/PUBLIC-ACCESS.md for exposing wede publicly without any tunnel at all
+// (direct bind + reverse proxy).
 //
-// The Manager wraps the agent: it persists the owner's relay config
-// (~/.wede/tunnel.json), constructs the agent with LocalAddr pinned to wede's
-// own loopback listen address, and delegates Start/Stop/status/PublicURL.
+// The Manager wraps the provider: it persists the owner's config
+// (~/.wede/tunnel.json), constructs the provider with LocalAddr pinned to
+// wede's own loopback listen address, and delegates Start/Stop/status/PublicURL.
 //
 // This is an owner-only feature: publishing wede to the internet is privileged.
 package tunnel
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/vul-os/vulos-relay/tunnel/agent"
 )
 
-// Status is the tunnel's lifecycle state. Values match the agent's Status.
+// Status is the tunnel's lifecycle state. Values match the provider's Status.
 type Status string
 
 const (
@@ -37,43 +40,66 @@ const (
 	StatusError     Status = "error"
 )
 
-// Config is the owner-supplied relay configuration (persisted to ~/.wede/tunnel.json).
+// Tunnel is the relay-free surface that main.go and the HTTP handlers rely on.
+// It names no specific tunnel mechanism, so an alternate Provider (see
+// provider.go) can be swapped in later without any caller change. Manager is
+// the only implementation.
+type Tunnel interface {
+	Start() error
+	Stop() error
+	PublicURL() string
+	Snapshot() State
+}
+
+var _ Tunnel = (*Manager)(nil)
+
+// Config is the owner-supplied tunnel configuration (persisted to ~/.wede/tunnel.json).
 //
-// The frp-era fields (Mode/ServerPort/Domain/RemotePort/HTTPS) are gone: the
-// sovereign relay derives the public URL itself and the owner only supplies where
-// their relay lives (ServerURL), the bearer token, and the public name they want.
+// These fields describe the shipped default provider (a Vulos Relay server:
+// ServerURL/Token/Name). An alternate Provider is free to interpret them
+// differently, or a future provider-specific config could be layered in —
+// Manager itself only persists and redacts this struct, it doesn't interpret it.
 type Config struct {
-	// ServerURL is the owner's Vulos Relay control endpoint. http/https/ws/wss are
-	// all accepted (http/https are normalized to ws/wss by the agent).
+	// ServerURL is the relay control endpoint (for the default provider). http/
+	// https/ws/wss are all accepted (http/https are normalized to ws/wss).
 	ServerURL string `json:"serverUrl"`
-	// Token is the per-agent bearer token; the relay validates it and derives the
-	// permitted name(s) from it. Owner-only secret — redacted on read.
+	// Token is the per-agent bearer secret. Owner-only secret — redacted on read.
 	Token string `json:"token"`
-	// Name is the requested public name (subdomain / path segment). The relay only
-	// honors it if the token authorizes it.
+	// Name is the requested public name (subdomain / path segment).
 	Name string `json:"name"`
 }
 
-// Manager owns the Vulos Relay agent lifecycle. Safe for concurrent use.
+// Manager owns the tunnel Provider's lifecycle. Safe for concurrent use.
 type Manager struct {
-	localAddr string // wede's loopback listen addr, e.g. "127.0.0.1:9090"
-	dataDir   string // ~/.wede
+	localAddr   string // wede's loopback listen addr, e.g. "127.0.0.1:9090"
+	dataDir     string // ~/.wede
+	newProvider ProviderFactory
 
-	mu    sync.Mutex
-	cfg   Config
-	agent *agent.Agent
-	// last non-agent error (e.g. a Start validation failure) surfaced to the UI
-	// until the agent takes over the status.
+	mu       sync.Mutex
+	cfg      Config
+	provider Provider
+	// last non-provider error (e.g. a Start validation failure) surfaced to the
+	// UI until the provider takes over the status.
 	startErr string
 }
 
-// New returns a Manager that tunnels wede's local loopback address. localAddr is
-// wede's own listen address (host:port) and MUST be loopback. It loads any
-// persisted config.
+// New returns a Manager that tunnels wede's local loopback address using the
+// default Provider (the embedded Vulos Relay agent). localAddr is wede's own
+// listen address (host:port) and MUST be loopback. It loads any persisted
+// config.
 func New(localAddr string) *Manager {
+	return NewWithProvider(localAddr, DefaultProviderFactory)
+}
+
+// NewWithProvider is New, but with an explicit ProviderFactory — the seam for
+// wiring in an alternate tunnel mechanism (Cloudflare Tunnel, ngrok, frp,
+// Tailscale Funnel, a test fake, ...) instead of the default Vulos Relay
+// agent. Callers of the returned *Manager (main.go, the HTTP handlers) are
+// unaffected either way.
+func NewWithProvider(localAddr string, factory ProviderFactory) *Manager {
 	home, _ := os.UserHomeDir()
 	dataDir := filepath.Join(home, ".wede")
-	m := &Manager{localAddr: localAddr, dataDir: dataDir}
+	m := &Manager{localAddr: localAddr, dataDir: dataDir, newProvider: factory}
 	m.loadConfig()
 	return m
 }
@@ -97,14 +123,14 @@ func (m *Manager) saveConfig() {
 	os.WriteFile(m.configFile(), data, 0o600) // contains the relay token
 }
 
-// SetConfig validates and persists the relay config. Restarts the tunnel if running.
+// SetConfig validates and persists the tunnel config. Restarts the tunnel if running.
 func (m *Manager) SetConfig(c Config) error {
 	if err := validateConfig(c); err != nil {
 		return err
 	}
 	m.mu.Lock()
 	m.cfg = c
-	wasRunning := m.agent != nil
+	wasRunning := m.provider != nil
 	m.mu.Unlock()
 	m.saveConfig()
 	if wasRunning {
@@ -129,15 +155,16 @@ func validateConfig(c Config) error {
 	return nil
 }
 
-// Start brings the tunnel up by launching the Vulos Relay agent against wede's
-// loopback address. No-op if already running.
+// Start brings the tunnel up by launching the configured Provider against
+// wede's loopback address. No-op if already running.
 func (m *Manager) Start() error {
 	m.mu.Lock()
-	if m.agent != nil {
+	if m.provider != nil {
 		m.mu.Unlock()
 		return nil // already running
 	}
 	cfg := m.cfg
+	factory := m.newProvider
 	m.mu.Unlock()
 
 	if err := validateConfig(cfg); err != nil {
@@ -147,13 +174,13 @@ func (m *Manager) Start() error {
 		return err
 	}
 
-	a := agent.New(agent.Options{
+	p := factory(ProviderOptions{
 		ServerURL: cfg.ServerURL,
 		Token:     cfg.Token,
 		Name:      cfg.Name,
 		LocalAddr: m.localAddr, // wede's own loopback listen addr (SSRF-guarded)
 	})
-	if err := a.Start(context.Background()); err != nil {
+	if err := p.Start(); err != nil {
 		m.mu.Lock()
 		m.startErr = err.Error()
 		m.mu.Unlock()
@@ -161,7 +188,7 @@ func (m *Manager) Start() error {
 	}
 
 	m.mu.Lock()
-	m.agent = a
+	m.provider = p
 	m.startErr = ""
 	m.mu.Unlock()
 	return nil
@@ -170,12 +197,12 @@ func (m *Manager) Start() error {
 // Stop tears the tunnel down. No-op if not running.
 func (m *Manager) Stop() error {
 	m.mu.Lock()
-	a := m.agent
-	m.agent = nil
+	p := m.provider
+	m.provider = nil
 	m.startErr = ""
 	m.mu.Unlock()
-	if a != nil {
-		a.Stop()
+	if p != nil {
+		p.Stop()
 	}
 	return nil
 }
@@ -186,12 +213,12 @@ func (m *Manager) Close() { _ = m.Stop() }
 // PublicURL returns the current public URL, or "" if not connected.
 func (m *Manager) PublicURL() string {
 	m.mu.Lock()
-	a := m.agent
+	p := m.provider
 	m.mu.Unlock()
-	if a == nil {
+	if p == nil {
 		return ""
 	}
-	return a.PublicURL()
+	return p.PublicURL()
 }
 
 // State is the JSON snapshot returned to the owner UI (token redacted).
@@ -202,10 +229,10 @@ type State struct {
 	Log       []string `json:"log,omitempty"`
 }
 
-// Snapshot returns the current state. The relay token is redacted.
+// Snapshot returns the current state. The tunnel token is redacted.
 func (m *Manager) Snapshot() State {
 	m.mu.Lock()
-	a := m.agent
+	p := m.provider
 	cfg := m.cfg
 	startErr := m.startErr
 	m.mu.Unlock()
@@ -214,7 +241,7 @@ func (m *Manager) Snapshot() State {
 		cfg.Token = "" // never leak the token back to the client
 	}
 
-	if a == nil {
+	if p == nil {
 		var log []string
 		status := StatusStopped
 		if startErr != "" {
@@ -224,13 +251,13 @@ func (m *Manager) Snapshot() State {
 		return State{Status: status, Config: cfg, Log: log}
 	}
 
-	snap := a.Snapshot()
+	snap := p.Snapshot()
 	url := ""
 	if snap.Connected {
 		url = snap.PublicURL
 	}
 	return State{
-		Status:    Status(snap.Status),
+		Status:    snap.Status,
 		PublicURL: url,
 		Config:    cfg,
 		Log:       snap.Log,

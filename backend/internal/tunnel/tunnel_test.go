@@ -64,14 +64,14 @@ func TestSnapshotStoppedWhenIdle(t *testing.T) {
 }
 
 // TestStartInvalidConfigErrors ensures Start on an unconfigured Manager fails
-// (validation) and does NOT leave a dangling agent.
+// (validation) and does NOT leave a dangling provider.
 func TestStartInvalidConfigErrors(t *testing.T) {
 	m := &Manager{localAddr: "127.0.0.1:9090", dataDir: t.TempDir()}
 	if err := m.Start(); err == nil {
 		t.Fatal("Start with empty config should fail validation")
 	}
-	if m.agent != nil {
-		t.Error("failed Start left a dangling agent")
+	if m.provider != nil {
+		t.Error("failed Start left a dangling provider")
 	}
 	// The failure is surfaced as an error status in the snapshot.
 	if got := m.Snapshot().Status; got != StatusError {
@@ -79,13 +79,15 @@ func TestStartInvalidConfigErrors(t *testing.T) {
 	}
 }
 
-// TestStartAgainstDeadRelay drives a real agent against an unreachable relay
-// (no live server). Start must return nil (async dial), the tunnel must NOT be
-// connected, and Stop must clean up. No network dependency beyond a refused dial.
+// TestStartAgainstDeadRelay drives the real (default) Provider — the embedded
+// Vulos Relay agent — against an unreachable relay (no live server). Start
+// must return nil (async dial), the tunnel must NOT be connected, and Stop
+// must clean up. No network dependency beyond a refused dial.
 func TestStartAgainstDeadRelay(t *testing.T) {
 	m := &Manager{
-		localAddr: "127.0.0.1:9090",
-		dataDir:   t.TempDir(),
+		localAddr:   "127.0.0.1:9090",
+		dataDir:     t.TempDir(),
+		newProvider: DefaultProviderFactory,
 		// ws:// (not wss) + a closed loopback port -> dial fails fast, no TLS needed.
 		cfg: Config{ServerURL: "ws://127.0.0.1:1", Token: "x", Name: "wede"},
 	}
@@ -113,5 +115,50 @@ func TestStartAgainstDeadRelay(t *testing.T) {
 	m.Stop()
 	if got := m.Snapshot().Status; got != StatusStopped {
 		t.Errorf("post-Stop status = %q, want %q", got, StatusStopped)
+	}
+}
+
+// fakeProvider is a minimal Provider stand-in proving the seam is real: an
+// alternate tunnel mechanism can be wired in via NewWithProvider without
+// Manager, main.go, or the HTTP handlers knowing or caring.
+type fakeProvider struct {
+	opts ProviderOptions
+}
+
+func (f *fakeProvider) Start() error      { return nil }
+func (f *fakeProvider) Stop()             {}
+func (f *fakeProvider) PublicURL() string { return "https://fake.example/" + f.opts.Name }
+func (f *fakeProvider) Snapshot() ProviderSnapshot {
+	return ProviderSnapshot{Status: StatusConnected, Connected: true, PublicURL: "https://fake.example/" + f.opts.Name}
+}
+
+// TestSwappableProvider drives a Manager through a non-relay Provider,
+// confirming Start/Stop/Snapshot/PublicURL work against ANY ProviderFactory,
+// not just the embedded Vulos Relay agent.
+func TestSwappableProvider(t *testing.T) {
+	m := NewWithProvider("127.0.0.1:9090", func(opts ProviderOptions) Provider {
+		return &fakeProvider{opts: opts}
+	})
+	m.dataDir = t.TempDir()
+
+	cfg := Config{ServerURL: "irrelevant-to-fake-provider", Token: "x", Name: "myhost"}
+	if err := m.SetConfig(cfg); err != nil {
+		t.Fatalf("SetConfig: %v", err)
+	}
+	if err := m.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer m.Stop()
+
+	snap := m.Snapshot()
+	if snap.Status != StatusConnected {
+		t.Errorf("status = %q, want %q", snap.Status, StatusConnected)
+	}
+	want := "https://fake.example/myhost"
+	if snap.PublicURL != want {
+		t.Errorf("PublicURL = %q, want %q", snap.PublicURL, want)
+	}
+	if got := m.PublicURL(); got != want {
+		t.Errorf("Manager.PublicURL() = %q, want %q", got, want)
 	}
 }

@@ -206,6 +206,12 @@ By default wede binds to `127.0.0.1` (localhost only) — reachable only from th
 machine it runs on. There are three ways to reach it from elsewhere, in
 increasing order of reach.
 
+> The public-internet option below uses wede's built-in Vulos Relay tunnel,
+> but that's one option, not the only way to reach wede from the public
+> internet. See [PUBLIC-ACCESS.md](PUBLIC-ACCESS.md) for the direct-bind +
+> reverse-proxy (Caddy/nginx) path and generic outbound-tunnel alternatives
+> (Cloudflare Tunnel, ngrok, frp, Tailscale Funnel) side by side with relay.
+
 ### 1. Same LAN — bind to all interfaces
 
 To reach wede from another device on the same network:
@@ -250,6 +256,12 @@ a small sovereign reverse-tunnel relay you run on a cheap VPS with a public IP.
 wede embeds the relay **agent** in-process: there is no third-party `frp` binary
 to install. The agent dials a single outbound `wss://` connection to your relay,
 so the wede machine needs no inbound ports or static IP.
+
+This is the *default* tunnel provider wede ships behind its internal `Tunnel`
+interface, not the only way to get here — see
+[PUBLIC-ACCESS.md](PUBLIC-ACCESS.md) if you'd rather front wede with your own
+reverse proxy or use a different tunnel product (Cloudflare Tunnel, ngrok,
+frp, Tailscale Funnel).
 
 **On the VPS** — run the Vulos Relay server (see the vulos-relay repo for the
 build/deploy details) with a public HTTPS endpoint, e.g. `relay.example.com`, and
