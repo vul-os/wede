@@ -49,14 +49,14 @@ No unreleased changes.
 - **Deployment modes** — README section mapping wede's three run shapes:
   standalone self-host binary (primary), embedded as an app tile inside the
   Vulos OS shell via `frame_ancestors`, and public exposure over your own
-  Vulos Relay.
+  Ephor.
 
 ### Changed
-- **Public tunnel now uses the sovereign Vulos Relay agent instead of external
+- **Public tunnel now uses the sovereign Ephor agent instead of external
   `frpc`** — wede's public-tunnel feature no longer shells out to the
-  third-party `frpc` binary. It embeds the Vulos Relay agent
+  third-party `frpc` binary. It embeds the Ephor agent
   (`github.com/vul-os/vulos-relay/tunnel/agent`), which dials a single
-  outbound `wss://` connection to the owner's own Vulos Relay server and
+  outbound `wss://` connection to the owner's own Ephor server and
   proxies to wede's loopback port (SSRF-guarded). New persisted config shape
   `{ServerURL, Token, Name}` at `~/.wede/tunnel.json` (token redacted on
   read); the HTTP API shape (`GET /api/tunnel`, `PUT /api/tunnel/config`,

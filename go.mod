@@ -12,8 +12,8 @@ require (
 	github.com/vul-os/vulos-relay v0.0.0-00010101000000-000000000000
 )
 
-// Sovereign public tunnel: wede embeds the Vulos Relay agent from the sibling
-// vulos-relay checkout instead of shelling out to a third-party frp binary.
+// Sovereign public tunnel: wede embeds the Ephor agent from the sibling
+// checkout instead of shelling out to a third-party frp binary.
 replace github.com/vul-os/vulos-relay => ../vulos-relay
 
 require (

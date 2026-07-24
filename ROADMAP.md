@@ -59,7 +59,7 @@ terminals, chat, roles) is implemented end-to-end. Current feature set (see
   fonts (no runtime Google Fonts fetch); pinned Go toolchain kept current
   against `govulncheck`.
 - **Public exposure** — one-click tunnel over your own sovereign
-  [Vulos Relay](https://github.com/vul-os/vulos-relay) server (embedded
+  [Ephor](https://github.com/vul-os/ephor) server (embedded
   agent, single outbound `wss://` connection, SSRF-guarded, no inbound ports
   or static IP, no third-party `frpc` dependency).
 - **Testing** — Go backend tests (incl. `-race`), frontend unit tests

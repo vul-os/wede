@@ -50,7 +50,7 @@ hardware you control:
 
 - **Standalone (self-host)** — run `./wede /path/to/project` on a laptop, server, NAS, or Pi; loopback by default, LAN with `"host": "0.0.0.0"`. This is the primary shape.
 - **Embedded behind an iframe host** — set `frame_ancestors` (e.g. `https://vulos.org`) so a host shell can embed wede as an app tile behind its own routing and auth; the same binary either way.
-- **Public exposure** — expose a loopback-bound wede over *your own* [Vulos Relay](https://github.com/vul-os/vulos-relay) server via the embedded relay agent (no inbound ports, no static IP).
+- **Public exposure** — expose a loopback-bound wede over *your own* [Ephor](https://github.com/vul-os/ephor) server via the embedded relay agent (no inbound ports, no static IP).
 
 Details in [Remote access](#remote-access) and [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
@@ -94,7 +94,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 - **Multiplayer presence & cursors** — see who else is in a workspace and which file they're viewing, with live cursors. Collaborative editing is CRDT-backed (pure-Go [reearth/ygo](https://github.com/reearth/ygo), Yjs-compatible).
 - **Shared terminals** — everyone in a workspace shares the same PTY sessions: open a terminal and your teammates see the same output in real time.
 - **Workspace chat** — per-workspace chat with two channels: **public** (committed to `.wede/chat.md` so the repo — and any LLM working on it — can read the conversation) and **private** (stored in `.wede/private/`, which wede auto-gitignores). Git activity (commits, uncommitted-change counts) is posted into the chat automatically.
-- **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* sovereign [Vulos Relay](https://github.com/vul-os/vulos-relay) server (owner-only). wede embeds the relay agent — it dials your relay over a single outbound connection and shows the live public URL — no third-party binary, inbound ports, or static IP needed.
+- **Public tunnel** — one-click expose a loopback-bound wede to the internet via *your own* sovereign [Ephor](https://github.com/vul-os/ephor) server (owner-only). wede embeds the relay agent — it dials your relay over a single outbound connection and shows the live public URL — no third-party binary, inbound ports, or static IP needed.
 
 > **Security — editor links grant full host shell access.**
 > An editor share link gives the recipient a login shell (`$SHELL -l`) running as
@@ -209,7 +209,7 @@ it. Start from [`wede.config.example.json`](wede.config.example.json).
 wede binds to `127.0.0.1` by default. To reach it from elsewhere you can bind to
 the LAN (`"host": "0.0.0.0"`), run it as an app inside **Vulos** (the Vulos
 gateway handles routing and auth — no exposed port), or put it on the public
-internet via your own **[Vulos Relay](https://github.com/vul-os/vulos-relay)
+internet via your own **[Ephor](https://github.com/vul-os/ephor)
 server** — wede's embedded relay agent dials out from your machine, so no inbound
 ports or static IP are needed.
 See [Exposing wede over a network](docs/GETTING-STARTED.md#exposing-wede-over-a-network)
