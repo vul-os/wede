@@ -11,7 +11,7 @@ package tunnel
 // isolated here so the seam (Provider, in provider.go) stays reusable if a
 // different tunnel mechanism is wired in later via NewWithProvider. The
 // dependency is vendored (see /vendor and go.mod's replace), so building this
-// file needs no sibling vulos-relay checkout.
+// file needs no sibling Ephor checkout.
 
 import (
 	"context"

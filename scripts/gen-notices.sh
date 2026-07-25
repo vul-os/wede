@@ -23,7 +23,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # --- Go modules. wede's module graph includes MPL-2.0 code (hashicorp/yamux, via
-# the embedded vulos-relay agent); MPL-2.0 is redistributable with notice, so the
+# the embedded Ephor agent); MPL-2.0 is redistributable with notice, so the
 # rules file allows it (and still denies GPL/AGPL/LGPL/SSPL/BUSL). The detector
 # reproduces each module's licence text from the module cache.
 DETECTOR="$(command -v go-licence-detector || true)"
