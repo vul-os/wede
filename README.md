@@ -116,7 +116,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Workspaces** | Open multiple independent projects on one host and switch between them; everyone connected shares the same set. |
 | **Share Links + Roles** | Owner mints invite links scoped to **editor** (full) or **viewer** (read-only) roles. Tokens hashed at rest, constant-time compare, listable and revocable. |
 | **Workspace Chat** | Per-workspace chat with **public** (committed `.wede/chat.md`, LLM-readable) and **private** (auto-gitignored) channels, plus automatic git-activity messages. |
-| **Public Tunnel (Vulos Relay)** | One-click expose wede to the internet via your own sovereign Vulos Relay server (owner-only) — embedded relay agent dials out and shows the live URL. No third-party binary, inbound ports, or static IP. |
+| **Public Tunnel (Ephor)** | One-click expose wede to the internet via your own sovereign Ephor server (owner-only) — embedded relay agent dials out and shows the live URL. No third-party binary, inbound ports, or static IP. |
 | **File Explorer** | VS Code-style project tree with git status colours. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
 | **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
 | **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |

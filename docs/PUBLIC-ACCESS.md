@@ -9,7 +9,7 @@ only way** — pick whichever fits your setup.
 |---|---|---|---|
 | (a) Direct bind + reverse proxy | Yes (443 on your box) | No (just a domain) | Low |
 | (b) Generic outbound tunnel | No | Depends on provider | Low–Medium |
-| (c) Built-in Vulos Relay tunnel | No | Yes (your own relay VPS) | Low, sovereign |
+| (c) Built-in Ephor tunnel | No | Yes (your own relay VPS) | Low, sovereign |
 
 ---
 
@@ -87,7 +87,7 @@ of them need you to open a port or have a static IP.
 
 ---
 
-## (c) The built-in Vulos Relay tunnel
+## (c) The built-in Ephor tunnel
 
 wede embeds a first-party tunnel agent
 (`github.com/vul-os/vulos-relay/tunnel/agent`) that does the same job as
@@ -98,7 +98,7 @@ An alternate `Provider` implementation (wrapping any of the tools in (b), for
 example) could be swapped in via `tunnel.NewWithProvider` without touching
 `main.go` or the HTTP handlers.
 
-See [GETTING-STARTED.md § Public internet — a sovereign Vulos Relay](GETTING-STARTED.md#3-public-internet--a-sovereign-vulos-relay)
+See [GETTING-STARTED.md § Public internet — a sovereign Ephor](GETTING-STARTED.md#3-public-internet--a-sovereign-ephor)
 for the walkthrough (owner-only **Settings → Public access** panel, config
 persisted to `~/.wede/tunnel.json`).
 

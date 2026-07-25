@@ -3,7 +3,7 @@
 //
 // The actual tunneling mechanism sits behind the Provider seam (see
 // provider.go): Manager never names a specific implementation. By default
-// wede wires in the embedded Vulos Relay agent (see provider_relay.go), which
+// wede wires in the embedded Ephor agent (see provider_relay.go), which
 // dials a single outbound wss:// connection to the relay server the owner
 // runs, authenticates with a bearer token, claims its token-authorized
 // public name, and proxies inbound requests to wede's ONE local loopback port
@@ -55,7 +55,7 @@ var _ Tunnel = (*Manager)(nil)
 
 // Config is the owner-supplied tunnel configuration (persisted to ~/.wede/tunnel.json).
 //
-// These fields describe the shipped default provider (a Vulos Relay server:
+// These fields describe the shipped default provider (an Ephor server:
 // ServerURL/Token/Name). An alternate Provider is free to interpret them
 // differently, or a future provider-specific config could be layered in —
 // Manager itself only persists and redacts this struct, it doesn't interpret it.
@@ -84,7 +84,7 @@ type Manager struct {
 }
 
 // New returns a Manager that tunnels wede's local loopback address using the
-// default Provider (the embedded Vulos Relay agent). localAddr is wede's own
+// default Provider (the embedded Ephor agent). localAddr is wede's own
 // listen address (host:port) and MUST be loopback. It loads any persisted
 // config.
 func New(localAddr string) *Manager {
@@ -93,7 +93,7 @@ func New(localAddr string) *Manager {
 
 // NewWithProvider is New, but with an explicit ProviderFactory — the seam for
 // wiring in an alternate tunnel mechanism (Cloudflare Tunnel, ngrok, frp,
-// Tailscale Funnel, a test fake, ...) instead of the default Vulos Relay
+// Tailscale Funnel, a test fake, ...) instead of the default Ephor
 // agent. Callers of the returned *Manager (main.go, the HTTP handlers) are
 // unaffected either way.
 func NewWithProvider(localAddr string, factory ProviderFactory) *Manager {

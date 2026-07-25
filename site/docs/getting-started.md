@@ -242,22 +242,22 @@ instance like any other app. Keep wede bound to loopback and set
 See [Embedding in Vulos OS](#embedding-in-vulos-os) below and
 [CONFIGURATION.md](CONFIGURATION.md#embedding-in-an-iframe) for details.
 
-### 3. Public internet — a sovereign Vulos Relay
+### 3. Public internet — a sovereign Ephor
 
 To reach wede from anywhere without opening ports on your home network, put it
-behind your **own** [Vulos Relay](https://github.com/vul-os/vulos-relay) server —
+behind your **own** [Ephor](https://github.com/vul-os/ephor) server —
 a small sovereign reverse-tunnel relay you run on a cheap VPS with a public IP.
 wede embeds the relay **agent** in-process: there is no third-party `frp` binary
 to install. The agent dials a single outbound `wss://` connection to your relay,
 so the wede machine needs no inbound ports or static IP.
 
-**On the VPS** — run the Vulos Relay server (see the vulos-relay repo for the
+**On the VPS** — run the Ephor server (see the ephor repo for the
 build/deploy details) with a public HTTPS endpoint, e.g. `relay.example.com`, and
 mint a bearer token authorizing your chosen public name (`wede`). Point a DNS
 record for the relay (and the name's subdomain, if your relay uses vhost routing)
 at the VPS.
 
-**In wede** — no config files. Open **Settings → Public access (Vulos Relay)** as
+**In wede** — no config files. Open **Settings → Public access (Ephor)** as
 the owner and fill in:
 
 | Field | Example | Notes |

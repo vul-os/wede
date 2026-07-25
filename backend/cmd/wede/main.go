@@ -99,7 +99,7 @@ func main() {
 	wsMgr.Register("default", rootFolder)
 
 	authHandler := auth.New(cfg.Password)
-	// Optional sovereign public tunnel (owner-only): the Vulos Relay agent dials
+	// Optional sovereign public tunnel (owner-only): the Ephor agent dials
 	// the owner's own relay and proxies to wede's loopback listen addr. Pin the
 	// agent's local target to loopback regardless of cfg.Host (never expose an
 	// off-loopback bind through the tunnel).
@@ -126,7 +126,7 @@ func main() {
 	protected.Handle("DELETE /api/auth/tokens/{id}", ro(http.HandlerFunc(authHandler.HandleRevokeToken)))
 
 	// Public-tunnel management — owner-only. Lets an owner expose a loopback-bound
-	// wede via their OWN sovereign Vulos Relay server; wede runs the embedded relay
+	// wede via their OWN sovereign Ephor server; wede runs the embedded relay
 	// agent and reports the live public URL. No third-party frp binary.
 	protected.Handle("GET /api/tunnel", ro(http.HandlerFunc(tunnelMgr.HandleGet)))
 	protected.Handle("PUT /api/tunnel/config", ro(http.HandlerFunc(tunnelMgr.HandleSetConfig)))

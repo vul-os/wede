@@ -1,6 +1,6 @@
 package tunnel
 
-// The default Provider: wede embeds the Vulos Relay agent
+// The default Provider: wede embeds the Ephor agent
 // (github.com/vul-os/vulos-relay/tunnel/agent) in-process rather than
 // shelling out to a third-party frp binary. It dials a single outbound
 // wss:// connection to the relay server the owner runs, authenticates with a
@@ -19,7 +19,7 @@ import (
 	"github.com/vul-os/vulos-relay/tunnel/agent"
 )
 
-// DefaultProviderFactory constructs the Vulos Relay agent as a Provider. This
+// DefaultProviderFactory constructs the Ephor agent as a Provider. This
 // is what New() (and therefore main.go) wires in by default.
 func DefaultProviderFactory(opts ProviderOptions) Provider {
 	a := agent.New(agent.Options{

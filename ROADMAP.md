@@ -106,7 +106,7 @@ status, open to community contribution:
 - **External database** — the binary stays self-contained; collaboration
   state lives under `~/.wede/`, not Postgres/Redis/standalone SQLite.
 - **Mandatory cloud** — wede always runs fully self-hosted/standalone; the
-  Vulos OS embed and Vulos Relay tunnel are opt-in, not required.
+  Vulos OS embed and Ephor tunnel are opt-in, not required.
 - **VS Code extension marketplace** — LSP/DAP configuration plus the planned
   WASM plugin API are the extensibility story, not a marketplace.
 

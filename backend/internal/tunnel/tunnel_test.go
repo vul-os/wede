@@ -80,7 +80,7 @@ func TestStartInvalidConfigErrors(t *testing.T) {
 }
 
 // TestStartAgainstDeadRelay drives the real (default) Provider — the embedded
-// Vulos Relay agent — against an unreachable relay (no live server). Start
+// Ephor agent — against an unreachable relay (no live server). Start
 // must return nil (async dial), the tunnel must NOT be connected, and Stop
 // must clean up. No network dependency beyond a refused dial.
 func TestStartAgainstDeadRelay(t *testing.T) {
@@ -134,7 +134,7 @@ func (f *fakeProvider) Snapshot() ProviderSnapshot {
 
 // TestSwappableProvider drives a Manager through a non-relay Provider,
 // confirming Start/Stop/Snapshot/PublicURL work against ANY ProviderFactory,
-// not just the embedded Vulos Relay agent.
+// not just the embedded Ephor agent.
 func TestSwappableProvider(t *testing.T) {
 	m := NewWithProvider("127.0.0.1:9090", func(opts ProviderOptions) Provider {
 		return &fakeProvider{opts: opts}

@@ -6,7 +6,7 @@ package tunnel
 // entirely mechanism-agnostic.
 //
 // The shipped default (provider_relay.go, always compiled in) wraps the
-// embedded Vulos Relay agent. It is the default because it's the one Vulos
+// embedded Ephor agent. It is the default because it's the one Vulos
 // ships and tests end-to-end, not because it's privileged in any way: an
 // alternate Provider (Cloudflare Tunnel, ngrok, frp, Tailscale Funnel, a test
 // fake, ...) can implement this interface and be wired in via
@@ -49,6 +49,6 @@ type ProviderSnapshot struct {
 }
 
 // ProviderFactory constructs a Provider from ProviderOptions. DefaultProviderFactory
-// (provider_relay.go) is the Vulos Relay agent; pass a different factory to
+// (provider_relay.go) is the Ephor agent; pass a different factory to
 // NewWithProvider to use something else.
 type ProviderFactory func(ProviderOptions) Provider

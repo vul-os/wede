@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Globe, Copy, Check, Play, Square, ExternalLink } from 'lucide-react'
 
 // TunnelSettings — owner-only UI to expose wede publicly via the owner's OWN
-// sovereign Vulos Relay server. The owner supplies their relay URL, a bearer
+// sovereign Ephor server. The owner supplies their relay URL, a bearer
 // token, and the public name; wede runs the embedded relay agent and shows the
 // live public URL. No third-party frp binary.
 export default function TunnelSettings({ authFetch }) {
@@ -81,7 +81,7 @@ export default function TunnelSettings({ authFetch }) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3 flex items-center gap-1.5">
-        <Globe className="w-3.5 h-3.5" /> Public access (Vulos Relay)
+        <Globe className="w-3.5 h-3.5" /> Public access (Ephor)
       </h3>
 
       <div className="space-y-2.5">
@@ -102,7 +102,7 @@ export default function TunnelSettings({ authFetch }) {
           )}
         </div>
 
-        {/* Relay config: point wede at YOUR OWN Vulos Relay server */}
+        {/* Relay config: point wede at YOUR OWN Ephor server */}
         <input className={field} placeholder="relay server URL (wss://relay.example.com)" value={form.serverUrl}
           onChange={(e) => setForm({ ...form, serverUrl: e.target.value })} />
         <input className={field} type="password" placeholder="relay token (authorizes your public name)" value={form.token}
@@ -111,7 +111,7 @@ export default function TunnelSettings({ authFetch }) {
           onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
         <p className="text-[10px] text-text-muted leading-relaxed px-0.5">
-          Points wede at a Vulos Relay server you run — no third-party frp binary. wede dials the relay
+          Points wede at an Ephor server you run — no third-party frp binary. wede dials the relay
           over a single outbound connection and only proxies its own loopback port.
         </p>
 
