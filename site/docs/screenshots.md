@@ -1,3 +1,5 @@
+<!-- Generated from docs/SCREENSHOTS.md by scripts/sync-docs.mjs — edit the source, not this file. -->
+
 # wede Screenshots
 
 Visual tour of the IDE. All screenshots are captured at 1440×900 against the
@@ -5,7 +7,7 @@ Visual tour of the IDE. All screenshots are captured at 1440×900 against the
 every panel shows realistic developer content.
 
 The gallery below is the **light (Daylight)** theme; the matching **dark
-(Midnight)** set lives in [`screenshots/dark/`](screenshots/dark/). Regenerate
+(Midnight)** set lives in [`screenshots/dark/`](https://github.com/vul-os/wede/blob/main/screenshots/dark/). Regenerate
 with `npm run screenshots` (light) or `WEDE_THEME=dark npm run screenshots`.
 
 ### Both themes at a glance

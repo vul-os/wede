@@ -4,244 +4,494 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>wede docs</title>
-<meta name="description" content="wede documentation">
+<meta name="description" content="Documentation for wede — a self-hosted, collaborative web IDE in a single Go binary. Install, configure, expose, harden, and extend it.">
+<meta name="theme-color" content="#0c0e14">
 <link rel="icon" href="./assets/wede-mark.svg">
-<style>*,*::before,*::after{box-sizing:border-box}
-:root{
-  --bg:#0a0b0f; --bg-soft:#0e1016; --panel:#13151d; --panel-2:#171a23;
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.12);
-  --text:#e7e9ee; --muted:#9aa1b1; --faint:#6b7280;
-  --radius:16px; --max:1120px;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
-}
-html{scroll-behavior:smooth}
-body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;font-size:16px}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(1100px 600px at 80% -10%, color-mix(in srgb,var(--accent) 18%, transparent), transparent 60%),
-  radial-gradient(900px 500px at -10% 10%, color-mix(in srgb,var(--accent-2) 12%, transparent), transparent 55%),
-  var(--bg);}
-a{color:inherit;text-decoration:none}
-img{max-width:100%;display:block}
-.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
-.accent{color:var(--accent)}
-
-/* Header */
-.site-header{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 72%, transparent);border-bottom:1px solid var(--border)}
-.nav{display:flex;align-items:center;gap:18px;height:64px}
-.brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;letter-spacing:-.02em}
-.brand .tile{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f8fafc,#dfe3ea);display:grid;place-items:center;padding:5px;box-shadow:0 1px 0 rgba(255,255,255,.15) inset, 0 4px 14px rgba(0,0,0,.35)}
-.brand .tile img{width:100%;height:100%;object-fit:contain}
-.nav-spacer{flex:1}
-.nav-links{display:flex;align-items:center;gap:22px}
-.nav-links a{color:var(--muted);font-size:14.5px;font-weight:500;transition:color .15s}
-.nav-links a:hover{color:var(--text)}
-.vulos-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border-2);border-radius:999px;font-size:13px;color:var(--muted);transition:border-color .15s,color .15s}
-.vulos-badge:hover{border-color:var(--accent);color:var(--text)}
-.vulos-badge img{width:16px;height:16px;border-radius:4px}
-@media(max-width:760px){.nav-links{display:none}}
-
-/* Buttons */
-.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:11px;font-weight:600;font-size:15px;border:1px solid transparent;cursor:pointer;transition:transform .12s,box-shadow .2s,background .2s,border-color .2s}
-.btn:hover{transform:translateY(-1px)}
-.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0a0b0f;box-shadow:0 8px 26px -8px color-mix(in srgb,var(--accent) 70%, transparent)}
-.btn-primary:hover{box-shadow:0 12px 34px -8px color-mix(in srgb,var(--accent) 80%, transparent)}
-.btn-ghost{background:var(--panel);border-color:var(--border-2);color:var(--text)}
-.btn-ghost:hover{border-color:var(--accent)}
-
-/* Hero */
-.hero{padding:84px 0 56px}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%, transparent);border:1px solid color-mix(in srgb,var(--accent) 28%, transparent);padding:6px 13px;border-radius:999px}
-.hero h1{font-size:clamp(40px,7vw,68px);line-height:1.04;letter-spacing:-.035em;margin:22px 0 0;font-weight:800}
-.hero .tagline{font-size:clamp(18px,2.4vw,23px);color:var(--text);margin:18px 0 0;max-width:720px;font-weight:500}
-.hero .blurb{font-size:16.5px;color:var(--muted);margin:18px 0 0;max-width:660px}
-.cta-row{display:flex;flex-wrap:wrap;gap:13px;margin-top:30px}
-.hero-visual{margin-top:54px;border-radius:var(--radius);border:1px solid var(--border-2);overflow:hidden;box-shadow:0 40px 80px -30px rgba(0,0,0,.7);background:var(--panel)}
-.hero-visual img{width:100%;display:block}
-
-/* API mock (openrate) */
-.api-mock{font-family:var(--mono);font-size:13.5px;padding:22px;background:var(--panel-2);overflow:auto}
-.api-mock .req{color:var(--muted);margin-bottom:14px}
-.api-mock .req b{color:var(--accent)}
-.api-mock pre{margin:0;color:#cbd5e1;line-height:1.7}
-.api-mock .k{color:var(--accent-2)} .api-mock .s{color:#7dd3fc} .api-mock .n{color:#fbbf24}
-.grade{display:inline-block;background:var(--accent);color:#08120f;font-weight:700;border-radius:6px;padding:0 7px}
-
-/* Sections */
-.section{padding:64px 0}
-.section h2{font-size:clamp(26px,4vw,36px);letter-spacing:-.03em;margin:0 0 8px;font-weight:800}
-.section .lead{color:var(--muted);margin:0 0 38px;font-size:17px;max-width:640px}
-
-/* Features */
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}
-@media(max-width:620px){.grid{grid-template-columns:1fr}}
-.card{background:linear-gradient(180deg,var(--panel),var(--bg-soft));border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:border-color .2s,transform .2s}
-.card:hover{border-color:color-mix(in srgb,var(--accent) 45%, var(--border));transform:translateY(-2px)}
-.card .dot{width:34px;height:34px;border-radius:9px;background:color-mix(in srgb,var(--accent) 16%, transparent);border:1px solid color-mix(in srgb,var(--accent) 35%, transparent);display:grid;place-items:center;margin-bottom:15px}
-.card .dot::after{content:"";width:11px;height:11px;border-radius:3px;background:var(--accent)}
-.card h3{margin:0 0 8px;font-size:17.5px;letter-spacing:-.01em}
-.card p{margin:0;color:var(--muted);font-size:14.5px}
-.card code{font-family:var(--mono);font-size:.86em;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px;color:var(--text)}
-
-/* Quickstart */
-.quick{display:grid;grid-template-columns:1.1fr 1fr;gap:34px;align-items:center}
-@media(max-width:820px){.quick{grid-template-columns:1fr}}
-.codeblock{background:#0c0e14;border:1px solid var(--border-2);border-radius:var(--radius);overflow:hidden}
-.codeblock .bar{display:flex;align-items:center;gap:7px;padding:12px 16px;border-bottom:1px solid var(--border)}
-.codeblock .bar i{width:11px;height:11px;border-radius:50%;background:#2a2e3a;display:inline-block}
-.codeblock pre{margin:0;padding:18px 20px;overflow:auto;font-family:var(--mono);font-size:13.5px;line-height:1.75;color:#cbd5e1}
-.steps{list-style:none;margin:0;padding:0;display:grid;gap:16px}
-.steps li{display:flex;gap:14px;align-items:flex-start}
-.steps .num{flex:none;width:28px;height:28px;border-radius:8px;background:color-mix(in srgb,var(--accent) 16%, transparent);border:1px solid color-mix(in srgb,var(--accent) 35%, transparent);color:var(--accent);font-weight:700;display:grid;place-items:center;font-size:14px}
-.steps b{display:block;font-size:15.5px}
-.steps span{color:var(--muted);font-size:14px}
-
-/* Vulos band */
-.vulos-band{margin:24px 0;background:linear-gradient(120deg,var(--panel),var(--bg-soft));border:1px solid var(--border);border-radius:var(--radius);padding:40px;display:flex;gap:26px;align-items:center}
-@media(max-width:680px){.vulos-band{flex-direction:column;text-align:center}}
-.vulos-band img{width:60px;height:60px;border-radius:14px;flex:none}
-.vulos-band h3{margin:0 0 6px;font-size:21px}
-.vulos-band p{margin:0;color:var(--muted);max-width:680px}
-.vulos-band .more{margin-top:14px;display:inline-flex;color:var(--accent);font-weight:600;font-size:15px}
-
-/* Footer */
-.site-footer{border-top:1px solid var(--border);margin-top:40px;padding:40px 0}
-.foot{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}
-.foot .left{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
-.foot .left img{width:20px;height:20px;border-radius:5px}
-.foot .links{display:flex;gap:20px;flex-wrap:wrap}
-.foot .links a{color:var(--muted);font-size:14px}
-.foot .links a:hover{color:var(--text)}
-
-/* Docs viewer */
-.docs-shell{display:grid;grid-template-columns:248px 1fr;gap:36px;align-items:start;padding:34px 0 70px}
-@media(max-width:860px){.docs-shell{grid-template-columns:1fr}}
-.docs-nav{position:sticky;top:84px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);padding:14px}
-.docs-nav .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:6px 10px}
-.docs-nav a{display:block;padding:8px 11px;border-radius:9px;color:var(--muted);font-size:14.5px;font-weight:500;transition:.15s}
-.docs-nav a:hover{background:rgba(255,255,255,.04);color:var(--text)}
-.docs-nav a.active{background:color-mix(in srgb,var(--accent) 16%, transparent);color:var(--text)}
-@media(max-width:860px){.docs-nav{position:static}}
-.docs-main{min-width:0}
-.markdown{font-size:16px}
-.markdown>*:first-child{margin-top:0}
-.markdown h1{font-size:34px;letter-spacing:-.03em;margin:.2em 0 .5em;border-bottom:1px solid var(--border);padding-bottom:.3em}
-.markdown h2{font-size:25px;letter-spacing:-.02em;margin:1.6em 0 .6em;border-bottom:1px solid var(--border);padding-bottom:.25em}
-.markdown h3{font-size:19px;margin:1.4em 0 .5em}
-.markdown h4{font-size:16px;margin:1.3em 0 .4em;color:var(--text)}
-.markdown p,.markdown li{color:#cfd3dd}
-.markdown a{color:var(--accent);text-decoration:none}
-.markdown a:hover{text-decoration:underline}
-.markdown code{font-family:var(--mono);font-size:.88em;background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px}
-.markdown pre{background:#0c0e14;border:1px solid var(--border-2);border-radius:12px;padding:16px 18px;overflow:auto}
-.markdown pre code{background:none;padding:0;font-size:13.5px;line-height:1.7;color:#cbd5e1}
-.markdown blockquote{margin:1em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:rgba(255,255,255,.03);color:var(--muted);border-radius:0 8px 8px 0}
-.markdown table{border-collapse:collapse;width:100%;margin:1.2em 0;font-size:14.5px;display:block;overflow:auto}
-.markdown th,.markdown td{border:1px solid var(--border-2);padding:9px 12px;text-align:left}
-.markdown th{background:var(--panel);font-weight:600}
-.markdown img{border-radius:10px;margin:1em 0;border:1px solid var(--border)}
-.markdown hr{border:none;border-top:1px solid var(--border);margin:2em 0}
-.markdown .mermaid{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin:1.2em 0;text-align:center;overflow:auto}
-.docs-title{font-size:13px;color:var(--faint);margin-bottom:6px}
-.docs-error{color:#fca5a5;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);padding:14px 16px;border-radius:10px}
-</style>
-<style>:root{--accent:#ff5e57;--accent-2:#ff8a85}</style>
+<link rel="preload" href="./assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/style.css">
+<link rel="stylesheet" href="./assets/docs.css">
+<script>
+  (function () {
+    try {
+      var s = localStorage.getItem('wede-site-theme');
+      var t = s || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+  })();
+</script>
 <script src="./assets/vendor/marked.umd.js"></script>
 <script src="./assets/vendor/mermaid.min.js"></script>
 </head>
 <body>
-<header class="site-header"><div class="wrap nav">
-    <a class="brand" href="./index.html"><span class="tile"><img src="./assets/wede-mark.svg" alt="wede logo"></span>wede</a>
-    <div class="nav-spacer"></div>
-    <nav class="nav-links">
-      <a href="./index.html#features">Features</a>
-      <a href="./docs.html">Docs</a>
-      <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a>
-    </nav>
-    <a class="vulos-badge" href="https://vulos.org" target="_blank" rel="noopener" title="Part of Vulos">
-      <img src="./assets/vulos-logo.png" alt="Vulos">Part of Vulos
+
+<header class="topbar">
+  <div class="wrap bar">
+    <a class="brand" href="./index.html">
+      <span class="mark"><img src="./assets/wede-mark.svg" alt=""></span>wede
     </a>
-  </div></header>
+    <span class="chip mono">docs · v0.5.0</span>
+    <div class="spacer"></div>
+    <nav class="navlinks">
+      <a href="./index.html#features">Features</a>
+      <a href="./index.html#tour">Tour</a>
+      <a href="./index.html#install">Install</a>
+      <a href="./docs.html" class="on">Docs</a>
+    </nav>
+    <button class="iconbtn theme-toggle" id="theme" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <a class="iconbtn" href="https://github.com/vul-os/wede" target="_blank" rel="noopener" aria-label="wede on GitHub" title="GitHub">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.28 9.28 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
+    </a>
+    <a class="btn btn-primary btn-sm" href="./index.html#install">Get wede</a>
+  </div>
+</header>
+
 <div class="wrap docs-shell">
-  <aside class="docs-nav">
-    <div class="label">wede docs</div>
-        <a data-slug="overview" href="#overview">Overview</a>
-        <a data-slug="getting-started" href="#getting-started">Getting started</a>
-        <a data-slug="architecture" href="#architecture">Architecture</a>
-        <a data-slug="configuration" href="#configuration">Configuration</a>
-        <a data-slug="screenshots" href="#screenshots">Screenshots</a>
-        <a data-slug="roadmap" href="#roadmap">Roadmap</a>
-        <a data-slug="changelog" href="#changelog">Changelog</a>
-  </aside>
+
+  <div>
+    <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="docsNav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      Documentation
+      <span class="cur" id="navCur"></span>
+    </button>
+
+    <aside class="docs-nav collapsed" id="docsNav">
+      <div class="docs-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="navSearch" placeholder="Filter docs…" aria-label="Filter documentation pages" autocomplete="off">
+        <kbd>/</kbd>
+      </div>
+      <div id="navList"></div>
+      <div class="no-hits" id="noHits" hidden>No page matches that.</div>
+    </aside>
+  </div>
+
   <main class="docs-main">
-    <div class="docs-title" id="crumb"></div>
-    <article class="markdown" id="content">Loading…</article>
-  </main>
-</div>
-<footer class="site-footer"><div class="wrap foot">
-    <div class="left"><img src="./assets/vulos-logo.png" alt="Vulos"> <span>Part of <a href="https://vulos.org" target="_blank" rel="noopener" style="color:var(--text)">Vulos</a> — the open, self-hostable web OS &amp; app suite.</span></div>
-    <div class="links">
-      <a href="./docs.html">Docs</a>
-      <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a>
-      <a href="./LICENSE.txt">License</a>
-      <a href="https://vulos.org" target="_blank" rel="noopener">vulos.org</a>
+    <div class="crumb">
+      <a href="./index.html">wede</a><span class="sep">/</span>
+      <a href="./docs.html">docs</a><span class="sep">/</span>
+      <span class="now" id="crumbNow">…</span>
+      <a class="src" id="srcLink" href="https://github.com/vul-os/wede" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>
+        source
+      </a>
     </div>
-  </div></footer>
+
+    <article class="markdown" id="content">
+      <div class="skel"><i class="t"></i><i></i><i></i><i></i></div>
+    </article>
+
+    <nav class="docs-pager" id="pager"></nav>
+  </main>
+
+  <aside class="outline" id="outline" hidden>
+    <div class="label">On this page</div>
+    <div id="outlineList"></div>
+  </aside>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-bar">
+      <a class="vulos" href="https://vulos.org" target="_blank" rel="noopener">
+        <img src="./assets/vulos-logo.png" alt="">Part of Vulos — open by design
+      </a>
+      <span style="flex:1"></span>
+      <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a>
+      <a href="./LICENSE.txt">MIT OR Apache-2.0</a>
+      <a href="./licenses.txt">Third-party notices</a>
+    </div>
+  </div>
+</footer>
+
 <script>
-const DOCS = [{"slug":"overview","title":"Overview"},{"slug":"getting-started","title":"Getting started"},{"slug":"architecture","title":"Architecture"},{"slug":"configuration","title":"Configuration"},{"slug":"screenshots","title":"Screenshots"},{"slug":"roadmap","title":"Roadmap"},{"slug":"changelog","title":"Changelog"}];
-const bySlug = Object.fromEntries(DOCS.map(d=>[d.slug,d]));
-const content = document.getElementById('content');
-const crumb = document.getElementById('crumb');
-let mermaidReady = false;
-try { mermaid.initialize({ startOnLoad:false, theme:'dark', securityLevel:'loose', themeVariables:{ fontFamily:'var(--sans)' } }); mermaidReady = true; } catch(e){}
+(function () {
+  var root = document.documentElement;
 
-if (window.marked && marked.setOptions) marked.setOptions({ gfm:true, breaks:false });
+  /* ── the docs index ───────────────────────────────────────────────── */
+  var ICON = {
+    book:  '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    play:  '<path d="M5 3l14 9-14 9V3z"/>',
+    gear:  '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7"/>',
+    server:'<rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>',
+    shield:'<path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/>',
+    help:  '<circle cx="12" cy="12" r="9"/><path d="M9.2 9a3 3 0 1 1 4 2.8c-.7.3-1.2 1-1.2 1.8v.4M12 17h.01"/>',
+    layers:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>',
+    plug:  '<path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+    map:   '<path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
 
-function setActive(slug){
-  document.querySelectorAll('.docs-nav a').forEach(a=>a.classList.toggle('active', a.dataset.slug===slug));
-}
+  var GROUPS = [
+    { label: 'Start here', docs: [
+      { slug: 'overview',          title: 'Overview',           src: 'docs/OVERVIEW.md',           icon: 'book'   },
+      { slug: 'getting-started',   title: 'Getting started',    src: 'docs/GETTING-STARTED.md',    icon: 'play'   },
+      { slug: 'configuration',     title: 'Configuration',      src: 'docs/CONFIGURATION.md',      icon: 'gear'   }
+    ]},
+    { label: 'Running it', docs: [
+      { slug: 'deployment',        title: 'Deployment',         src: 'docs/DEPLOYMENT.md',         icon: 'server' },
+      { slug: 'public-access',     title: 'Public access',      src: 'docs/PUBLIC-ACCESS.md',      icon: 'globe'  },
+      { slug: 'security-hardening',title: 'Hardening',          src: 'docs/SECURITY-HARDENING.md', icon: 'shield' },
+      { slug: 'troubleshooting',   title: 'Troubleshooting',    src: 'docs/TROUBLESHOOTING.md',    icon: 'help'   }
+    ]},
+    { label: 'Reference', docs: [
+      { slug: 'architecture',      title: 'Architecture',       src: 'docs/ARCHITECTURE.md',       icon: 'layers' },
+      { slug: 'api',               title: 'API reference',      src: 'docs/API.md',                icon: 'plug'   },
+      { slug: 'screenshots',       title: 'Screenshots',        src: 'docs/SCREENSHOTS.md',        icon: 'image'  }
+    ]},
+    { label: 'Project', docs: [
+      { slug: 'roadmap',           title: 'Roadmap',            src: 'ROADMAP.md',                 icon: 'map'    },
+      { slug: 'changelog',         title: 'Changelog',          src: 'CHANGELOG.md',               icon: 'clock'  }
+    ]}
+  ];
 
-async function renderMermaid(){
-  if(!mermaidReady) return;
-  const blocks = [...content.querySelectorAll('code.language-mermaid')];
-  blocks.forEach((code,i)=>{
-    const div = document.createElement('div');
-    div.className='mermaid';
-    div.textContent = code.textContent;
-    code.closest('pre').replaceWith(div);
+  var DOCS = GROUPS.reduce(function (a, g) { return a.concat(g.docs); }, []);
+  var bySlug = {};
+  DOCS.forEach(function (d) { bySlug[d.slug] = d; });
+
+  /* filename → slug, so cross-doc .md links resolve to the viewer's routes */
+  var byFile = {};
+  DOCS.forEach(function (d) {
+    var base = d.src.split('/').pop().toLowerCase();
+    byFile[base] = d.slug;
   });
-  const nodes = content.querySelectorAll('.mermaid');
-  if(nodes.length){ try { await mermaid.run({ nodes }); } catch(e){ console.warn('mermaid', e); } }
-}
+  byFile['readme.md'] = 'overview';
+  byFile['security.md'] = 'security-hardening';
 
-async function load(slug){
-  const doc = bySlug[slug] || DOCS[0];
-  setActive(doc.slug);
-  crumb.textContent = doc.title;
-  content.innerHTML = 'Loading…';
-  try {
-    const res = await fetch('./docs/'+doc.slug+'.md', {cache:'no-cache'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const md = await res.text();
-    content.innerHTML = marked.parse(md);
-    content.querySelectorAll('img').forEach(img=>{
-      const s=img.getAttribute('src')||'';
-      if(/^https?:/i.test(s)) return;
-      const m=s.match(/(?:\.\.\/)*(?:docs\/)?screenshots\/(.+)$/);
-      if(m) img.setAttribute('src','screenshots/'+m[1]);
-    });
-    content.querySelectorAll('a[href^="http"]').forEach(a=>{a.target='_blank';a.rel='noopener';});
-    await renderMermaid();
-    window.scrollTo({top:0});
-  } catch(err){
-    content.innerHTML = '<div class="docs-error">Could not load <code>'+doc.slug+'.md</code> — '+err.message+'</div>';
+  var REPO = 'https://github.com/vul-os/wede/blob/main/';
+
+  var content   = document.getElementById('content');
+  var crumbNow  = document.getElementById('crumbNow');
+  var srcLink   = document.getElementById('srcLink');
+  var navList   = document.getElementById('navList');
+  var pager     = document.getElementById('pager');
+  var outline   = document.getElementById('outline');
+  var outlineL  = document.getElementById('outlineList');
+  var navCur    = document.getElementById('navCur');
+
+  /* ── build the sidebar ────────────────────────────────────────────── */
+  navList.innerHTML = GROUPS.map(function (g) {
+    return '<div class="nav-group" data-group>' +
+      '<div class="label">' + g.label + '</div>' +
+      g.docs.map(function (d) {
+        return '<a data-slug="' + d.slug + '" href="#' + d.slug + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+          (ICON[d.icon] || ICON.book) + '</svg>' + d.title + '</a>';
+      }).join('') + '</div>';
+  }).join('');
+
+  /* ── mermaid ──────────────────────────────────────────────────────── */
+  var mermaidOK = false;
+  function initMermaid() {
+    try {
+      /* drive mermaid from the site's own tokens so diagrams match the theme */
+      var cs = getComputedStyle(document.documentElement);
+      var v = function (n) { return cs.getPropertyValue(n).trim(); };
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        securityLevel: 'loose',
+        themeVariables: {
+          fontFamily: "'Inter Variable', sans-serif",
+          fontSize: '13px',
+          background: v('--bg-primary'),
+          primaryColor: v('--bg-elevated'),
+          primaryTextColor: v('--text'),
+          primaryBorderColor: v('--border-strong'),
+          secondaryColor: v('--bg-secondary'),
+          tertiaryColor: v('--bg-secondary'),
+          lineColor: v('--text-muted'),
+          textColor: v('--text-2'),
+          nodeBorder: v('--border-strong'),
+          clusterBkg: v('--bg-secondary'),
+          clusterBorder: v('--border'),
+          edgeLabelBackground: v('--bg-primary'),
+          mainBkg: v('--bg-elevated'),
+          noteBkgColor: v('--accent-dim'),
+          noteTextColor: v('--text')
+        }
+      });
+      mermaidOK = true;
+    } catch (e) { mermaidOK = false; }
   }
-}
+  initMermaid();
 
-function current(){ return (location.hash||'').replace('#','') || DOCS[0].slug; }
-window.addEventListener('hashchange', ()=>load(current()));
-load(current());
+  if (window.marked && marked.setOptions) marked.setOptions({ gfm: true, breaks: false });
+
+  /* ── helpers ──────────────────────────────────────────────────────── */
+  /* GitHub-compatible slugs: lowercase, punctuation dropped, spaces → dashes,
+     underscores and existing dashes preserved (so #frame_ancestors resolves). */
+  function slugify(s) {
+    return String(s).toLowerCase().trim()
+      .replace(/[`*~]/g, '')
+      .replace(/[^\p{L}\p{N}_\- ]+/gu, '')
+      .replace(/ /g, '-') || 'section';   /* one dash per space, as GitHub does */
+  }
+
+  function parseHash() {
+    var raw = (location.hash || '').replace(/^#/, '');
+    if (!raw) return { slug: DOCS[0].slug, anchor: '' };
+    var bits = raw.split(':');
+    var slug = bits[0];
+    if (!bySlug[slug]) return { slug: DOCS[0].slug, anchor: '' };
+    return { slug: slug, anchor: bits[1] || '' };
+  }
+
+  /* rewrite a markdown link into a viewer route where we can */
+  function rewriteLink(a, slug) {
+    var href = a.getAttribute('href') || '';
+    if (!href) return;
+
+    if (/^(https?:)?\/\//i.test(href) || /^mailto:/i.test(href)) {
+      a.target = '_blank'; a.rel = 'noopener';
+      return;
+    }
+    /* in-page anchor → keep it inside this doc's route */
+    if (href.charAt(0) === '#') {
+      a.setAttribute('href', '#' + slug + ':' + href.slice(1));
+      return;
+    }
+    /* cross-doc .md link (any case, with or without a docs/ prefix) */
+    var m = href.match(/^(?:\.\.\/)*(?:docs\/)?([^\/#?]+\.md)(?:#(.+))?$/i);
+    if (m) {
+      var target = byFile[m[1].toLowerCase()];
+      if (target) {
+        a.setAttribute('href', '#' + target + (m[2] ? ':' + m[2] : ''));
+        return;
+      }
+      /* not published on the site — send it to the repo instead */
+      a.setAttribute('href', REPO + href.replace(/^(?:\.\.\/)+/, ''));
+      a.target = '_blank'; a.rel = 'noopener';
+      return;
+    }
+    /* any other repo-relative path → the repo */
+    if (!/^[a-z]+:/i.test(href) && !/^\.\/(assets|screenshots)\//.test(href)) {
+      a.setAttribute('href', REPO + href.replace(/^(?:\.\.\/)+/, ''));
+      a.target = '_blank'; a.rel = 'noopener';
+    }
+  }
+
+  function decorate(slug) {
+    /* headings: ids on h2–h4 so any anchor a doc links to resolves; the
+       outline itself only lists h2 and h3 */
+    var heads = [].slice.call(content.querySelectorAll('h2, h3, h4'));
+    var used = {};
+    var items = [];
+    heads.forEach(function (h) {
+      var id = slugify(h.textContent);
+      if (used[id]) { used[id]++; id = id + '-' + used[id]; } else { used[id] = 1; }
+      h.id = id;
+      var a = document.createElement('a');
+      a.className = 'anchor'; a.href = '#' + slug + ':' + id;
+      a.setAttribute('aria-label', 'Link to this section'); a.textContent = '#';
+      h.insertBefore(a, h.firstChild);
+      if (h.tagName !== 'H4') {
+        items.push({ id: id, text: h.textContent.replace(/^#/, '').trim(), level: h.tagName === 'H3' ? 3 : 2 });
+      }
+    });
+
+    if (items.length > 2) {
+      outlineL.innerHTML = items.map(function (it) {
+        return '<a class="' + (it.level === 3 ? 'h3' : '') + '" href="#' + slug + ':' + it.id + '">' + it.text + '</a>';
+      }).join('');
+      outline.hidden = false;
+    } else {
+      outline.hidden = true; outlineL.innerHTML = '';
+    }
+
+    /* links */
+    content.querySelectorAll('a[href]').forEach(function (a) { rewriteLink(a, slug); });
+
+    /* images: markdown written for the repo points at docs/screenshots/… */
+    content.querySelectorAll('img').forEach(function (img) {
+      var s = img.getAttribute('src') || '';
+      if (/^https?:/i.test(s)) return;
+      var m = s.match(/(?:\.\.\/)*(?:docs\/)?screenshots\/(.+)$/);
+      if (m) { img.setAttribute('src', 'screenshots/' + m[1]); return; }
+      var a = s.match(/(?:\.\.\/)*(?:docs\/)?assets\/(.+)$/);
+      if (a) { img.setAttribute('src', 'assets/' + a[1]); return; }
+      img.setAttribute('src', REPO.replace('/blob/', '/raw/') + s.replace(/^(?:\.\.\/)+/, ''));
+    });
+    content.querySelectorAll('img').forEach(function (img) { img.loading = 'lazy'; });
+
+    /* tables get their own scroll container */
+    content.querySelectorAll('table').forEach(function (t) {
+      if (t.parentElement && t.parentElement.classList.contains('md-table-wrap')) return;
+      var w = document.createElement('div');
+      w.className = 'md-table-wrap';
+      t.parentNode.insertBefore(w, t); w.appendChild(t);
+    });
+
+    /* copy buttons on code blocks */
+    content.querySelectorAll('pre > code').forEach(function (code) {
+      if (code.classList.contains('language-mermaid')) return;
+      var pre = code.parentElement;
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'copybtn';
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>copy</span>';
+      btn.addEventListener('click', function () {
+        var text = code.textContent;
+        var done = function () {
+          btn.classList.add('done');
+          btn.querySelector('span').textContent = 'copied';
+          setTimeout(function () { btn.classList.remove('done'); btn.querySelector('span').textContent = 'copy'; }, 1500);
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  async function renderMermaid() {
+    if (!mermaidOK) return;
+    content.querySelectorAll('code.language-mermaid').forEach(function (code) {
+      var div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = code.textContent;
+      var pre = code.closest('pre');
+      if (pre) pre.replaceWith(div);
+    });
+    var nodes = content.querySelectorAll('.mermaid');
+    if (nodes.length) { try { await mermaid.run({ nodes: nodes }); } catch (e) { console.warn('mermaid', e); } }
+  }
+
+  function buildPager(i) {
+    var prev = DOCS[i - 1], next = DOCS[i + 1];
+    var html = '';
+    if (prev) html += '<a class="prev" href="#' + prev.slug + '"><span class="dir">← Previous</span><span class="ttl">' + prev.title + '</span></a>';
+    if (next) html += '<a class="next" href="#' + next.slug + '"><span class="dir">Next →</span><span class="ttl">' + next.title + '</span></a>';
+    pager.innerHTML = html;
+  }
+
+  /* ── outline scroll-spy ───────────────────────────────────────────── */
+  var spy = null;
+  function startSpy() {
+    if (spy) { spy.disconnect(); spy = null; }
+    if (outline.hidden || !('IntersectionObserver' in window)) return;
+    var links = {};
+    outlineL.querySelectorAll('a').forEach(function (a) {
+      links[a.getAttribute('href').split(':')[1]] = a;
+    });
+    spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        outlineL.querySelectorAll('a').forEach(function (a) { a.classList.remove('active'); });
+        var a = links[e.target.id];
+        if (a) a.classList.add('active');
+      });
+    }, { rootMargin: '-80px 0px -70% 0px' });
+    content.querySelectorAll('h2, h3').forEach(function (h) { spy.observe(h); });
+  }
+
+  /* ── load ─────────────────────────────────────────────────────────── */
+  var currentSlug = null;
+
+  async function load(slug, anchor) {
+    var i = DOCS.findIndex(function (d) { return d.slug === slug; });
+    var doc = DOCS[i];
+
+    navList.querySelectorAll('a').forEach(function (a) {
+      a.classList.toggle('active', a.dataset.slug === slug);
+    });
+    crumbNow.textContent = doc.title;
+    navCur.textContent = doc.title;
+    srcLink.href = REPO + doc.src;
+    document.title = doc.title + ' — wede docs';
+
+    if (currentSlug !== slug) {
+      content.innerHTML = '<div class="skel"><i class="t"></i><i></i><i></i><i></i></div>';
+      try {
+        var res = await fetch('./docs/' + slug + '.md', { cache: 'no-cache' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        content.innerHTML = marked.parse(await res.text());
+        decorate(slug);
+        await renderMermaid();
+        startSpy();
+        currentSlug = slug;
+      } catch (err) {
+        content.innerHTML = '<div class="docs-error"><b>Could not load <code>' + slug +
+          '.md</code></b> — ' + err.message +
+          '.<br>You can read it on <a href="' + REPO + doc.src + '" target="_blank" rel="noopener">GitHub</a> instead.</div>';
+        outline.hidden = true;
+        currentSlug = slug;
+      }
+      buildPager(i);
+    }
+
+    if (anchor) {
+      var el = document.getElementById(anchor);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  function route() { var h = parseHash(); load(h.slug, h.anchor); }
+  window.addEventListener('hashchange', route);
+  route();
+
+  /* ── sidebar filter ───────────────────────────────────────────────── */
+  var search = document.getElementById('navSearch');
+  var noHits = document.getElementById('noHits');
+  search.addEventListener('input', function () {
+    var q = search.value.trim().toLowerCase();
+    var hits = 0;
+    navList.querySelectorAll('[data-group]').forEach(function (g) {
+      var shown = 0;
+      g.querySelectorAll('a').forEach(function (a) {
+        var match = !q || a.textContent.toLowerCase().indexOf(q) !== -1;
+        a.hidden = !match;
+        if (match) { shown++; hits++; }
+      });
+      g.hidden = shown === 0;
+    });
+    noHits.hidden = hits !== 0;
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== search &&
+        !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      e.preventDefault(); search.focus(); search.select();
+    }
+    if (e.key === 'Escape' && document.activeElement === search) {
+      search.value = ''; search.dispatchEvent(new Event('input')); search.blur();
+    }
+  });
+
+  /* ── mobile nav ───────────────────────────────────────────────────── */
+  var nav = document.getElementById('docsNav');
+  var toggle = document.getElementById('navToggle');
+  toggle.addEventListener('click', function () {
+    var open = nav.classList.toggle('collapsed') === false;
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+  navList.addEventListener('click', function (e) {
+    if (e.target.closest('a') && window.innerWidth <= 880) {
+      nav.classList.add('collapsed');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+  function syncNav() { if (window.innerWidth > 880) nav.classList.remove('collapsed'); }
+  window.addEventListener('resize', syncNav);
+  syncNav();
+
+  /* ── theme ────────────────────────────────────────────────────────── */
+  document.getElementById('theme').addEventListener('click', async function () {
+    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('wede-site-theme', next); } catch (e) {}
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', next === 'light' ? '#f0f2f7' : '#0c0e14');
+    /* re-render diagrams in the new theme */
+    if (content.querySelector('.mermaid')) {
+      var slug = currentSlug; currentSlug = null;
+      initMermaid();
+      await load(slug, '');
+    }
+  });
+})();
 </script>
 </body>
 </html>

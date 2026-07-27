@@ -1,5 +1,3 @@
-<!-- Generated from docs/OVERVIEW.md by scripts/sync-docs.mjs — edit the source, not this file. -->
-
 # wede
 
 **A self-hosted, collaborative web IDE in a single Go binary.**
@@ -16,7 +14,7 @@ no account to create. One process, one file on disk, your hardware.
 > wede is **not under active development** and is effectively community-maintained. It has
 > not been deprecated or removed, and nothing has stopped working — but expect no roadmap
 > work, and use it at your own risk. If you depend on it, [build from
-> source](#getting-started), pin a commit, and be prepared to maintain your own fork.
+> source](GETTING-STARTED.md), pin a commit, and be prepared to maintain your own fork.
 
 ---
 
@@ -45,14 +43,14 @@ wede runs three ways, all on hardware you control.
 
 **Standalone.** The default. The binary listens on `127.0.0.1:9090`, you log in with the
 owner password, and collaborators reach it over your LAN or through a reverse proxy. See
-[Getting started](#getting-started).
+[Getting started](GETTING-STARTED.md).
 
 **Behind a proxy, on the public internet.** Terminate TLS at Caddy or nginx, or use the
 built-in outbound tunnel and never open an inbound port. Both paths, with copy-pasteable
-configs, are in [Public access](#public-access).
+configs, are in [Public access](PUBLIC-ACCESS.md).
 
 **Embedded in Vulos OS.** Set `frame_ancestors` to the host shell and wede loads as a
-first-class app inside [Vulos](https://vulos.org). See [Configuration](#configuration).
+first-class app inside [Vulos](https://vulos.org). See [Configuration](CONFIGURATION.md).
 
 ---
 
@@ -83,22 +81,22 @@ One thing to internalise before sending anyone a link:
 > Treat editor links like SSH keys. Viewer links are read-only — no terminal, no writes, no
 > git mutations — though a viewer can still post in the public chat.
 
-[Hardening](#security-hardening) walks the whole checklist; [Architecture](#architecture)
+[Hardening](SECURITY-HARDENING.md) walks the whole checklist; [Architecture](ARCHITECTURE.md)
 explains where the trust boundaries actually sit.
 
 ---
 
 ## Where to go next
 
-- **[Getting started](#getting-started)** — build it, configure it, open your first workspace.
-- **[Configuration](#configuration)** — every config key, env override and CLI flag.
-- **[Deployment](#deployment)** — run it as a service, back it up, upgrade it.
-- **[Public access](#public-access)** — reverse proxies, TLS and tunnels.
-- **[Hardening](#security-hardening)** — the security checklist and threat model.
-- **[Troubleshooting](#troubleshooting)** — symptoms, causes, fixes.
-- **[Architecture](#architecture)** — how the thing is put together.
-- **[API reference](#api)** — the HTTP and WebSocket surface.
-- **[Screenshots](#screenshots)** — every screen, and how the shots are regenerated.
+- **[Getting started](GETTING-STARTED.md)** — build it, configure it, open your first workspace.
+- **[Configuration](CONFIGURATION.md)** — every config key, env override and CLI flag.
+- **[Deployment](DEPLOYMENT.md)** — run it as a service, back it up, upgrade it.
+- **[Public access](PUBLIC-ACCESS.md)** — reverse proxies, TLS and tunnels.
+- **[Hardening](SECURITY-HARDENING.md)** — the security checklist and threat model.
+- **[Troubleshooting](TROUBLESHOOTING.md)** — symptoms, causes, fixes.
+- **[Architecture](ARCHITECTURE.md)** — how the thing is put together.
+- **[API reference](API.md)** — the HTTP and WebSocket surface.
+- **[Screenshots](SCREENSHOTS.md)** — every screen, and how the shots are regenerated.
 
 ---
 

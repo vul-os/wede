@@ -35,7 +35,7 @@
 
 ## Overview
 
-wede is a single ~10 MB Go binary that serves a full **collaborative** web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser, alone or with your whole team.
+wede is a single ~19 MB Go binary that serves a full **collaborative** web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser, alone or with your whole team.
 
 One host serves many people: open multiple projects as **workspaces**, invite others with **share links**, edit the same files with **multiplayer cursors**, share the same **terminals**, and talk in per-workspace **chat** — all with no accounts and no external services. It runs standalone or embedded as a first-class app in the [Vulos OS](https://vulos.org) shell via `frame_ancestors` iframe integration.
 
@@ -118,7 +118,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Workspace Chat** | Per-workspace chat with **public** (committed `.wede/chat.md`, LLM-readable) and **private** (auto-gitignored) channels, plus automatic git-activity messages. |
 | **Public Tunnel (Ephor)** | One-click expose wede to the internet via your own sovereign Ephor server (owner-only) — embedded relay agent dials out and shows the live URL. No third-party binary, inbound ports, or static IP. |
 | **File Explorer** | VS Code-style project tree with git status colours. Context menu: copy, paste (recursive), rename, delete with confirmation. File-watching via SSE auto-refreshes on disk changes. |
-| **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 10+ languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
+| **Code Editor** | CodeMirror 6 with syntax highlighting for JavaScript, TypeScript, Go, Python, Rust, and 20+ more languages. Multi-cursor (Alt+Click), column select (Alt+Drag), bracket matching, code folding. |
 | **Auto-save** | 1.5 s debounced save after each edit. Status indicator in the top bar. Toggle per-session in Settings. Manual Ctrl/Cmd+S always works. |
 | **Project Search** | Ctrl/Cmd+Shift+F — workspace-wide search with ripgrep (Go walker fallback). Case and regex toggles. Replace across files. Results grouped by file; click to jump to exact line. |
 | **Command Palette** | Ctrl/Cmd+Shift+P — fuzzy-search over all IDE commands: save, new file/folder, toggle terminal, git ops, theme switch, logout, and more. |
@@ -129,14 +129,14 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 | **Built-in Browser** | Preview your running web app in an embedded browser tab without leaving the IDE. |
 | **API Client** | Postman-style HTTP client: methods, params, headers, auth (bearer/basic/api-key), JSON/form/raw bodies, environments with `{{variables}}`, and a server-side send (no CORS). Requests are saved as files under `.wede/requests/` — committable and shareable. |
 | **LSP** | Language Server Protocol proxy for diagnostics, hover, completion, and go-to-definition. Ships with gopls, typescript-language-server, pylsp, rust-analyzer — and **any other LSP server can be added without recompiling** via `~/.wede/lsp.json` (see [Adding languages](docs/GETTING-STARTED.md#adding-language-support)). |
-| **Syntax highlighting** | 25+ languages out of the box — Go, JS/TS/JSX, Python, Rust, C/C++, Java, PHP, C#, Kotlin, Scala, Swift, Ruby, Lua, shell, PowerShell, SQL, YAML, TOML, JSON, Markdown, HTML/CSS, Dockerfile, INI, and more. |
+| **Syntax highlighting** | 27 languages out of the box — Go, JS/TS/JSX, Python, Rust, C/C++, Java, PHP, C#, Kotlin, Scala, Swift, Ruby, Lua, shell, PowerShell, SQL, YAML, TOML, JSON, Markdown, HTML/CSS, Dockerfile, INI, and more. |
 | **Format on Save** | Auto-formats on Ctrl/Cmd+S: `gofmt` for Go, `prettier` for JS/TS/CSS/JSON/HTML/Markdown, `black` for Python — and **any other formatter** via `~/.wede/formatters.json` ([docs](docs/GETTING-STARTED.md#format-on-save-for-any-language)). |
 | **Image & Binary Preview** | Images render inline with a checkerboard background; other binary files show a size notice instead of garbled editor content. |
 | **Editor Settings** | Font size, tab width, word wrap, minimap, auto-save — all live-applied without reopening files, persisted to `localStorage`. |
 | **Dark & Light Themes** | Midnight (dark) and Daylight (light) colour schemes with Space Grotesk / Inter / JetBrains Mono font stack. |
 | **Mobile Friendly** | Fully responsive UI for tablets and phones. |
 | **Secure Access** | Owner password with 3-attempt lockout (persisted across restarts). Per-user share tokens with viewer/editor roles, hashed at rest + constant-time compare. Session TTL, server-side logout, WebSocket token via `auth.<token>` subprotocol (recommended, so it stays out of URLs/logs) — a `?token=` query param is also accepted as a fallback, WS origin checks. |
-| **Single binary** | Go embeds the entire frontend — one ~10 MB file to deploy anywhere. |
+| **Single binary** | Go embeds the entire frontend — one ~19 MB file (stripped release build) to deploy anywhere. |
 
 ---
 

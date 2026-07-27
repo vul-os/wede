@@ -1,6 +1,12 @@
 # Getting Started with wede
 
-wede is a single-binary, self-hosted web IDE. This guide walks you from zero to a running instance.
+wede is a single-binary, self-hosted web IDE. This guide walks you from zero
+to a running instance.
+
+> **Status: deprioritized.** wede is not under active development and is
+> effectively community-maintained — see the [README](../README.md) status
+> note. That's why **build from source** is the recommended install path
+> below, not a prebuilt release binary.
 
 ---
 
@@ -14,17 +20,55 @@ wede is a single-binary, self-hosted web IDE. This guide walks you from zero to 
 
 ## Installation
 
-### One-liner installer (recommended)
+### Build from source (recommended)
+
+Because wede is community-maintained rather than actively released, building
+from source gets you a binary you built and can audit yourself, with no
+reliance on a hosted release artifact:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vul-os/wede/main/install.sh | bash
+git clone https://github.com/vul-os/wede.git
+cd wede
+npm install
+npm run build:all   # outputs ./wede (single binary with embedded frontend)
 ```
 
-The installer downloads the binary for your platform, generates a random password, writes `wede.config.json`, and prints your password. **Note it down** — it will not be shown again.
+Requires Go 1.25+ and Node.js 18+. Then run it against a project:
 
-### Manual download
+```bash
+./wede /path/to/your/project
+```
 
-Download the latest binary from [GitHub Releases](https://github.com/vul-os/wede/releases) for your platform:
+On first run set a strong password in `wede.config.json` (start from
+[`wede.config.example.json`](../wede.config.example.json)), then open
+[http://localhost:9090](http://localhost:9090) and log in.
+
+### Convenience installer (prebuilt binary)
+
+The repo also ships an `install.sh` that pulls a prebuilt binary from
+[GitHub Releases](https://github.com/vul-os/wede/releases). Since wede is no
+longer actively maintained, a matching release asset for your OS/arch is
+**not guaranteed to exist**, and the script performs **no checksum
+verification** — so we no longer recommend piping it straight into a shell.
+If you use it, download and read it first, and verify the downloaded binary
+against the checksums on the release page:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/install.sh
+less install.sh          # review before running
+bash install.sh
+```
+
+What it does: detects your OS/arch, downloads the matching binary from the
+latest GitHub release, installs it to `~/.local/bin` (Linux/macOS —
+`%LOCALAPPDATA%\wede` on Windows), and — unless
+`~/.config/wede/wede.config.json` already exists — generates that config file
+with a random 16-character password and `"port": "9090"`, printing the
+password once. **Note it down**; it will not be shown again.
+
+You can also skip the script entirely and download a binary manually from
+[GitHub Releases](https://github.com/vul-os/wede/releases) — same
+not-guaranteed-to-exist caveat applies:
 
 | Platform | File |
 |----------|------|
@@ -33,8 +77,6 @@ Download the latest binary from [GitHub Releases](https://github.com/vul-os/wede
 | macOS x86_64 | `wede-darwin-amd64` |
 | macOS ARM64 (Apple Silicon) | `wede-darwin-arm64` |
 | Windows x86_64 | `wede-windows-amd64.exe` |
-
-Make it executable and place it in your `$PATH`:
 
 ```bash
 chmod +x wede-linux-amd64
@@ -45,7 +87,8 @@ mv wede-linux-amd64 /usr/local/bin/wede
 
 ## Configuration
 
-Create `wede.config.json` in your project directory (or any parent directory):
+wede reads a single `wede.config.json` — a `password` is required, everything
+else has a safe default:
 
 ```json
 {
@@ -54,9 +97,11 @@ Create `wede.config.json` in your project directory (or any parent directory):
 }
 ```
 
-> **Security:** The file is gitignored by default. Never commit a config file containing a real password.
+> **Security:** The file is gitignored by default. Never commit a config file
+> containing a real password.
 
-See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
+See [CONFIGURATION.md](CONFIGURATION.md) for the full key reference, config
+file search order, and CLI flag precedence.
 
 ---
 
@@ -214,7 +259,8 @@ increasing order of reach.
 
 ### 1. Same LAN — bind to all interfaces
 
-To reach wede from another device on the same network:
+To reach wede from another device on the same network, set `host` to
+`0.0.0.0` (see [CONFIGURATION.md](CONFIGURATION.md#host)):
 
 ```json
 {
@@ -300,6 +346,7 @@ wede integrates with the Vulos OS app shell via `frame_ancestors`. See [CONFIGUR
 ## Next steps
 
 - [CONFIGURATION.md](CONFIGURATION.md) — full config reference
+- [PUBLIC-ACCESS.md](PUBLIC-ACCESS.md) — direct-bind, reverse-proxy, and alternative tunnel options
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how wede is built internally
 - [SCREENSHOTS.md](SCREENSHOTS.md) — visual tour of the IDE
 - [../ROADMAP.md](../ROADMAP.md) — what's coming next
