@@ -448,7 +448,7 @@ h2.title {
 .diff .r.del .s { color: var(--red); }
 .diff .r.add { background: color-mix(in srgb, var(--green) 8%, transparent); color: color-mix(in srgb, var(--green) 70%, var(--text)); }
 .diff .r.add .s { color: var(--green); }
-.diff .foot { border-top: 1px solid var(--border); background: var(--bg-tertiary); padding: 10px 15px; font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+.diff .foot { border-top: 1px solid var(--border); background: var(--bg-tertiary); padding: 10px 15px; font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); }
 .diff .foot b.plus { color: var(--green); } .diff .foot b.minus { color: var(--red); }
 
 /* ── Tour ────────────────────────────────────────────────────────────────── */
@@ -459,12 +459,18 @@ h2.title {
 .shot-tabs button svg { width: 14px; height: 14px; }
 .shot-tabs button:hover { color: var(--text-2); background: var(--bg-hover); }
 .shot-tabs button[aria-selected="true"] { color: var(--text); background: var(--bg-primary); border-bottom-color: var(--accent); }
-.shot-stage img { width: 100%; display: block; }
+/* A shrunk-to-fit screenshot is illegible below ~860px, so instead of
+   scaling the image down to the viewport we hold it at a legible minimum
+   width and let the stage scroll horizontally — same treatment as the
+   code blocks below. At ≥~1000px content width this is a no-op: the
+   image still renders at 100% of its (already wider) container. */
+.shot-stage { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.shot-stage img { width: 100%; min-width: 860px; height: auto; display: block; }
 .shot-stage img[hidden] { display: none; }
 .shot-cap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 13px 16px; border-top: 1px solid var(--border); background: var(--bg-tertiary); font-size: 13.5px; color: var(--text-2); }
 .shot-cap b { color: var(--text); font-weight: 600; }
-.shot-cap .k { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-left: auto; }
-.shot-cap kbd { font-family: var(--mono); font-size: 10.5px; color: var(--text-2); border: 1px solid var(--border-active); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--bg-secondary); }
+.shot-cap .k { font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
+.shot-cap kbd { font-family: var(--mono); font-size: 12px; color: var(--text-2); border: 1px solid var(--border-active); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--bg-secondary); }
 
 /* ── Install ─────────────────────────────────────────────────────────────── */
 .install-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(24px, 3vw, 44px); align-items: start; }
@@ -475,7 +481,8 @@ h2.title {
 .term .cm { color: var(--text-muted); }
 .term .out { color: var(--text-2); }
 .term .hl { color: var(--green); }
-.copybtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 8px; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.copybtn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 8px; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+@media (max-width: 768px) { .copybtn { min-height: 40px; padding: 8px 12px; } }
 .copybtn:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
 .copybtn.done { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
 .copybtn svg { width: 12px; height: 12px; }
@@ -485,7 +492,7 @@ h2.title {
 .note h4 { margin: 0 0 6px; font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .note h4 svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
 .note p { margin: 0; font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
-.note code { font-family: var(--mono); font-size: .88em; background: var(--bg-active); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+.note code { font-family: var(--mono); font-size: .92em; background: var(--bg-active); padding: 1px 5px; border-radius: 4px; color: var(--text); }
 .note a { color: var(--accent); }
 .note a:hover { text-decoration: underline; }
 
@@ -521,12 +528,18 @@ h2.title {
 .foot-grid { display: grid; grid-template-columns: 1.7fr repeat(3, 1fr); gap: 30px; padding: 42px clamp(20px, 4vw, 56px) 32px; }
 @media (max-width: 860px) { .foot-grid { grid-template-columns: 1fr 1fr; gap: 26px; } }
 @media (max-width: 520px) { .foot-grid { grid-template-columns: 1fr; } }
-.foot-grid h4 { margin: 0 0 11px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--text-muted); }
+.foot-grid h4 { margin: 0 0 11px; font-family: var(--mono); font-size: 12px; letter-spacing: .11em; text-transform: uppercase; color: var(--text-muted); }
 .foot-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .foot-grid a { color: var(--text-2); font-size: 14px; transition: color .15s; }
 .foot-grid a:hover { color: var(--accent); }
 .foot-blurb { color: var(--text-2); font-size: 13.5px; margin: 13px 0 0; max-width: 42ch; }
-.foot-bar { border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 13px clamp(20px, 4vw, 56px); font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+.foot-bar { border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 13px clamp(20px, 4vw, 56px); font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); }
 .foot-bar .vulos { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
 .foot-bar .vulos img { width: 16px; height: 16px; border-radius: 4px; }
 .foot-bar a:hover { color: var(--accent); }
+/* Footer links are inline prose-style navigation; on touch widths give them
+   a taller hit box without changing the visible text size. */
+@media (max-width: 640px) {
+  .foot-grid a { display: inline-flex; align-items: center; min-height: 32px; }
+  .foot-bar a, .foot-bar .vulos { min-height: 32px; }
+}
