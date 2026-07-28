@@ -9,14 +9,14 @@
 <link rel="icon" href="./assets/wede-mark.svg">
 <link rel="preload" href="./assets/fonts/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="./assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./assets/style.css">
 <link rel="stylesheet" href="./assets/landing.css">
 <meta property="og:title" content="wede — the collaborative web IDE that fits in one binary">
-<meta property="og:description" content="Multiplayer editing, shared terminals, VS Code-grade git and per-workspace chat, served straight off your own machine. One ~19 MB Go binary. No cloud, no Docker, no database.">
+<meta property="og:description" content="Multiplayer editing, shared terminals, VS Code-grade git and per-workspace chat, served straight off your own machine. One ~19 MB Go binary.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="./screenshots/dark/hero.png">
 <script>
-  /* set theme before first paint — no flash */
   (function () {
     try {
       var s = localStorage.getItem('wede-site-theme');
@@ -28,20 +28,20 @@
 </head>
 <body>
 
+<!-- ═══ Top bar ═══════════════════════════════════════════════════════════ -->
 <header class="topbar">
-  <div class="wrap bar">
-    <a class="brand" href="./index.html">
-      <span class="mark"><img src="./assets/wede-mark.svg" alt=""></span>wede
-    </a>
-    <span class="chip mono">v0.5.0</span>
+  <div class="bar" style="padding:0 12px">
+    <a class="brand" href="./index.html"><span class="mark"><img src="./assets/wede-mark.svg" alt=""></span>wede</a>
+    <span class="chip mono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      wede-landing
+    </span>
+    <span class="chip mono hide-sm">v0.5.0</span>
     <div class="spacer"></div>
-    <nav class="navlinks">
-      <a href="#features">Features</a>
-      <a href="#tour">Tour</a>
-      <a href="#collab">Collaboration</a>
-      <a href="#install">Install</a>
-      <a href="./docs.html">Docs</a>
-    </nav>
+    <button class="kbtn" id="paletteBtn" type="button" aria-label="Open the command palette">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <span class="kbtxt">Go to…</span><kbd>⌘K</kbd>
+    </button>
     <button class="iconbtn theme-toggle" id="theme" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
       <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -49,68 +49,110 @@
     <a class="iconbtn" href="https://github.com/vul-os/wede" target="_blank" rel="noopener" aria-label="wede on GitHub" title="GitHub">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.28 9.28 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
     </a>
-    <a class="btn btn-primary btn-sm" href="#install">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      Get wede
-    </a>
+    <a class="btn btn-primary btn-sm" href="#install">Get wede</a>
   </div>
 </header>
 
-<main>
+<div class="ide">
 
-<!-- ─── Hero ──────────────────────────────────────────────────────────── -->
-<section class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <span class="live-pill"><i class="pulse"></i>3 people in this workspace · live</span>
+  <!-- ═══ Activity bar ═══════════════════════════════════════════════════ -->
+  <nav class="activity" aria-label="Sections">
+    <a href="#hero" data-act="hero" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="tip">Explorer</span></a>
+    <a href="#features" data-act="features"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg><span class="tip">Features</span></a>
+    <a href="#collaborate" data-act="collaborate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M15.5 6H12a3 3 0 0 0-3 3v9"/><circle cx="18" cy="6" r="3"/></svg><span class="tip">Collaboration</span><span class="badge">3</span></a>
+    <a href="#tour" data-act="tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="tip">Screens</span></a>
+    <a href="#nodeps" data-act="nodeps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></svg><span class="tip">What it doesn't need</span></a>
+    <a href="#install" data-act="install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12.5 15h4"/></svg><span class="tip">Install</span></a>
+    <a href="#security" data-act="security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/></svg><span class="tip">Security</span></a>
+    <span class="gap"></span>
+    <a href="./docs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="tip">Docs</span></a>
+    <a href="#vulos" data-act="vulos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg><span class="tip">Part of Vulos</span></a>
+  </nav>
 
-      <h1>Putting the <span class="we">WE</span><br>in WEb&nbsp;IDE.</h1>
-
-      <p class="sub">
-        wede serves a full collaborative IDE straight off your own machine —
-        <strong>multiplayer editing, shared terminals, VS&nbsp;Code-grade git and
-        per-workspace chat</strong>, from a single Go binary. No cloud. No Docker.
-        No database. No sign-ups.
-      </p>
-
-      <div class="cta-row">
-        <a class="btn btn-primary" href="#install">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          Run it in two commands
-        </a>
-        <a class="btn btn-ghost" href="#tour">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
-          Take the tour
-        </a>
-        <a class="btn btn-ghost" href="./docs.html">Docs</a>
-      </div>
-
-      <div class="trust">
-        <span>one ~19 MB binary</span>
-        <span>5 Go dependencies</span>
-        <span>0 databases</span>
-        <span>MIT or Apache-2.0</span>
-      </div>
+  <!-- ═══ Explorer ═══════════════════════════════════════════════════════ -->
+  <aside class="explorer">
+    <div class="head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      wede-landing
     </div>
+    <div class="tree">
+      <div class="dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>src</div>
+      <a href="#hero"        data-file="hero"><i class="ft" style="background:var(--cyan)"></i>hero.tsx<span class="g m">M</span></a>
+      <a href="#features"    data-file="features"><i class="ft" style="background:var(--cyan)"></i>features.go</a>
+      <a href="#collaborate" data-file="collaborate"><i class="ft" style="background:var(--accent)"></i>collaborate.md</a>
+      <a href="#security"    data-file="security"><i class="ft" style="background:var(--accent)"></i>security.md</a>
+      <div class="dir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>tour</div>
+      <a href="#tour" data-file="tour"><i class="ft" style="background:var(--pink)"></i>screens.png</a>
+      <div class="sep"></div>
+      <a href="#nodeps"  data-file="nodeps"><i class="ft" style="background:var(--yellow)"></i>no-deps.diff<span class="g a">+</span></a>
+      <a href="#install" data-file="install"><i class="ft" style="background:var(--green)"></i>install.sh</a>
+      <a href="#vulos"   data-file="vulos"><i class="ft" style="background:var(--yellow)"></i>vulos.json</a>
+      <div class="sep"></div>
+      <a href="./docs.html"><i class="ft" style="background:var(--accent)"></i>docs/</a>
+      <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener"><i class="ft" style="background:var(--text-muted)"></i>README.md</a>
+    </div>
+    <div class="hint">Press <kbd>⌘</kbd> <kbd>K</kbd> for the command palette — the same one that ships in the IDE.</div>
+  </aside>
 
-    <!-- Collab canvas: the editor, mid-session -->
-    <div class="canvas">
-      <div class="window">
-        <div class="window-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <div class="tabstrip">
-            <span class="tab on"><i class="ft"></i>tasks.go</span>
-            <span class="tab md hide-sm"><i class="ft"></i>README.md</span>
+  <!-- ═══ Editor ═════════════════════════════════════════════════════════ -->
+  <main class="editor">
+
+    <nav class="tabbar" aria-label="Open files">
+      <a href="#hero"        data-tab="hero"><i class="ft" style="background:var(--cyan)"></i>hero.tsx</a>
+      <a href="#features"    data-tab="features"><i class="ft" style="background:var(--cyan)"></i>features.go</a>
+      <a href="#collaborate" data-tab="collaborate"><i class="ft" style="background:var(--accent)"></i>collaborate.md</a>
+      <a href="#tour"        data-tab="tour"><i class="ft" style="background:var(--pink)"></i>screens.png</a>
+      <a href="#nodeps"      data-tab="nodeps"><i class="ft" style="background:var(--yellow)"></i>no-deps.diff</a>
+      <a href="#install"     data-tab="install"><i class="ft" style="background:var(--green)"></i>install.sh</a>
+      <a href="#security"    data-tab="security"><i class="ft" style="background:var(--accent)"></i>security.md</a>
+      <a href="#vulos"       data-tab="vulos"><i class="ft" style="background:var(--yellow)"></i>vulos.json</a>
+    </nav>
+
+    <!-- ─── hero.tsx ─────────────────────────────────────────────────── -->
+    <section class="pane" id="hero">
+      <div class="hero">
+        <div>
+          <span class="live-pill"><i class="pulse"></i>3 people in this workspace · live</span>
+          <h1>Putting the <span class="we">WE</span><br>in WEb&nbsp;IDE.</h1>
+          <p class="sub">
+            wede serves a full collaborative IDE straight off your own machine —
+            <strong>multiplayer editing, shared terminals, VS&nbsp;Code-grade git and
+            per-workspace chat</strong>, from a single Go binary. No cloud. No Docker.
+            No database. No sign-ups.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#install">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              Run it in two commands
+            </a>
+            <a class="btn btn-ghost" href="#tour">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+              See it running
+            </a>
           </div>
-          <div class="presence">
-            <span class="av a1" title="You">Y</span>
-            <span class="av a2" title="Ava Chen">A</span>
-            <span class="av a3 join" title="Sam Rivera">S</span>
+          <div class="trust">
+            <span>one ~19 MB binary</span><span>5 Go dependencies</span>
+            <span>0 databases</span><span>MIT or Apache-2.0</span>
           </div>
         </div>
 
-        <div class="editor-body">
-          <div class="gutter" aria-hidden="true">1
+        <div class="canvas">
+          <div class="window">
+            <div class="window-bar">
+              <span class="dots"><i></i><i></i><i></i></span>
+              <div class="tabstrip">
+                <span class="tab on"><i class="ft"></i>tasks.go</span>
+                <span class="tab md hide-sm"><i class="ft"></i>README.md</span>
+              </div>
+              <div class="presence">
+                <span class="av a1" title="You">Y</span>
+                <span class="av a2" title="Ava Chen">A</span>
+                <span class="av a3 join" title="Sam Rivera">S</span>
+              </div>
+            </div>
+
+            <div class="editor-body">
+              <div class="gutter" aria-hidden="true">1
 2
 3
 4
@@ -124,8 +166,8 @@
 12
 13
 14</div>
-          <div class="editor-code">
-            <div class="code-text"><span class="kw">package</span> tasks
+              <div class="editor-code">
+                <div class="code-text"><span class="kw">package</span> tasks
 
 <span class="kw">import</span> <span class="str">"context"</span>
 
@@ -139,273 +181,334 @@
 <span class="typing">  t.ClaimedAt = time.Now()</span>
   <span class="kw">return</span> t, s.<span class="fn">flush</span>(ctx)
 }</div>
-            <span class="rsel"></span>
-            <span class="rcur ava" data-name="Ava"></span>
-            <span class="rcur sam" data-name="Sam"></span>
+                <span class="rsel"></span>
+                <span class="rcur ava" data-name="Ava"></span>
+                <span class="rcur sam" data-name="Sam"></span>
+              </div>
+            </div>
+
+            <div class="term-strip">
+              <span class="pr">$</span><span>go test ./internal/tasks</span><span class="caret"></span>
+              <span class="ok hide-sm">ok · 0.412s</span>
+            </div>
+            <div class="statusline">
+              <span class="br">⎇ main</span>
+              <span class="hide-sm">2↑</span>
+              <span class="hide-sm">shared terminal · 3 watching</span>
+              <span class="right"><span class="hide-sm">Ln 12, Col 27</span><span>Go</span><span class="hide-sm">UTF-8</span></span>
+            </div>
+          </div>
+
+          <div class="float float-chat">
+            <div class="who"><span class="av">A</span>Ava Chen<span class="t">now</span></div>
+            <p>pushed the fix — pull and the flake should be gone 🎉</p>
           </div>
         </div>
+      </div>
 
-        <div class="term-strip">
-          <span class="pr">$</span><span>go test ./internal/tasks</span><span class="caret"></span>
-          <span class="ok hide-sm">ok · 0.412s</span>
+      <div class="statusnote">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <p><b>Status: deprioritized.</b> wede is complete and self-hostable, but it is not under
+        active development — it is effectively community-maintained. Nothing has been removed or
+        deprecated; expect no new roadmap work from the maintainer.
+        <a href="https://github.com/vul-os/wede#status" target="_blank" rel="noopener">Read the full status note →</a></p>
+      </div>
+
+      <div class="stats">
+        <div class="s"><div class="n">~19 <em>MB</em></div><div class="l">one binary, frontend embedded</div></div>
+        <div class="s"><div class="n">27</div><div class="l">languages · 4 LSP servers wired</div></div>
+        <div class="s"><div class="n">0</div><div class="l">databases, containers, sign-ups</div></div>
+        <div class="s"><div class="n">5</div><div class="l">targets · linux, macOS, Windows</div></div>
+      </div>
+    </section>
+
+    <!-- ─── features.go ──────────────────────────────────────────────── -->
+    <section class="pane" id="features">
+      <div class="pane-crumb">
+        <span>src</span><span class="sep">›</span><span class="cur">features.go</span>
+        <span class="meta"><span class="hide-sm">9 capabilities</span><span>Go</span></span>
+      </div>
+      <div class="pane-head reveal">
+        <h2 class="title">Everything in one process.</h2>
+        <p class="lead">Not a shell around VS&nbsp;Code, and not a hosted service with a self-host
+          tier bolted on. Pick a capability — it opens on the right, the way a file would.</p>
+      </div>
+
+      <div class="featwrap reveal">
+        <div class="featlist" role="tablist" aria-label="Capabilities">
+          <div class="grp">collaboration</div>
+          <button role="tab" aria-selected="true" data-f="collab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>live_editing</button>
+          <button role="tab" aria-selected="false" data-f="terminals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12.5 15h4"/></svg>shared_pty</button>
+          <button role="tab" aria-selected="false" data-f="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>workspace_chat</button>
+          <button role="tab" aria-selected="false" data-f="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>share_links</button>
+          <div class="grp">the actual work</div>
+          <button role="tab" aria-selected="false" data-f="git"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M15.5 6H12a3 3 0 0 0-3 3v9"/><circle cx="18" cy="6" r="3"/></svg>git_client</button>
+          <button role="tab" aria-selected="false" data-f="lsp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>lsp_and_dap</button>
+          <button role="tab" aria-selected="false" data-f="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>project_search</button>
+          <button role="tab" aria-selected="false" data-f="api"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>api_client</button>
+          <div class="grp">shipping</div>
+          <button role="tab" aria-selected="false" data-f="binary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.5L12 12.5l8.7-5M12 22V12.5"/></svg>single_binary</button>
         </div>
 
-        <div class="statusline">
-          <span class="br">⎇ main</span>
-          <span class="hide-sm">2↑</span>
-          <span class="hide-sm">shared terminal · 3 watching</span>
-          <span class="right"><span class="hide-sm">Ln 12, Col 27</span><span>Go</span><span class="hide-sm">UTF-8</span></span>
-        </div>
-      </div>
+        <div class="featdetail">
+          <div class="bar"><i class="ft"></i><span class="now" id="featName">live_editing</span><span style="margin-left:auto" class="hide-sm">read-only</span></div>
+          <div class="body" id="featBody">
 
-      <div class="float float-chat">
-        <div class="who"><span class="av">A</span>Ava Chen<span class="t">now</span></div>
-        <p>pushed the fix — pull and the flake should be gone 🎉</p>
-      </div>
-    </div>
-  </div>
-</section>
+            <article data-p="collab">
+              <h3>Real-time, actually</h3>
+              <p>Multiplayer cursors, live presence, and conflict-free concurrent edits — CRDT-backed
+                by pure-Go <code>reearth/ygo</code>, wire-compatible with Yjs. The presence roster shows
+                who is in the workspace and which file they have open.</p>
+              <p>Edits land on your real disk: a 600 ms debounce, then an atomic temp-and-rename. There
+                is no separate document store to reconcile later.</p>
+              <div class="tags"><b>CRDT</b><b>Yjs wire format</b><b>presence roster</b><b>atomic writes</b></div>
+              <div class="snip"><span class="cm">// backend/internal/collabdoc/persistence.go</span>
+<span class="k">func</span> (p *DiskPersistence) flush(rel <span class="k">string</span>) <span class="k">error</span> {
+  <span class="cm">// debounced 600ms, temp file + rename</span>
+}</div>
+            </article>
 
-<!-- ─── Honest status note ────────────────────────────────────────────── -->
-<div class="wrap">
-  <div class="statusnote">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
-    <p><b>Status: deprioritized.</b> wede is complete and self-hostable, but it is not under
-    active development — it is effectively community-maintained. Nothing has been removed or
-    deprecated; expect no new roadmap work from the maintainer.
-    <a href="https://github.com/vul-os/wede#status" target="_blank" rel="noopener">Read the full status note →</a></p>
-  </div>
-</div>
+            <article data-p="terminals" hidden>
+              <h3>Terminals you share</h3>
+              <p>Real PTYs, streamed over WebSocket to <em>everyone</em> in the workspace at once — same
+                session, same output, same keystrokes. Dock them at the bottom or float them as windows,
+                run as many as you like, rename them (or let the shell's OSC title do it).</p>
+              <p>It is a login shell on the host, so it runs whatever the host runs: your shell, SSH,
+                docker, a REPL, a long build someone else can watch.</p>
+              <div class="tags"><b>creack/pty</b><b>xterm.js</b><b>multi-subscriber</b><b>dock or float</b></div>
+              <div class="snip"><span class="pr">$ </span>make build <span class="cm">        # Ava is watching this pane</span>
+<span class="hl">  ✓ built ./wede in 4.1s</span></div>
+            </article>
 
-<!-- ─── Stats ────────────────────────────────────────────────────────── -->
-<section class="stats reveal">
-  <div class="s"><div class="n">~19 <em>MB</em></div><div class="l">one binary, frontend embedded</div></div>
-  <div class="s"><div class="n">27</div><div class="l">languages highlighted · 4 LSP servers wired</div></div>
-  <div class="s"><div class="n">0</div><div class="l">databases, containers, sign-ups</div></div>
-  <div class="s"><div class="n">5</div><div class="l">release targets · linux, macOS, Windows</div></div>
-</section>
+            <article data-p="chat" hidden>
+              <h3>Chat that lives in the repo</h3>
+              <p>The public channel <em>is</em> <code>.wede/chat.md</code> — committed alongside your code,
+                greppable, diffable, readable by whatever tooling you point at the repo. Git activity
+                posts itself into the thread as people commit and push.</p>
+              <p>A second, private channel stays under <code>.wede/private/</code> and is gitignored
+                automatically. Viewers can read and post to the public channel and nothing else.</p>
+              <div class="tags"><b>markdown on disk</b><b>git activity feed</b><b>private channel</b></div>
+              <div class="snip"><span class="cm">## 2026-07-27</span>
+<span class="s">**ava**</span> pushed 3 commits to <span class="s">`main`</span>
+<span class="s">**sam**</span> conflict in handlers.go — taking it</div>
+            </article>
 
-<!-- ─── Features ─────────────────────────────────────────────────────── -->
-<section class="section" id="features">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">What's inside</span>
-      <h2 class="title">Everything in one process.</h2>
-      <p class="lead">Not a shell around VS&nbsp;Code, and not a hosted service with a self-host
-        tier bolted on. wede is one Go binary that opens your folders, talks to your git, spawns
-        your shells, and lets other people in.</p>
-    </div>
+            <article data-p="share" hidden>
+              <h3>Workspaces &amp; share links</h3>
+              <p>Open many projects on one host — multi-root, switchable, all sharing the same set of
+                connected people. Invite with a link scoped to <b>editor</b> or <b>viewer</b>, with an
+                optional TTL.</p>
+              <p>Tokens are 32 random bytes; only their SHA-256 hashes touch disk. Redemption is a
+                constant-time compare, rate-limited to 10 attempts per IP per minute, and revocable
+                the moment you want it gone.</p>
+              <div class="tags"><b>editor / viewer</b><b>hashed at rest</b><b>optional TTL</b><b>revocable</b></div>
+              <div class="snip"><span class="pr">POST </span>/api/auth/tokens  <span class="cm">{"role":"viewer","ttl":"24h"}</span>
+<span class="hl">→ https://box.local:9090/?invite=7f3c…a91e</span></div>
+            </article>
 
-    <div class="features reveal">
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <h3>Real-time, actually</h3>
-        <p>Multiplayer cursors, live presence, and conflict-free concurrent edits — CRDT-backed by
-          pure-Go <code>reearth/ygo</code>, wire-compatible with Yjs. See who is in the workspace and
-          which file they're staring at.</p>
-        <div class="tagrow"><b>CRDT</b><b>presence roster</b><b>autosave to disk</b></div>
-      </article>
+            <article data-p="git" hidden>
+              <h3>Git without leaving the tab</h3>
+              <p>A visual commit graph with branches and merges, blame, side-by-side diffs, per-hunk
+                staging, conflict resolution, cherry-pick, revert, reset, merge, stash, tags, branches
+                and remotes.</p>
+              <p>It drives your real <code>git</code> binary rather than reimplementing it, so hooks,
+                config, credentials and signing all behave exactly the way they do in your terminal.</p>
+              <div class="tags"><b>commit graph</b><b>hunk staging</b><b>blame</b><b>conflict UI</b></div>
+              <div class="snip"><span class="cm">// shells out — your git, your hooks, your config</span>
+exec.Command(<span class="s">"git"</span>, <span class="s">"log"</span>, <span class="s">"--graph"</span>, …)</div>
+            </article>
 
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12.5 15h4"/></svg></div>
-        <h3>Terminals you share</h3>
-        <p>Real PTYs streamed over WebSocket to <em>everyone</em> in the workspace at once — same
-          session, same output, same keystrokes. Dock them, float them, rename them. Run shells,
-          SSH, docker, whatever the host can run.</p>
-        <div class="tagrow"><b>creack/pty</b><b>xterm.js</b><b>multi-subscriber</b></div>
-      </article>
+            <article data-p="lsp" hidden>
+              <h3>LSP &amp; DAP, extensible</h3>
+              <p>gopls, typescript-language-server, pylsp and rust-analyzer are wired out of the box for
+                diagnostics, hover, completion and go-to-definition. <code>dlv</code> and
+                <code>debugpy</code> are wired for breakpoints and stepping.</p>
+              <p>Anything else drops in through <code>~/.wede/lsp.json</code> or
+                <code>~/.wede/debug.json</code> — no recompile, no marketplace, no extension host.
+                Format-on-save works the same way.</p>
+              <div class="tags"><b>gopls</b><b>tsserver</b><b>pylsp</b><b>rust-analyzer</b><b>dlv · debugpy</b></div>
+              <div class="snip"><span class="cm">// ~/.wede/lsp.json</span>
+{ <span class="s">"zig"</span>: { <span class="s">"cmd"</span>: [<span class="s">"zls"</span>], <span class="s">"ext"</span>: [<span class="s">".zig"</span>] } }</div>
+            </article>
 
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M15.5 6H12a3 3 0 0 0-3 3v9"/><circle cx="18" cy="6" r="3"/></svg></div>
-        <h3>Git without leaving</h3>
-        <p>Visual commit graph, blame, side-by-side diffs, per-hunk staging, conflict resolution,
-          cherry-pick, revert, reset, merge, stash, tags, remotes. It drives your real
-          <code>git</code> binary — no reimplementation, no surprises.</p>
-        <div class="tagrow"><b>commit graph</b><b>hunk staging</b><b>conflict UI</b></div>
-      </article>
+            <article data-p="search" hidden>
+              <h3>Search that keeps up</h3>
+              <p>ripgrep when <code>rg</code> is on PATH, a pure-Go walker when it isn't — same interface
+                either way, so a fresh box still works before you have installed anything.</p>
+              <p>Regex, whole-word and case toggles, include/exclude globs, context lines, filename mode,
+                and project-wide search-and-replace that shows you a preview before it writes.</p>
+              <div class="tags"><b>ripgrep</b><b>Go fallback</b><b>globs</b><b>replace w/ preview</b></div>
+              <div class="snip"><span class="pr">⌘⇧F </span>func (s *Store)<span class="cm">   ·  17 results in 6 files</span></div>
+            </article>
 
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
-        <h3>Workspaces &amp; share links</h3>
-        <p>Open many projects on one host — multi-root, switchable. Invite people with links scoped
-          to <b>editor</b> or <b>viewer</b>. Tokens are SHA-256-hashed at rest, compared in constant
-          time, rate-limited on redeem, and revocable at any moment.</p>
-        <div class="tagrow"><b>editor / viewer</b><b>optional TTL</b><b>revocable</b></div>
-      </article>
+            <article data-p="api" hidden>
+              <h3>API client, built in</h3>
+              <p>Postman-shaped requests — methods, params, headers, bearer/basic/api-key auth,
+                JSON/form/raw bodies, <code>{{variables}}</code> and environments — sent
+                <em>server-side</em>, so CORS never gets a vote.</p>
+              <p>Collections are files under <code>.wede/requests/</code>, so they commit and review with
+                your code. The proxy blocks loopback, private-range and cloud-metadata addresses
+                <em>after</em> DNS resolution, which defeats rebinding — an SSRF guard most API tools skip.</p>
+              <div class="tags"><b>no CORS</b><b>SSRF-guarded</b><b>committable</b><b>environments</b></div>
+              <div class="snip"><span class="pr">GET </span>http://169.254.169.254/latest/meta-data
+<span class="cm">  ✗ blocked: link-local address (set WEDE_APICLIENT_ALLOW_PRIVATE=1 to allow)</span></div>
+            </article>
 
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></div>
-        <h3>LSP &amp; DAP, extensible</h3>
-        <p>gopls, typescript-language-server, pylsp and rust-analyzer are wired out of the box;
-          so are <code>dlv</code> and <code>debugpy</code> for debugging. Add any other server or
-          adapter through <code>~/.wede/lsp.json</code> — no recompile, no marketplace.</p>
-        <div class="tagrow"><b>completion</b><b>hover · go-to-def</b><b>breakpoints</b></div>
-      </article>
+            <article data-p="binary" hidden>
+              <h3>One file to deploy</h3>
+              <p>Go embeds the entire React frontend. Copy one file to a VPS, a NAS or a Raspberry Pi and
+                run it — no runtime, no sidecar, no image to pull.</p>
+              <p>Five release targets across linux, macOS and Windows on amd64 and arm64, five direct Go
+                dependencies, no cgo, and 230 Go tests behind it.</p>
+              <div class="tags"><b>go:embed</b><b>no cgo</b><b>amd64 · arm64</b><b>230 tests</b></div>
+              <div class="snip"><span class="pr">$ </span>ls -lh wede
+<span class="hl">-rwxr-xr-x  19M  wede</span>  <span class="cm"># that's the whole product</span></div>
+            </article>
 
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></div>
-        <h3>Chat that lives in the repo</h3>
-        <p>The public channel <em>is</em> <code>.wede/chat.md</code> — committed alongside your code,
-          greppable, readable by your tooling. Git activity posts itself into the thread. A private
-          channel stays auto-gitignored.</p>
-        <div class="tagrow"><b>per workspace</b><b>git activity feed</b><b>markdown on disk</b></div>
-      </article>
-
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg></div>
-        <h3>API client, built in</h3>
-        <p>Postman-shaped requests sent <em>server-side</em>, so CORS never gets a vote.
-          <code>{{variables}}</code>, environments, saved collections in <code>.wede/requests/</code>.
-          Loopback, private-range and cloud-metadata addresses are blocked after DNS resolution —
-          an SSRF guard most API tools skip.</p>
-        <div class="tagrow"><b>no CORS</b><b>SSRF-guarded</b><b>committable</b></div>
-      </article>
-
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
-        <h3>Search that keeps up</h3>
-        <p>ripgrep when <code>rg</code> is on PATH, a pure-Go walker when it isn't — same UI either
-          way. Regex, whole-word, include/exclude globs, context lines, and project-wide
-          search-and-replace with a preview before anything is written.</p>
-        <div class="tagrow"><b>regex</b><b>globs</b><b>replace w/ preview</b></div>
-      </article>
-
-      <article class="feat">
-        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.5L12 12.5l8.7-5M12 22V12.5"/></svg></div>
-        <h3>One file to deploy</h3>
-        <p>Go embeds the entire React frontend. Copy one binary to a VPS, a NAS, or a Raspberry Pi
-          and run it. Five release targets, five direct Go dependencies, and 230 Go tests behind it.</p>
-        <div class="tagrow"><b>linux · macOS · windows</b><b>amd64 · arm64</b><b>no cgo</b></div>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ─── Tour ─────────────────────────────────────────────────────────── -->
-<section class="section" id="tour">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">The tour</span>
-      <h2 class="title">Real screens, no mockups.</h2>
-      <p class="lead">Every shot below is the running app. Flip the theme in the top bar and the
-        screenshots follow — wede ships Midnight and Daylight, and so does this page.</p>
-    </div>
-
-    <div class="shots reveal">
-      <div class="shot-tabs" role="tablist" aria-label="Product tour">
-        <button role="tab" aria-selected="true" data-i="0">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Editor</button>
-        <button role="tab" aria-selected="false" data-i="1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M15.5 6H12a3 3 0 0 0-3 3v9"/><circle cx="18" cy="6" r="3"/></svg>Git graph</button>
-        <button role="tab" aria-selected="false" data-i="2">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12.5 15h4"/></svg>Terminals</button>
-        <button role="tab" aria-selected="false" data-i="3">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>Chat</button>
-        <button role="tab" aria-selected="false" data-i="4">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>API client</button>
-        <button role="tab" aria-selected="false" data-i="5">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
-        <button role="tab" aria-selected="false" data-i="6">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>Palette</button>
-      </div>
-
-      <div class="shot-stage">
-        <img data-shot data-dark="./screenshots/dark/hero.png"            data-light="./screenshots/hero.png"            alt="wede editor with file tree, tabs and terminal panel">
-        <img data-shot data-dark="./screenshots/dark/git_graph.png"       data-light="./screenshots/git_graph.png"       alt="Visual commit graph with branches, authors and merge lines" hidden>
-        <img data-shot data-dark="./screenshots/dark/terminals.png"       data-light="./screenshots/terminals.png"       alt="Multiple shared terminal panes inside the IDE" hidden>
-        <img data-shot data-dark="./screenshots/dark/chat.png"            data-light="./screenshots/chat.png"            alt="Per-workspace chat panel next to the editor" hidden>
-        <img data-shot data-dark="./screenshots/dark/apiclient.png"       data-light="./screenshots/apiclient.png"       alt="Built-in API client composing an HTTP request" hidden>
-        <img data-shot data-dark="./screenshots/dark/search.png"          data-light="./screenshots/search.png"          alt="Project-wide search results with context lines" hidden>
-        <img data-shot data-dark="./screenshots/dark/command_palette.png" data-light="./screenshots/command_palette.png" alt="Command palette open over the editor" hidden>
-      </div>
-
-      <div class="shot-cap">
-        <span data-cap>
-          <b>Editor.</b> CodeMirror 6 with 27 languages, minimap, multi-root file tree, git-coloured
-          status, and a dockable terminal underneath.
-        </span>
-        <span class="k">↹ click a tab</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── Collaboration ────────────────────────────────────────────────── -->
-<section class="section" id="collab">
-  <div class="wrap split">
-    <div class="reveal">
-      <span class="eyebrow">Collaboration</span>
-      <h2 class="title">Send a link.<br>That's the whole flow.</h2>
-      <p class="lead">No org, no seats, no invitations pending an email. You own the host; you mint
-        a link; you revoke it when you're done.</p>
-
-      <ol class="steps">
-        <li><span class="n">1</span><div><b>Open a folder as a workspace</b><span>Point wede at a directory. Open as many as you like — they live side by side on one host.</span></div></li>
-        <li><span class="n">2</span><div><b>Mint a share link</b><span>Choose <em>editor</em> (writes, git, terminals) or <em>viewer</em> (read-only, can still post in chat). Set a TTL if you want one.</span></div></li>
-        <li><span class="n">3</span><div><b>Work in the same room</b><span>Cursors, selections, terminals and chat, all live. Files land on your disk, debounced and written atomically.</span></div></li>
-        <li><span class="n">4</span><div><b>Revoke</b><span>One click. The token's hash is dropped and the session dies with it.</span></div></li>
-      </ol>
-    </div>
-
-    <div class="reveal">
-      <div class="window">
-        <div class="window-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="label">Share “demo-workspace”</span>
-        </div>
-        <div class="share-card">
-          <div class="share-row">
-            <div class="share-url"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>https://box.local:9090/?invite=<span class="tok">7f3c…a91e</span></div>
-          </div>
-          <div class="role-pills">
-            <span class="on">editor</span><span>viewer</span><span>expires in 24h</span><span>revoke</span>
-          </div>
-          <div class="who-list">
-            <div class="who-row"><span class="av" style="background:#7c8cf8">Y</span>You <span class="mono" style="color:var(--text-muted);font-size:11px">owner</span><span class="file">tasks.go</span><i class="dot"></i></div>
-            <div class="who-row"><span class="av" style="background:#4ade80">A</span>Ava Chen <span class="mono" style="color:var(--text-muted);font-size:11px">editor</span><span class="file">tasks.go</span><i class="dot"></i></div>
-            <div class="who-row"><span class="av" style="background:#f472b6">S</span>Sam Rivera <span class="mono" style="color:var(--text-muted);font-size:11px">viewer</span><span class="file">README.md</span><i class="dot"></i></div>
           </div>
         </div>
-        <div class="statusline"><span class="br">⎇ main</span><span class="hide-sm">3 connected</span><span class="right"><span>tokens hashed at rest</span></span></div>
+      </div>
+    </section>
+
+    <!-- ─── collaborate.md ───────────────────────────────────────────── -->
+    <section class="pane" id="collaborate">
+      <div class="pane-crumb">
+        <span>src</span><span class="sep">›</span><span class="cur">collaborate.md</span>
+        <span class="meta"><span class="hide-sm">3 connected</span><span>Markdown</span></span>
+      </div>
+      <div class="split">
+        <div class="reveal">
+          <h2 class="title">Send a link.<br>That's the whole flow.</h2>
+          <p class="lead">No org, no seats, no invitation pending an email confirmation. You own the
+            host, you mint a link, you revoke it when you're done.</p>
+          <ol class="steps">
+            <li><span class="n">1</span><div><b>Open a folder as a workspace</b><span>Point wede at a directory. Open as many as you like — they sit side by side on one host.</span></div></li>
+            <li><span class="n">2</span><div><b>Mint a share link</b><span>Editor gets writes, git and terminals. Viewer is read-only but can still talk in chat. Set a TTL if you want one.</span></div></li>
+            <li><span class="n">3</span><div><b>Work in the same room</b><span>Cursors, selections, terminals and chat, all live. Files land on your disk, debounced and written atomically.</span></div></li>
+            <li><span class="n">4</span><div><b>Revoke</b><span>One click. The token's hash is dropped and the session dies with it.</span></div></li>
+          </ol>
+        </div>
+
+        <div class="reveal">
+          <div class="window">
+            <div class="window-bar">
+              <span class="dots"><i></i><i></i><i></i></span>
+              <span class="label">Share “demo-workspace”</span>
+            </div>
+            <div class="share-card">
+              <div class="share-url">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+                https://box.local:9090/?invite=<span class="tok">7f3c…a91e</span>
+              </div>
+              <div class="role-pills"><span class="on">editor</span><span>viewer</span><span>expires in 24h</span><span>revoke</span></div>
+              <div class="who-list">
+                <div class="who-row"><span class="av" style="background:#7c8cf8">Y</span>You <span class="role">owner</span><span class="file">tasks.go</span><i class="dot"></i></div>
+                <div class="who-row"><span class="av" style="background:#4ade80">A</span>Ava Chen <span class="role">editor</span><span class="file">tasks.go</span><i class="dot"></i></div>
+                <div class="who-row"><span class="av" style="background:#f472b6">S</span>Sam Rivera <span class="role">viewer</span><span class="file">README.md</span><i class="dot"></i></div>
+              </div>
+            </div>
+            <div class="statusline"><span class="br">⎇ main</span><span class="hide-sm">3 connected</span><span class="right"><span>tokens hashed at rest</span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── screens.png ──────────────────────────────────────────────── -->
+    <section class="pane" id="tour">
+      <div class="pane-crumb">
+        <span>tour</span><span class="sep">›</span><span class="cur">screens.png</span>
+        <span class="meta"><span class="hide-sm">7 screens</span><span>1440 × 900</span></span>
+      </div>
+      <div class="pane-head reveal">
+        <h2 class="title">Real screens, no mockups.</h2>
+        <p class="lead">Every shot is the running app. Flip the theme in the top bar and the
+          screenshots follow — wede ships Midnight and Daylight, and so does this page.</p>
       </div>
 
-      <div class="nolist">
-        <span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>your machine</span>
-        <span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>your files</span>
-        <span class="yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>your git</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>accounts</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>telemetry</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>containers</span>
+      <div class="shots reveal">
+        <div class="shot-tabs" role="tablist" aria-label="Product tour">
+          <button role="tab" aria-selected="true"  data-i="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Editor</button>
+          <button role="tab" aria-selected="false" data-i="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M15.5 6H12a3 3 0 0 0-3 3v9"/><circle cx="18" cy="6" r="3"/></svg>Git graph</button>
+          <button role="tab" aria-selected="false" data-i="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3M12.5 15h4"/></svg>Terminals</button>
+          <button role="tab" aria-selected="false" data-i="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>Chat</button>
+          <button role="tab" aria-selected="false" data-i="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>API client</button>
+          <button role="tab" aria-selected="false" data-i="5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
+          <button role="tab" aria-selected="false" data-i="6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>Palette</button>
+        </div>
+        <div class="shot-stage">
+          <img data-shot data-dark="./screenshots/dark/hero.png"            data-light="./screenshots/hero.png"            alt="wede editor with file tree, tabs and terminal panel">
+          <img data-shot data-dark="./screenshots/dark/git_graph.png"       data-light="./screenshots/git_graph.png"       alt="Visual commit graph with branches, authors and merge lines" hidden>
+          <img data-shot data-dark="./screenshots/dark/terminals.png"       data-light="./screenshots/terminals.png"       alt="Multiple shared terminal panes inside the IDE" hidden>
+          <img data-shot data-dark="./screenshots/dark/chat.png"            data-light="./screenshots/chat.png"            alt="Per-workspace chat panel next to the editor" hidden>
+          <img data-shot data-dark="./screenshots/dark/apiclient.png"       data-light="./screenshots/apiclient.png"       alt="Built-in API client composing an HTTP request" hidden>
+          <img data-shot data-dark="./screenshots/dark/search.png"          data-light="./screenshots/search.png"          alt="Project-wide search results with context lines" hidden>
+          <img data-shot data-dark="./screenshots/dark/command_palette.png" data-light="./screenshots/command_palette.png" alt="Command palette open over the editor" hidden>
+        </div>
+        <div class="shot-cap">
+          <span data-cap><b>Editor.</b> CodeMirror 6 with 27 languages, minimap, multi-root file tree,
+            git-coloured status, and a dockable terminal underneath.</span>
+          <span class="k">↹ click a tab</span>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- ─── Install ──────────────────────────────────────────────────────── -->
-<section class="section" id="install">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Get started</span>
-      <h2 class="title">Clone, build, open.</h2>
-      <p class="lead">You need Go 1.25+ and Node 18+ to build it, and nothing at all to run it.
-        The binary that comes out is the whole product.</p>
-    </div>
+    <!-- ─── no-deps.diff ─────────────────────────────────────────────── -->
+    <section class="pane" id="nodeps">
+      <div class="pane-crumb">
+        <span class="cur">no-deps.diff</span>
+        <span class="meta"><span style="color:var(--green)">+3</span><span style="color:var(--red)">−7</span></span>
+      </div>
+      <div class="pane-head reveal">
+        <h2 class="title">The stack, as a diff.</h2>
+        <p class="lead">Most collaborative IDEs arrive with an infrastructure bill attached. This is
+          everything wede removes from that list, and the three things it puts back.</p>
+      </div>
 
-    <div class="install-grid">
-      <div class="window reveal">
-        <div class="window-bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="label">bash</span>
-          <button class="copybtn" type="button" data-copy="git clone https://github.com/vul-os/wede.git
+      <div class="diff reveal">
+        <div class="hunk">@@ <b>your infrastructure</b> @@ before → after wede</div>
+        <div class="rows">
+          <div class="r del"><span class="s">−</span><span class="t">postgres + a migration story</span><span class="why">state is files on your disk</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">docker compose up</span><span class="why">one process, no runtime</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">a node sidecar to serve the frontend</span><span class="why">go:embed</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">an identity provider and a seats table</span><span class="why">a password and share links</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">a control plane provisioning workspaces</span><span class="why">it's a folder</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">a monthly invoice per developer</span><span class="why">MIT or Apache-2.0</span></div>
+          <div class="r del"><span class="s">−</span><span class="t">telemetry you can't turn off</span><span class="why">there is none</span></div>
+          <div class="r add"><span class="s">+</span><span class="t">./wede</span><span class="why">~19 MB, five targets</span></div>
+          <div class="r add"><span class="s">+</span><span class="t">a machine you already own</span><span class="why">VPS, NAS, or a Pi</span></div>
+          <div class="r add"><span class="s">+</span><span class="t">git, if you want the git features</span><span class="why">the one you already have</span></div>
+        </div>
+        <div class="foot">10 changed lines · <b class="plus">+3</b> <b class="minus">−7</b> · the removals are the feature</div>
+      </div>
+    </section>
+
+    <!-- ─── install.sh ───────────────────────────────────────────────── -->
+    <section class="pane" id="install">
+      <div class="pane-crumb">
+        <span class="cur">install.sh</span>
+        <span class="meta"><span class="hide-sm">Go 1.25+ · Node 18+</span><span>bash</span></span>
+      </div>
+      <div class="pane-head reveal">
+        <h2 class="title">Clone, build, open.</h2>
+        <p class="lead">You need a Go and Node toolchain to build it, and nothing at all to run it.
+          The binary that comes out is the whole product.</p>
+      </div>
+
+      <div class="install-grid">
+        <div class="window reveal">
+          <div class="window-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="label">bash — build from source</span>
+            <button class="copybtn" type="button" data-copy="git clone https://github.com/vul-os/wede.git
 cd wede
 npm install
 npm run build:all
 ./wede /path/to/your/project">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>copy</span>
-          </button>
-        </div>
-        <div class="term">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>copy</span>
+            </button>
+          </div>
+          <div class="term">
 <div class="l"><span class="pr">$ </span>git clone https://github.com/vul-os/wede.git</div>
 <div class="l"><span class="pr">$ </span>cd wede &amp;&amp; npm install</div>
 <div class="l"><span class="pr">$ </span>npm run build:all<span class="cm">          # vite → go:embed → ./wede</span></div>
@@ -415,188 +518,260 @@ npm run build:all
 <div class="l">&nbsp;</div>
 <div class="l"><span class="pr">$ </span>./wede /path/to/your/project</div>
 <div class="l"><span class="out">  wede listening on </span><span class="hl">http://127.0.0.1:9090</span></div>
-<div class="l"><span class="out">  workspace: </span><span class="out">project · owner login required</span><span class="caret"></span></div>
+<div class="l"><span class="out">  workspace: project · owner login required</span><span class="caret"></span></div>
+          </div>
+          <div class="statusline">
+            <span class="br">go 1.25+</span><span class="hide-sm">node 18+</span>
+            <span class="right"><span>loopback by default</span></span>
+          </div>
         </div>
-        <div class="statusline">
-          <span class="br">go 1.25+</span><span class="hide-sm">node 18+</span>
-          <span class="right"><span>loopback by default</span></span>
+
+        <div class="notes reveal">
+          <div class="note">
+            <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Set a password first</h4>
+            <p>Copy <code>wede.config.example.json</code> to <code>wede.config.json</code> and replace the
+              <code>CHANGE_ME_BEFORE_USE</code> placeholder. Three bad attempts locks the login, and the
+              lockout survives a restart.</p>
+          </div>
+          <div class="note">
+            <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>There's an installer, with caveats</h4>
+            <p><code>install.sh</code> fetches a release binary and generates a config with a random
+              password. It does <b>no checksum verification</b>, so download and read it rather than
+              piping it into a shell.</p>
+          </div>
+          <div class="note">
+            <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Reaching it from elsewhere</h4>
+            <p>wede binds to <code>127.0.0.1</code> and speaks plain HTTP on purpose. Put Caddy or nginx
+              in front for TLS, or use the built-in tunnel — both are written up in
+              <a href="./docs.html#public-access">Public access</a>.</p>
+          </div>
+          <div class="note">
+            <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9.5 12.5l2 2 3.5-4"/></svg>Know what an editor link is</h4>
+            <p>An editor link hands over a real login shell as the user running wede. Treat those links
+              like SSH keys, and read <a href="./docs.html#security-hardening">Hardening</a> before you
+              expose anything.</p>
+          </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ─── security.md ──────────────────────────────────────────────── -->
+    <section class="pane" id="security">
+      <div class="pane-crumb">
+        <span>src</span><span class="sep">›</span><span class="cur">security.md</span>
+        <span class="meta"><span>Markdown</span></span>
+      </div>
+      <div class="pane-head reveal">
+        <h2 class="title">Honest about the sharp edges.</h2>
+        <p class="lead">Self-hosting moves the trust boundary onto you. Here is exactly where it sits —
+          including the part that isn't flattering.</p>
+      </div>
+      <div class="secgrid reveal">
+        <div class="sec">
+          <h4>Secrets are hashed at rest</h4>
+          <p>Session and share tokens are 32 random bytes; only their SHA-256 hashes touch disk, in
+            <code style="font-family:var(--mono);font-size:.9em">0600</code> files. Comparisons are constant-time.</p>
+        </div>
+        <div class="sec">
+          <h4>Roles are enforced server-side</h4>
+          <p>Viewers cannot write, spawn terminals or mutate git — the middleware gates the routes, not
+            just the UI. Redeeming a link is rate-limited to 10 tries per IP per minute.</p>
+        </div>
+        <div class="sec">
+          <h4>Workspaces are untrusted by default</h4>
+          <p>A cloned repo's task and formatter config does nothing until you explicitly trust that
+            workspace. Paths are checked against symlink escape on every access.</p>
+        </div>
+        <div class="sec warn">
+          <h4>Editor links are shell access</h4>
+          <p>An editor gets an unsandboxed login shell as the OS user running wede — full environment,
+            full filesystem, your SSH keys. There is no sandbox. Share accordingly.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── vulos.json ───────────────────────────────────────────────── -->
+    <section class="pane" id="vulos">
+      <div class="pane-crumb">
+        <span class="cur">vulos.json</span>
+        <span class="meta"><span>JSON</span></span>
+      </div>
+      <div class="vulos-band reveal">
+        <img class="logo" src="./assets/vulos-logo.png" alt="Vulos">
+        <div>
+          <h3>Part of Vulos</h3>
+          <p><a href="https://vulos.org" target="_blank" rel="noopener" class="accent">Vulos</a> is an
+            open, self-hostable web OS and its apps — rooted in <em>vula</em>, the Zulu and Xhosa word
+            for <em>open</em>. wede runs perfectly alone, and drops into the Vulos shell as a
+            first-class app when you want it there.</p>
+        </div>
+        <a class="btn btn-ghost cta" href="https://vulos.org" target="_blank" rel="noopener">Explore Vulos →</a>
       </div>
 
-      <div class="notes reveal">
-        <div class="note">
-          <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Set a password first</h4>
-          <p>Copy <code>wede.config.example.json</code> to <code>wede.config.json</code> and replace the
-            <code>CHANGE_ME_BEFORE_USE</code> placeholder. Three bad attempts locks the login, and the
-            lockout survives a restart.</p>
-        </div>
-        <div class="note">
-          <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>There's an installer, with caveats</h4>
-          <p><code>install.sh</code> fetches a release binary and generates a config with a random
-            password. It does <b>no checksum verification</b>, so download and read it before you run
-            it rather than piping it into a shell.</p>
-        </div>
-        <div class="note">
-          <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></svg>Reaching it from elsewhere</h4>
-          <p>wede binds to <code>127.0.0.1</code> and speaks plain HTTP on purpose. Put Caddy or nginx
-            in front for TLS, or use the built-in tunnel — both paths are written up in
-            <a href="./docs.html#public-access">Public access</a>.</p>
-        </div>
-        <div class="note">
-          <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/><path d="M9.5 12.5l2 2 3.5-4"/></svg>Know what an editor link is</h4>
-          <p>An editor link hands over a real login shell as the user running wede. Treat those links
-            like SSH keys, and read <a href="./docs.html#security-hardening">Hardening</a> before you
-            expose anything.</p>
+      <div class="final">
+        <h2>Your editor, your machine,<br>your people in it.</h2>
+        <p>Free, dual-licensed MIT or Apache-2.0, and yours to keep running long after anyone
+          stops shipping updates.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/vul-os/wede" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.28 9.28 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
+            Clone it on GitHub
+          </a>
+          <a class="btn btn-ghost" href="./docs.html">Read the docs</a>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- ─── footer ───────────────────────────────────────────────────── -->
+    <footer class="site-footer">
+      <div class="foot-grid">
+        <div>
+          <a class="brand" href="./index.html"><span class="mark"><img src="./assets/wede-mark.svg" alt=""></span>wede</a>
+          <p class="foot-blurb">A self-hosted, collaborative web IDE in a single Go binary. Real-time
+            multi-user editing, shared terminals, VS Code-grade git, and chat — all in your browser,
+            all on your hardware.</p>
+        </div>
+        <div>
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#tour">Screens</a></li>
+            <li><a href="#collaborate">Collaboration</a></li>
+            <li><a href="#install">Install</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Docs</h4>
+          <ul>
+            <li><a href="./docs.html#getting-started">Getting started</a></li>
+            <li><a href="./docs.html#configuration">Configuration</a></li>
+            <li><a href="./docs.html#public-access">Public access</a></li>
+            <li><a href="./docs.html#security-hardening">Hardening</a></li>
+            <li><a href="./docs.html#api">API reference</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Project</h4>
+          <ul>
+            <li><a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="./docs.html#changelog">Changelog</a></li>
+            <li><a href="./docs.html#roadmap">Roadmap</a></li>
+            <li><a href="./LICENSE.txt">Licenses</a></li>
+            <li><a href="./licenses.txt">Third-party notices</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bar">
+        <a class="vulos" href="https://vulos.org" target="_blank" rel="noopener">
+          <img src="./assets/vulos-logo.png" alt="">Part of Vulos — open by design
+        </a>
+        <span style="flex:1"></span>
+        <span>MIT OR Apache-2.0</span><span>v0.5.0</span><span>community-maintained</span>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<!-- ═══ Status bar ════════════════════════════════════════════════════════ -->
+<div class="statusbar">
+  <span class="item br"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7M15 6h-3a3 3 0 0 0-3 3v9"/><circle cx="17" cy="6" r="2.5"/></svg>main</span>
+  <span class="item hide-md">2↑ 0↓</span>
+  <span class="item hide-md"><i class="dot"></i>3 online</span>
+  <span class="right">
+    <span class="item hide-md" id="sbFile">hero.tsx</span>
+    <span class="item" id="sbLn">Ln 1, Col 1</span>
+    <span class="item hide-md">UTF-8</span>
+    <span class="item">wede 0.5.0</span>
+  </span>
+</div>
+
+<!-- ═══ Command palette ═══════════════════════════════════════════════════ -->
+<div class="palette-backdrop" id="paletteBackdrop" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <input type="text" id="paletteInput" placeholder="Go to a section, or jump to the docs…" autocomplete="off" spellcheck="false">
+    <div class="results" id="paletteResults"></div>
+    <div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span></div>
   </div>
-</section>
-
-<!-- ─── Security ─────────────────────────────────────────────────────── -->
-<section class="section">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <span class="eyebrow">Security posture</span>
-      <h2 class="title">Honest about the sharp edges.</h2>
-      <p class="lead">Self-hosting moves the trust boundary onto you. Here is exactly where it sits.</p>
-    </div>
-    <div class="secgrid reveal">
-      <div class="sec">
-        <h4>Secrets are hashed at rest</h4>
-        <p>Session and share tokens are 32 random bytes; only their SHA-256 hashes touch disk, in
-          <code>0600</code> files. Comparisons are constant-time.</p>
-      </div>
-      <div class="sec">
-        <h4>Roles are enforced server-side</h4>
-        <p>Viewers cannot write, spawn terminals, or mutate git — the middleware gates the routes,
-          not the UI. Redeeming a link is rate-limited to 10 tries per IP per minute.</p>
-      </div>
-      <div class="sec">
-        <h4>Workspaces are untrusted by default</h4>
-        <p>A cloned repo's <code>.wede/tasks.json</code> and formatter config do nothing until you
-          explicitly trust that workspace. Paths are checked against symlink escape.</p>
-      </div>
-      <div class="sec">
-        <h4>Editor links are shell access</h4>
-        <p>An editor gets an unsandboxed login shell as the OS user running wede — full environment,
-          full filesystem, your SSH keys. There is no sandbox. Share accordingly.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── Vulos ────────────────────────────────────────────────────────── -->
-<section class="section">
-  <div class="wrap">
-    <div class="vulos-band reveal">
-      <img class="logo" src="./assets/vulos-logo.png" alt="Vulos">
-      <div>
-        <h3>Part of Vulos</h3>
-        <p><a href="https://vulos.org" target="_blank" rel="noopener" class="accent">Vulos</a> is an
-          open, self-hostable web OS and its apps — rooted in <em>vula</em>, the Zulu and Xhosa word
-          for <em>open</em>. wede runs perfectly alone, and drops into the Vulos shell as a
-          first-class app when you want it there.</p>
-      </div>
-      <a class="btn btn-ghost cta" href="https://vulos.org" target="_blank" rel="noopener">Explore Vulos →</a>
-    </div>
-  </div>
-</section>
-
-<!-- ─── Final CTA ────────────────────────────────────────────────────── -->
-<section class="final">
-  <div class="wrap">
-    <span class="eyebrow">One binary away</span>
-    <h2>Your editor, your machine,<br>your people in it.</h2>
-    <p>Free, dual-licensed MIT or Apache-2.0, and yours to keep running long after anyone stops
-      shipping updates.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/vul-os/wede" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.28 9.28 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
-        Clone it on GitHub
-      </a>
-      <a class="btn btn-ghost" href="./docs.html">Read the docs</a>
-    </div>
-  </div>
-</section>
-
-</main>
-
-<footer class="site-footer">
-  <div class="wrap">
-    <div class="foot-grid">
-      <div>
-        <a class="brand" href="./index.html"><span class="mark"><img src="./assets/wede-mark.svg" alt=""></span>wede</a>
-        <p class="foot-blurb">A self-hosted, collaborative web IDE in a single Go binary.
-          Real-time multi-user editing, shared terminals, VS Code-grade git, and chat — all in
-          your browser, all on your hardware.</p>
-      </div>
-      <div>
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#tour">Screens</a></li>
-          <li><a href="#collab">Collaboration</a></li>
-          <li><a href="#install">Install</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Docs</h4>
-        <ul>
-          <li><a href="./docs.html#getting-started">Getting started</a></li>
-          <li><a href="./docs.html#configuration">Configuration</a></li>
-          <li><a href="./docs.html#public-access">Public access</a></li>
-          <li><a href="./docs.html#security-hardening">Hardening</a></li>
-          <li><a href="./docs.html#api">API reference</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Project</h4>
-        <ul>
-          <li><a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a></li>
-          <li><a href="./docs.html#changelog">Changelog</a></li>
-          <li><a href="./docs.html#roadmap">Roadmap</a></li>
-          <li><a href="./LICENSE.txt">Licenses</a></li>
-          <li><a href="./licenses.txt">Third-party notices</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="foot-bar">
-      <a class="vulos" href="https://vulos.org" target="_blank" rel="noopener">
-        <img src="./assets/vulos-logo.png" alt="">Part of Vulos — open by design
-      </a>
-      <span class="spacer" style="flex:1"></span>
-      <span>MIT OR Apache-2.0</span>
-      <span>v0.5.0</span>
-      <span>community-maintained</span>
-    </div>
-  </div>
-</footer>
+</div>
 
 <script>
 (function () {
   var root = document.documentElement;
+  var $  = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return [].slice.call((c || document).querySelectorAll(s)); };
 
   /* ── theme ────────────────────────────────────────────────────────── */
   function shots() {
     var light = root.getAttribute('data-theme') === 'light';
-    document.querySelectorAll('[data-shot]').forEach(function (img) {
+    $$('[data-shot]').forEach(function (img) {
       var src = img.getAttribute(light ? 'data-light' : 'data-dark');
       if (src && img.getAttribute('src') !== src) img.setAttribute('src', src);
     });
-    var meta = document.querySelector('meta[name="theme-color"]');
+    var meta = $('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', light ? '#f0f2f7' : '#0c0e14');
   }
-  var toggle = document.getElementById('theme');
-  if (toggle) {
-    toggle.addEventListener('click', function () {
-      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      root.setAttribute('data-theme', next);
-      try { localStorage.setItem('wede-site-theme', next); } catch (e) {}
-      shots();
-    });
+  function toggleTheme() {
+    var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('wede-site-theme', next); } catch (e) {}
+    shots();
   }
+  $('#theme').addEventListener('click', toggleTheme);
   shots();
+
+  /* ── section tracking: tabs, explorer, activity bar, status bar ───── */
+  var PANES = ['hero', 'features', 'collaborate', 'tour', 'nodeps', 'install', 'security', 'vulos'];
+  var FILES = {
+    hero: 'hero.tsx', features: 'features.go', collaborate: 'collaborate.md', tour: 'screens.png',
+    nodeps: 'no-deps.diff', install: 'install.sh', security: 'security.md', vulos: 'vulos.json'
+  };
+  var sbFile = $('#sbFile'), sbLn = $('#sbLn');
+
+  function setActive(id) {
+    $$('.tabbar a[data-tab]').forEach(function (a) { a.classList.toggle('on', a.dataset.tab === id); });
+    $$('.tree a[data-file]').forEach(function (a) { a.classList.toggle('on', a.dataset.file === id); });
+    $$('.activity a[data-act]').forEach(function (a) { a.classList.toggle('on', a.dataset.act === id); });
+    if (sbFile) sbFile.textContent = FILES[id] || '';
+    var tab = $('.tabbar a[data-tab="' + id + '"]');
+    if (tab && tab.parentElement.scrollWidth > tab.parentElement.clientWidth) {
+      tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    PANES.forEach(function (id) { var el = document.getElementById(id); if (el) spy.observe(el); });
+  }
+
+  /* the status bar's Ln/Col tracks the scroll position, like a caret would */
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      var line = Math.max(1, Math.round(window.scrollY / 22) + 1);
+      if (sbLn) sbLn.textContent = 'Ln ' + line + ', Col 1';
+      ticking = false;
+    });
+  }, { passive: true });
+
+  /* ── feature explorer ─────────────────────────────────────────────── */
+  var featBtns = $$('.featlist button');
+  var featName = $('#featName');
+  featBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.dataset.f;
+      featBtns.forEach(function (b) { b.setAttribute('aria-selected', String(b === btn)); });
+      $$('#featBody > article').forEach(function (a) {
+        var on = a.dataset.p === key;
+        a.hidden = !on;
+        if (on) { a.classList.remove('fade'); void a.offsetWidth; a.classList.add('fade'); }
+      });
+      if (featName) featName.textContent = btn.textContent.trim();
+    });
+  });
 
   /* ── tour tabs ────────────────────────────────────────────────────── */
   var CAPS = [
@@ -606,11 +781,9 @@ npm run build:all
     '<b>Chat.</b> The public channel is <code>.wede/chat.md</code> in your repo. Git activity posts itself; the private channel stays gitignored.',
     '<b>API client.</b> Requests are sent server-side, so CORS never applies. Collections live in <code>.wede/requests/</code> and commit with your code.',
     '<b>Search.</b> ripgrep-backed when available, with regex, globs, context lines and project-wide replace behind a preview.',
-    '<b>Command palette.</b> Files, commands and actions from one keystroke — <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>K</kbd>.'
+    '<b>Command palette.</b> Files, commands and actions from one keystroke — the same palette this page borrowed.'
   ];
-  var tabs = [].slice.call(document.querySelectorAll('.shot-tabs button'));
-  var imgs = [].slice.call(document.querySelectorAll('.shot-stage img'));
-  var cap  = document.querySelector('[data-cap]');
+  var tabs = $$('.shot-tabs button'), imgs = $$('.shot-stage img'), cap = $('[data-cap]');
   tabs.forEach(function (btn, i) {
     btn.addEventListener('click', function () {
       tabs.forEach(function (b, j) { b.setAttribute('aria-selected', String(i === j)); });
@@ -620,63 +793,101 @@ npm run build:all
   });
 
   /* ── copy buttons ─────────────────────────────────────────────────── */
-  document.querySelectorAll('.copybtn').forEach(function (btn) {
+  $$('.copybtn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var text = btn.getAttribute('data-copy') || '';
+      var label = btn.querySelector('span');
       var done = function () {
         btn.classList.add('done');
-        var label = btn.querySelector('span');
         if (label) label.textContent = 'copied';
-        setTimeout(function () {
-          btn.classList.remove('done');
-          if (label) label.textContent = 'copy';
-        }, 1600);
+        setTimeout(function () { btn.classList.remove('done'); if (label) label.textContent = 'copy'; }, 1600);
       };
-      if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); }
-      else {
-        var ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); done(); } catch (e) {}
-        document.body.removeChild(ta);
-      }
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
     });
   });
 
   /* ── reveal on scroll ─────────────────────────────────────────────── */
-  var items = [].slice.call(document.querySelectorAll('.reveal'));
+  var items = $$('.reveal');
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-      });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.04 });
     items.forEach(function (el) { io.observe(el); });
-  } else {
-    items.forEach(function (el) { el.classList.add('in'); });
-  }
+  } else { items.forEach(function (el) { el.classList.add('in'); }); }
 
-  /* ── feature card spotlight follows the pointer ───────────────────── */
-  document.querySelectorAll('.feat').forEach(function (card) {
-    card.addEventListener('pointermove', function (e) {
-      var r = card.getBoundingClientRect();
-      card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
-      card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+  /* ── command palette — the app ships one, so the page has one ─────── */
+  var CMDS = PANES.map(function (id) {
+    return { label: FILES[id], hint: 'section', href: '#' + id, icon: 'file' };
+  }).concat([
+    { label: 'Getting started', hint: 'docs', href: './docs.html#getting-started', icon: 'book' },
+    { label: 'Configuration',   hint: 'docs', href: './docs.html#configuration',   icon: 'book' },
+    { label: 'Public access',   hint: 'docs', href: './docs.html#public-access',   icon: 'book' },
+    { label: 'Hardening',       hint: 'docs', href: './docs.html#security-hardening', icon: 'book' },
+    { label: 'API reference',   hint: 'docs', href: './docs.html#api',             icon: 'book' },
+    { label: 'wede on GitHub',  hint: 'external', href: 'https://github.com/vul-os/wede', icon: 'ext' },
+    { label: 'Toggle theme',    hint: 'command',  action: toggleTheme, icon: 'sun' }
+  ]);
+  var ICONS = {
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    ext:  '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/>',
+    sun:  '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>'
+  };
+
+  var backdrop = $('#paletteBackdrop'), input = $('#paletteInput'), results = $('#paletteResults');
+  var shown = [], sel = 0;
+
+  function render(q) {
+    var needle = q.trim().toLowerCase();
+    shown = CMDS.filter(function (c) {
+      return !needle || (c.label + ' ' + c.hint).toLowerCase().indexOf(needle) !== -1;
     });
-  });
-
-  /* ── nav highlight ────────────────────────────────────────────────── */
-  var links = [].slice.call(document.querySelectorAll('.navlinks a[href^="#"]'));
-  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
-  if ('IntersectionObserver' in window) {
-    var nav = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        var i = targets.indexOf(e.target);
-        links.forEach(function (a, j) { a.classList.toggle('on', i === j); });
-      });
-    }, { rootMargin: '-45% 0px -50% 0px' });
-    targets.forEach(function (t) { if (t) nav.observe(t); });
+    sel = 0;
+    if (!shown.length) { results.innerHTML = '<div class="empty">Nothing matches that.</div>'; return; }
+    results.innerHTML = shown.map(function (c, i) {
+      return '<button class="row" data-i="' + i + '" aria-selected="' + (i === 0) + '">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        ICONS[c.icon] + '</svg>' + c.label + '<span class="k">' + c.hint + '</span></button>';
+    }).join('');
   }
+  function highlight() {
+    $$('.row', results).forEach(function (r, i) { r.setAttribute('aria-selected', String(i === sel)); });
+    var el = $$('.row', results)[sel];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+  function run(i) {
+    var c = shown[i];
+    if (!c) return;
+    closePalette();
+    if (c.action) { c.action(); return; }
+    if (/^https?:/.test(c.href)) { window.open(c.href, '_blank', 'noopener'); return; }
+    window.location.href = c.href;
+  }
+  function openPalette() {
+    backdrop.hidden = false;
+    input.value = ''; render('');
+    input.focus();
+  }
+  function closePalette() { backdrop.hidden = true; }
+
+  $('#paletteBtn').addEventListener('click', openPalette);
+  backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closePalette(); });
+  input.addEventListener('input', function () { render(input.value); });
+  results.addEventListener('click', function (e) {
+    var row = e.target.closest('.row');
+    if (row) run(parseInt(row.dataset.i, 10));
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, shown.length - 1); highlight(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); highlight(); }
+    else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+    else if (e.key === 'Escape') { e.preventDefault(); closePalette(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    var k = e.key.toLowerCase();
+    if ((e.metaKey || e.ctrlKey) && (k === 'k' || k === 'p')) { e.preventDefault(); openPalette(); }
+    else if (e.key === 'Escape' && !backdrop.hidden) closePalette();
+  });
 })();
 </script>
 </body>
