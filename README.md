@@ -164,18 +164,50 @@ On first run set a strong password in `wede.config.json` (start from
 [http://localhost:9090](http://localhost:9090) and log in.
 
 > **Convenience installer (`install.sh`).** The repo also ships an `install.sh`
-> that pulls a prebuilt binary from [GitHub Releases](https://github.com/vul-os/wede/releases)
-> via the `releases/latest` API. Since wede is no longer actively maintained, a
-> matching release asset for your OS/arch is **not guaranteed to exist**, and the
-> script performs **no checksum verification** — so we no longer recommend piping
-> it straight into a shell. If you use it, download and read it first, and verify
-> the downloaded binary against the checksums on the release page:
+> that pulls a prebuilt binary from [GitHub Releases](https://github.com/vul-os/wede/releases).
+> It **verifies the download against the release's own `checksums.txt` before
+> installing it**, and refuses — installing nothing — on a missing, empty, HTML
+> or malformed manifest, a manifest with no entry for your platform's asset, a
+> truncated download, or a digest mismatch. There is no skip flag. If the `gh`
+> CLI is present it additionally checks the release's sigstore build provenance
+> and refuses if that fails; without `gh` it prints that provenance was **not**
+> checked rather than letting a pass imply more than it checked.
+>
+> Since wede is no longer actively maintained, a matching release asset for your
+> OS/arch is **not guaranteed to exist** — the installer will tell you so
+> instead of installing something else. Reading a script before piping it into a
+> shell is still the right habit:
 >
 > ```bash
 > curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/install.sh
 > less install.sh          # review before running
 > bash install.sh
 > ```
+
+### Verifying a release yourself
+
+If you would rather download an asset from the releases page by hand,
+[`scripts/verify.sh`](scripts/verify.sh) is the same contract with per-failure
+exit codes. It needs only `curl` and `sha256sum`/`shasum`:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/scripts/verify.sh
+bash verify.sh --tag v0.3.0 --attest wede-linux-amd64     # fetch + verify
+bash verify.sh --dir ~/Downloads wede-linux-amd64         # already downloaded
+```
+
+There is deliberately no `--skip-verify` and no path where an absent
+`checksums.txt` means "nothing to check": a verifier that shrugs at a 404
+prints a line that looks like verification while checking nothing, which is
+worse than no verifier because it turns *"I don't know"* into *"it's fine"*.
+Each failure mode has its own exit code and its own diagnostic; `--attest`
+additionally checks build provenance and needs the `gh` CLI.
+
+Both guards are exercised on every push (`.github/workflows/ci.yml`) rather
+than assumed — `bash scripts/verify.sh --selftest` runs 24 synthetic-origin
+cases, and `bash scripts/install-failure-matrix.sh` runs `install.sh` against a
+synthetic release and asserts that nothing was installed on any case except the
+one whose published digest matched.
 
 ---
 

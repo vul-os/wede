@@ -24,6 +24,16 @@ npm test || fail=1
 step "frontend: build"
 npm run build || fail=1
 
+# The release guards are part of the gate, not a release-day afterthought. Both
+# assert that the refusals still fire — a checksum gate that has quietly
+# stopped failing looks exactly like one that works until someone is shipped a
+# substituted binary.
+step "release: verify.sh failure matrix"
+bash scripts/verify.sh --selftest || fail=1
+
+step "release: install.sh failure matrix"
+bash scripts/install-failure-matrix.sh || fail=1
+
 if [ "$fail" -ne 0 ]; then
   printf '\n\033[31mCHECK FAILED\033[0m\n'
   exit 1

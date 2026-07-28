@@ -69,3 +69,36 @@ jobs:
 
       - name: Go vet
         run: go vet ./...
+
+  # A checksum guard that has quietly stopped failing is indistinguishable,
+  # from a green CI run, from one that works. So both guards are exercised on
+  # every push: not "does the script parse", but "does it still REFUSE".
+  release-guards:
+    name: Release verifier & installer — failure matrices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: |
+          bash -n scripts/verify.sh
+          bash -n install.sh
+          bash -n scripts/install-failure-matrix.sh
+
+      - name: ShellCheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck scripts/verify.sh install.sh scripts/install-failure-matrix.sh
+
+      # 24 synthetic-origin cases; asserts the exit code AND that a diagnostic
+      # was printed, because "aborted with no message" was the real bug class.
+      - name: verify.sh failure matrix
+        run: bash scripts/verify.sh --selftest
+
+      # 14 cases against a synthetic release origin; asserts the exit code, a
+      # diagnostic, and — the one that matters — that NOTHING was installed on
+      # any case except the one where the published digest matched.
+      - name: install.sh failure matrix
+        run: bash scripts/install-failure-matrix.sh
