@@ -1,22 +1,22 @@
 package tunnel
 
 // The default Provider: wede embeds the Ephor agent
-// (github.com/vul-os/vulos-relay/tunnel/agent) in-process rather than
-// shelling out to a third-party frp binary. It dials a single outbound
-// wss:// connection to the relay server the owner runs, authenticates with a
-// bearer token, claims its token-authorized public name, and proxies inbound
-// requests to wede's ONE local loopback port (never an arbitrary host).
+// (github.com/vul-os/ephor/tunnel/agent) in-process rather than shelling out
+// to a third-party frp binary. It dials a single outbound wss:// connection to
+// the relay server the owner runs, authenticates with a bearer token, claims
+// its token-authorized public name, and proxies inbound requests to wede's ONE
+// local loopback port (never an arbitrary host).
 //
 // This is the ONLY file in the package that imports the relay agent — it's
 // isolated here so the seam (Provider, in provider.go) stays reusable if a
 // different tunnel mechanism is wired in later via NewWithProvider. The
-// dependency is vendored (see /vendor and go.mod's replace), so building this
-// file needs no sibling Ephor checkout.
+// dependency is vendored (see /vendor), so building this file needs no sibling
+// Ephor checkout; see go.mod for why the replace directive is still a stopgap.
 
 import (
 	"context"
 
-	"github.com/vul-os/vulos-relay/tunnel/agent"
+	"github.com/vul-os/ephor/tunnel/agent"
 )
 
 // DefaultProviderFactory constructs the Ephor agent as a Provider. This

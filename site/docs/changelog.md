@@ -11,7 +11,34 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-No unreleased changes.
+### Changed
+- **Embedded tunnel agent now consumed from the real Ephor module** — Ephor
+  renamed its Go module from `github.com/vul-os/vulos-relay` to
+  `github.com/vul-os/ephor`. wede's `go.mod` had been carrying a require on the
+  old path plus `replace => ../vulos-relay`, a directory that does not exist;
+  both halves are now corrected. The single import in
+  `backend/internal/tunnel/provider_relay.go` and the vendored tree under
+  `vendor/github.com/vul-os/` move with it. No behaviour change: the vendored
+  agent sources were byte-identical to Ephor's, import paths aside.
+
+  The build stays self-contained (vendored, no sibling checkout needed), but
+  `go.mod` still carries a **`replace github.com/vul-os/ephor => ../ephor`
+  stopgap**: Ephor's published tags `v0.1.0`–`v0.3.0` were all cut *before* the
+  module rename, so the proxy serves them under the old path and
+  `go get github.com/vul-os/ephor@v0.3.0` does not resolve. The replace is
+  removable — and only removable — once Ephor cuts a tag after the rename; the
+  exact steps are recorded in `go.mod` beside the directive. Historical entries
+  below still name the pre-rename import path, which is what shipped at the
+  time.
+
+### Added
+- **Two guards on the embedded agent** (`backend/internal/tunnel`) — one pins
+  the default `Provider` to the real Ephor agent (a stubbed or nil-agent
+  factory fails), the other drives the real agent and asserts it refuses six
+  off-loopback proxy targets (`0.0.0.0`, LAN, private range, cloud metadata IP,
+  a resolvable hostname, routable IPv6) while still accepting `127.0.0.1`.
+  Previously only the *unreachable-relay* path was covered, so a dependency
+  swap that dropped the SSRF guard would not have failed any test.
 
 ---
 

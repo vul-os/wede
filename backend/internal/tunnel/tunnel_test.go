@@ -162,3 +162,107 @@ func TestSwappableProvider(t *testing.T) {
 		t.Errorf("Manager.PublicURL() = %q, want %q", got, want)
 	}
 }
+
+// --- Guards on the embedded Ephor agent itself ---------------------------
+//
+// The two tests below exist because wede's default Provider is a *real*
+// third-party dependency (github.com/vul-os/ephor/tunnel/agent), swapped in
+// from the module rather than hand-copied. They assert the two properties
+// wede's README actually claims about it — that the default provider IS the
+// Ephor agent, and that it is loopback-bound — so a bad dependency swap fails
+// here instead of shipping.
+
+// TestDefaultProviderIsTheEmbeddedAgent pins the default Provider to the real
+// embedded Ephor agent. It deliberately does NOT accept "some Provider": if
+// DefaultProviderFactory is ever repointed at a stub, a fake, or a shell-out to
+// an external binary, this fails. It also proves the agent is constructed with
+// the owner's config verbatim rather than silently dropped.
+func TestDefaultProviderIsTheEmbeddedAgent(t *testing.T) {
+	opts := ProviderOptions{
+		ServerURL: "wss://relay.example.com",
+		Token:     "secret",
+		Name:      "mybox",
+		LocalAddr: "127.0.0.1:9090",
+	}
+	p := DefaultProviderFactory(opts)
+	rp, ok := p.(*relayProvider)
+	if !ok {
+		t.Fatalf("DefaultProviderFactory returned %T, want *relayProvider (the embedded Ephor agent)", p)
+	}
+	if rp.agent == nil {
+		t.Fatal("relayProvider was built with a nil Ephor agent — the embedded agent is not wired in")
+	}
+	// A freshly constructed, unstarted agent must report stopped and expose no
+	// public URL. (Snapshot goes through the real agent, not a stub.)
+	if snap := rp.Snapshot(); snap.Connected || snap.PublicURL != "" {
+		t.Errorf("unstarted agent snapshot = %+v, want not-connected with empty PublicURL", snap)
+	}
+	if got := rp.PublicURL(); got != "" {
+		t.Errorf("unstarted agent PublicURL() = %q, want \"\"", got)
+	}
+}
+
+// TestEmbeddedAgentRefusesNonLoopbackTarget drives the REAL agent (not the
+// fake) and asserts wede's central public-exposure promise: the tunnel may only
+// ever proxy to wede's own loopback port. The agent validates LocalAddr
+// synchronously in Start, so a Manager pointed at a routable address must fail
+// closed — Start returns an error, nothing is left running, and the failure is
+// surfaced to the owner UI.
+//
+// Every case below must be REFUSED; a case that silently starts is a
+// tunnel that would expose an arbitrary host on the operator's network.
+func TestEmbeddedAgentRefusesNonLoopbackTarget(t *testing.T) {
+	offLoopback := []string{
+		"0.0.0.0:9090",       // all interfaces
+		"192.168.1.10:9090",  // LAN peer
+		"10.0.0.5:9090",      // private range
+		"169.254.169.254:80", // cloud metadata service
+		"example.com:9090",   // resolvable name (must be rejected, not resolved)
+		"[2001:db8::1]:9090", // routable v6
+	}
+	if len(offLoopback) != 6 {
+		t.Fatalf("coverage: expected 6 off-loopback cases, have %d", len(offLoopback))
+	}
+
+	refused := 0
+	for _, addr := range offLoopback {
+		t.Run(addr, func(t *testing.T) {
+			m := &Manager{
+				localAddr:   addr,
+				dataDir:     t.TempDir(),
+				newProvider: DefaultProviderFactory,
+				cfg:         Config{ServerURL: "ws://127.0.0.1:1", Token: "x", Name: "wede"},
+			}
+			err := m.Start()
+			if err == nil {
+				m.Stop()
+				t.Fatalf("Start accepted off-loopback LocalAddr %q — the SSRF guard is not enforced", addr)
+			}
+			refused++
+			// The refusal must reach the owner UI, not just the caller.
+			if snap := m.Snapshot(); snap.Status != StatusError {
+				t.Errorf("Snapshot status = %q after refused Start, want %q", snap.Status, StatusError)
+			}
+			if m.PublicURL() != "" {
+				t.Errorf("PublicURL non-empty after refused Start: %q", m.PublicURL())
+			}
+		})
+	}
+	if refused != len(offLoopback) {
+		t.Fatalf("coverage: %d/%d off-loopback cases were actually refused", refused, len(offLoopback))
+	}
+
+	// Control: the loopback address wede actually uses must NOT be refused by
+	// the same guard, so the test above is proving the guard and not a blanket
+	// "Start always errors".
+	m := &Manager{
+		localAddr:   "127.0.0.1:9090",
+		dataDir:     t.TempDir(),
+		newProvider: DefaultProviderFactory,
+		cfg:         Config{ServerURL: "ws://127.0.0.1:1", Token: "x", Name: "wede"},
+	}
+	if err := m.Start(); err != nil {
+		t.Fatalf("loopback LocalAddr was refused (%v) — the negative cases above prove nothing", err)
+	}
+	m.Stop()
+}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vul-os/vulos-relay/tunnel/internal/wire"
+	"github.com/vul-os/ephor/tunnel/internal/wire"
 )
 
 // localDialTimeout bounds connecting to the local target.

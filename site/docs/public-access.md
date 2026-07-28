@@ -92,7 +92,7 @@ of them need you to open a port or have a static IP.
 ## (c) The built-in Ephor tunnel
 
 wede embeds a first-party tunnel agent
-(`github.com/vul-os/vulos-relay/tunnel/agent`) that does the same job as
+(`github.com/vul-os/ephor/tunnel/agent`) that does the same job as
 options (b) above, sovereign: you run your own relay server instead of
 trusting a third party's. It's the **default** `Provider` behind wede's
 `Tunnel` interface (`backend/internal/tunnel`) — not a hard-wired requirement.

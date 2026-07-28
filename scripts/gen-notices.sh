@@ -34,8 +34,24 @@ if [[ -z "$DETECTOR" ]]; then
 fi
 
 echo "==> resolving Go module graph"
+# -mod=mod is REQUIRED here, not cosmetic: wede commits a /vendor tree, so Go
+# defaults every command in this repo to -mod=vendor, and `go list -m all` is
+# refused outright in vendor mode ("can't compute 'all' using the vendor
+# directory"). Without this flag the script cannot run at all, and the notices
+# file silently rots. The detector needs the FULL module graph (including the
+# indirect deps vendor/ prunes), which only the module cache can supply.
+#
+# -mod=mod also lets Go WRITE to go.mod/go.sum (it appends the `/go.mod` hashes
+# for graph modules that vendor mode never needed). Regenerating a licence file
+# must not quietly edit the module files, so snapshot them and put them back
+# whatever happens.
+cp go.mod "$TMP/go.mod.orig"
+cp go.sum "$TMP/go.sum.orig"
+restore_modfiles() { cp "$TMP/go.mod.orig" go.mod; cp "$TMP/go.sum.orig" go.sum; }
+trap 'restore_modfiles; rm -rf "$TMP"' EXIT
+
 go mod download
-go list -m -json all | "$DETECTOR" \
+go list -mod=mod -m -json all | "$DETECTOR" \
   -includeIndirect \
   -rules scripts/notices/go-licence-rules.json \
   -noticeTemplate scripts/notices/go-modules.tmpl \

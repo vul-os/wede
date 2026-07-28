@@ -91,7 +91,7 @@ wede has no database and no separate backend process. One Go binary embeds the b
 | `collab` | Per-workspace collaboration WebSocket carrying presence (roster + cursor position); origin-checked the same way as terminal/lsp |
 | `collabdoc` | Server-authoritative CRDT document layer built on `github.com/reearth/ygo` (pure-Go, cgo-free, Yjs-v13 wire-compatible); `DocStore` holds one CRDT doc per open file; `DiskPersistence` seeds docs from disk and debounce-writes materialized text back (atomic temp+rename) |
 | `chat` | Per-workspace live chat (public + private channel) with Markdown persistence (`.wede/chat.md`, `.wede/private/chat.md`) and git-activity notifications merged into history; deliberately available to all authenticated roles including viewers |
-| `tunnel` | Owner-only public exposure without opening ports: an embedded reverse-tunnel agent (`vulos-relay/tunnel/agent`) dials the owner's own relay server over `wss://` and proxies inbound traffic to wede's loopback port; mechanism is behind a `Provider` seam so an alternate tunnel (Cloudflare Tunnel, ngrok, frp, Tailscale Funnel) can be substituted |
+| `tunnel` | Owner-only public exposure without opening ports: an embedded reverse-tunnel agent (`github.com/vul-os/ephor/tunnel/agent`) dials the owner's own relay server over `wss://` and proxies inbound traffic to wede's loopback port; mechanism is behind a `Provider` seam so an alternate tunnel (Cloudflare Tunnel, ngrok, frp, Tailscale Funnel) can be substituted |
 
 ---
 
