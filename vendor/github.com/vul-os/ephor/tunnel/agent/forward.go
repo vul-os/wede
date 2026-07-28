@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vul-os/ephor/tunnel/internal/iopool"
 	"github.com/vul-os/ephor/tunnel/internal/wire"
 )
 
@@ -133,7 +134,7 @@ func duplexCopy(a, b net.Conn) {
 	done := make(chan struct{}, 2)
 	cp := func(dst, src net.Conn) {
 		// Pooled scratch buffer (no per-splice allocation on the box's hot path).
-		_, _ = pooledCopy(dst, src)
+		_, _ = iopool.Copy(dst, src)
 		// Signal EOF to the other side.
 		if cw, ok := dst.(interface{ CloseWrite() error }); ok {
 			_ = cw.CloseWrite()

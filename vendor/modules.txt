@@ -27,9 +27,10 @@ github.com/reearth/ygo/encoding
 github.com/reearth/ygo/internal/roomname
 github.com/reearth/ygo/provider/websocket
 github.com/reearth/ygo/sync
-# github.com/vul-os/ephor v0.0.0-00010101000000-000000000000 => ../ephor
+# github.com/vul-os/ephor v0.4.0
 ## explicit; go 1.23
 github.com/vul-os/ephor/tunnel/agent
+github.com/vul-os/ephor/tunnel/internal/iopool
 github.com/vul-os/ephor/tunnel/internal/keepalive
 github.com/vul-os/ephor/tunnel/internal/wire
 # golang.org/x/sync v0.10.0
@@ -42,4 +43,3 @@ golang.org/x/sys/windows
 # golang.org/x/time v0.10.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# github.com/vul-os/ephor => ../ephor

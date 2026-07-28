@@ -19,15 +19,29 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `vendor/github.com/vul-os/` move with it. No behaviour change: the vendored
   agent sources were byte-identical to Ephor's, import paths aside.
 
-  The build stays self-contained (vendored, no sibling checkout needed), but
-  `go.mod` still carries a **`replace github.com/vul-os/ephor => ../ephor`
-  stopgap**: Ephor's published tags `v0.1.0`–`v0.3.0` were all cut *before* the
-  module rename, so the proxy serves them under the old path and
-  `go get github.com/vul-os/ephor@v0.3.0` does not resolve. The replace is
-  removable — and only removable — once Ephor cuts a tag after the rename; the
-  exact steps are recorded in `go.mod` beside the directive. Historical entries
-  below still name the pre-rename import path, which is what shipped at the
-  time.
+  The build stays self-contained (vendored, no sibling checkout needed).
+  Historical entries below still name the pre-rename import path, which is what
+  shipped at the time.
+
+- **`replace github.com/vul-os/ephor => ../ephor` retired** — the stopgap is
+  gone. It existed only because Ephor's tags `v0.1.0`–`v0.3.0` were cut while
+  its `go.mod` still said `module github.com/vul-os/vulos-relay`, so the proxy
+  served them under the old path and no version of `github.com/vul-os/ephor`
+  resolved. **Ephor v0.4.0 is the first tag cut after the rename**, so `go.mod`
+  now carries a plain `require github.com/vul-os/ephor v0.4.0` with real
+  `go.sum` hashes and the vendored tree is proxy-verifiable rather than
+  reproduced from a sibling working directory.
+
+  Re-vendoring against the tag also un-rotted the vendored agent, which had
+  drifted from Ephor: `tunnel/agent/bufpool.go` had been extracted upstream into
+  the `tunnel/internal/iopool` package, and the committed vendor tree still held
+  the pre-extraction copy. Vendor mode never consults a `replace` target, so
+  nothing had forced the refresh. `vendor/` now matches Ephor v0.4.0 exactly.
+
+  `THIRD-PARTY-NOTICES.txt` was regenerated: Ephor's entry moves from the
+  placeholder `v0.0.0-00010101000000-000000000000` to `v0.4.0`, and its
+  Apache-2.0 text is now reproduced from the checksum-verified module cache
+  rather than from a local path. The Go module count is unchanged at 31.
 
 ### Added
 - **Two guards on the embedded agent** (`backend/internal/tunnel`) — one pins
