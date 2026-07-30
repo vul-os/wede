@@ -3,7 +3,8 @@ dist/
 backend/cmd/wede/dist/
 backend/cmd/wede/site/
 .env
-.env.local
+.env.*
+!.env.example
 tmp/
 *.exe
 *.test
