@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/wede-mark.svg" alt="wede" width="80" height="80">
+<img src="brand/logo.svg" alt="wede" width="80" height="80">
 
 # WEDE
 
@@ -354,6 +354,16 @@ Contributions are welcome!
 Please keep the Go tests and lint clean (`go test ./...` + `npm run lint`) before submitting.
 
 ---
+
+## Brand
+
+The mark in [`brand/`](brand/) is the source of truth. Every icon this repo
+ships — favicon, PWA and app icons, the mark in the README and on the site — is
+rendered from `brand/logo.svg` rather than redrawn, so there is one approved
+drawing and no second copy to drift.
+
+Copy it outward, never edit a derived copy, and never edit `brand/` to match
+something downstream.
 
 ## License
 
