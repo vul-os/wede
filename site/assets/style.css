@@ -252,7 +252,7 @@ a.chip:hover { border-color: var(--accent); color: var(--text); }
 .section { padding: clamp(56px, 8vw, 100px) 0; position: relative; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
-  font-family: var(--mono); font-size: 11.5px; font-weight: 500;
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
   letter-spacing: .11em; text-transform: uppercase; color: var(--accent);
 }
 .eyebrow::before { content: ""; width: 20px; height: 1px; background: currentColor; opacity: .55; }

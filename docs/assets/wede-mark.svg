@@ -1,19 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="wede">
   <title>wede</title>
-  <!-- Transparent variant of brand/logo.svg's mark (same stripes/slash, no
-       background tile) for the app's light theme: stripes in the mark's
-       dark tile colour so they read against the white c_bg_primary token
-       (#ffffff). Previously this file carried an older 5-stripe design in a
-       pale fill that was ~1.4:1 contrast against white, effectively
-       invisible. -->
-  <g fill="#2A2A46">
+  <rect width="128" height="128" rx="28" fill="#2A2A46"/>
+  <!-- woven stripes -->
+  <g fill="#EDEDF6">
     <rect x="26" y="24" width="76" height="13" rx="6.5"/>
     <rect x="26" y="47" width="76" height="13" rx="6.5"/>
     <rect x="26" y="70" width="76" height="13" rx="6.5"/>
     <rect x="26" y="93" width="76" height="13" rx="6.5"/>
   </g>
+  <!-- red slash threaded behind stripes 1 & 3 -->
   <line x1="50" y1="16" x2="82" y2="114" stroke="#FF5E57" stroke-width="13" stroke-linecap="round"/>
-  <g fill="#2A2A46">
+  <!-- stripes 2 & 4 redrawn on top: over/under weave -->
+  <g fill="#EDEDF6">
     <rect x="26" y="47" width="76" height="13" rx="6.5"/>
     <rect x="26" y="93" width="76" height="13" rx="6.5"/>
   </g>

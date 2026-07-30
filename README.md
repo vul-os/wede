@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/icon.svg" alt="wede" width="80" height="80">
+<img src="docs/assets/wede-mark.svg" alt="wede" width="80" height="80">
 
 # WEDE
 
