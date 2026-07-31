@@ -345,3 +345,15 @@ h2.title {
   }
   .reveal { opacity: 1; transform: none; }
 }
+
+
+/* ── Vulos suite chrome — identical on every product landing ───────────────
+   Two elements, and only two: a logo-only home button in the top bar, and
+   one line in the footer. Deliberately free of repo variables so the block
+   is byte-identical across the suite and can be diffed as one thing. */
+.vulos-home { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto; opacity: .72; transition: opacity .15s ease, transform .15s ease; }
+.vulos-home:hover, .vulos-home:focus-visible { opacity: 1; transform: translateY(-1px); }
+.vulos-home img { display: block; width: 22px; height: 22px; border-radius: 6px; }
+.vulos-foot { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; line-height: 1.45; text-decoration: none; color: inherit; opacity: .85; transition: opacity .15s ease; }
+.vulos-foot:hover { opacity: 1; text-decoration: none; }
+.vulos-foot img { display: block; width: 18px; height: 18px; border-radius: 5px; flex: 0 0 auto; }
