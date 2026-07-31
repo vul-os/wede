@@ -334,10 +334,7 @@ h2.title {
   border-top: 1px solid var(--border);
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px;
   padding: 14px 0; font-family: var(--mono); font-size: 12.5px; color: var(--text-muted);
-}
-.foot-bar .vulos { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
-.foot-bar .vulos img { width: 16px; height: 16px; border-radius: 4px; }
-.foot-bar a:hover { color: var(--accent); }
+}.foot-bar a:hover { color: var(--accent); }
 
 /* ── Reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

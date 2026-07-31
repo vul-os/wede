@@ -503,22 +503,7 @@ h2.title {
 .sec { border: 1px solid var(--border); border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius-lg); background: var(--bg-primary); padding: 17px; }
 .sec.warn { border-left-color: var(--yellow); }
 .sec h4 { margin: 0 0 7px; font-size: 14.5px; font-weight: 600; }
-.sec p { margin: 0; font-size: 13.5px; color: var(--text-2); line-height: 1.55; }
-
-/* ── Vulos + final ───────────────────────────────────────────────────────── */
-.vulos-band {
-  border: 1px solid var(--border); border-radius: var(--radius-xl);
-  background: radial-gradient(700px 240px at 12% 0%, var(--accent-dim), transparent 70%), var(--bg-primary);
-  padding: clamp(24px, 3.4vw, 36px);
-  display: grid; grid-template-columns: auto 1fr auto; gap: 22px; align-items: center;
-}
-@media (max-width: 860px) { .vulos-band { grid-template-columns: auto 1fr; } .vulos-band .cta { grid-column: 1 / -1; } }
-@media (max-width: 480px) { .vulos-band { grid-template-columns: 1fr; } }
-.vulos-band img.logo { width: 52px; height: 52px; border-radius: var(--radius-lg); flex: none; }
-.vulos-band h3 { margin: 0 0 6px; font-family: var(--display); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
-.vulos-band p { margin: 0; color: var(--text-2); font-size: 14.5px; max-width: 62ch; }
-
-.final { text-align: center; padding: clamp(46px, 6vw, 84px) 0 clamp(30px, 4vw, 50px); }
+.sec p { margin: 0; font-size: 13.5px; color: var(--text-2); line-height: 1.55; }.final { text-align: center; padding: clamp(46px, 6vw, 84px) 0 clamp(30px, 4vw, 50px); }
 .final h2 { font-family: var(--display); font-weight: 600; letter-spacing: -.035em; font-size: clamp(28px, 4.4vw, 46px); line-height: 1.06; margin: 0; }
 .final p { color: var(--text-2); margin: 15px auto 0; max-width: 52ch; font-size: 16.5px; }
 .final .cta-row { justify-content: center; }
@@ -533,13 +518,21 @@ h2.title {
 .foot-grid a { color: var(--text-2); font-size: 14px; transition: color .15s; }
 .foot-grid a:hover { color: var(--accent); }
 .foot-blurb { color: var(--text-2); font-size: 13.5px; margin: 13px 0 0; max-width: 42ch; }
-.foot-bar { border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 13px clamp(20px, 4vw, 56px); font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); }
-.foot-bar .vulos { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
-.foot-bar .vulos img { width: 16px; height: 16px; border-radius: 4px; }
-.foot-bar a:hover { color: var(--accent); }
+.foot-bar { border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 13px clamp(20px, 4vw, 56px); font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); }.foot-bar a:hover { color: var(--accent); }
 /* Footer links are inline prose-style navigation; on touch widths give them
    a taller hit box without changing the visible text size. */
 @media (max-width: 640px) {
   .foot-grid a { display: inline-flex; align-items: center; min-height: 32px; }
-  .foot-bar a, .foot-bar .vulos { min-height: 32px; }
+  .foot-bar a { min-height: 32px; }
 }
+
+/* ── Vulos suite chrome — identical on every product landing ───────────────
+   Two elements, and only two: a logo-only home button in the top bar, and
+   one line in the footer. Deliberately free of repo variables so the block
+   is byte-identical across the suite and can be diffed as one thing. */
+.vulos-home { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto; opacity: .72; transition: opacity .15s ease, transform .15s ease; }
+.vulos-home:hover, .vulos-home:focus-visible { opacity: 1; transform: translateY(-1px); }
+.vulos-home img { display: block; width: 22px; height: 22px; border-radius: 6px; }
+.vulos-foot { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; line-height: 1.45; text-decoration: none; color: inherit; opacity: .85; transition: opacity .15s ease; }
+.vulos-foot:hover { opacity: 1; text-decoration: none; }
+.vulos-foot img { display: block; width: 18px; height: 18px; border-radius: 5px; flex: 0 0 auto; }
