@@ -444,6 +444,7 @@ exec.Command(<span class="s">"git"</span>, <span class="s">"log"</span>, <span c
           <button role="tab" aria-selected="false" data-i="5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
           <button role="tab" aria-selected="false" data-i="6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>Palette</button>
         </div>
+        <div class="shot-scroll">
         <div class="shot-stage">
           <img data-shot data-dark="./screenshots/dark/hero.png"            data-light="./screenshots/hero.png"            alt="wede editor with file tree, tabs and terminal panel">
           <img data-shot data-dark="./screenshots/dark/git_graph.png"       data-light="./screenshots/git_graph.png"       alt="Visual commit graph with branches, authors and merge lines" hidden>
@@ -453,10 +454,12 @@ exec.Command(<span class="s">"git"</span>, <span class="s">"log"</span>, <span c
           <img data-shot data-dark="./screenshots/dark/search.png"          data-light="./screenshots/search.png"          alt="Project-wide search results with context lines" hidden>
           <img data-shot data-dark="./screenshots/dark/command_palette.png" data-light="./screenshots/command_palette.png" alt="Command palette open over the editor" hidden>
         </div>
+        </div>
         <div class="shot-cap">
           <span data-cap><b>Editor.</b> CodeMirror 6 with 27 languages, minimap, multi-root file tree,
             git-coloured status, and a dockable terminal underneath.</span>
           <span class="k">↹ click a tab</span>
+          <span class="shot-hint">swipe the shot to see the whole IDE →</span>
         </div>
       </div>
     </section>
@@ -783,8 +786,49 @@ npm run build:all
       tabs.forEach(function (b, j) { b.setAttribute('aria-selected', String(i === j)); });
       imgs.forEach(function (im, j) { im.hidden = i !== j; });
       if (cap && CAPS[i]) cap.innerHTML = CAPS[i];
+      syncShotScroll();
     });
   });
+
+  /* Horizontal scrollers that need to LOOK scrollable.
+     Both the tour stage and the hero's code demo are wider than a phone and
+     already scrolled; with no affordance each just read as an image cut off
+     mid-word. Each pair is [the element that scrolls, the element that hosts
+     the fade] — the fade must live on a non-scrolling ancestor or it slides
+     away with the content.
+
+     Flagged only when the scroller genuinely overflows: a fade on something
+     that already fits reads as a broken layout, not an affordance. Measured
+     again on resize, on tab change, and once the images have decoded, because
+     before that there is no scrollWidth to compare against. */
+  var FADERS = [
+    ['.shot-stage',  '.shot-scroll'],
+    ['.editor-code', '.editor-body'],
+  ].map(function (pair) {
+    return { sc: $(pair[0]), host: $(pair[1]) };
+  }).filter(function (f) { return f.sc && f.host; });
+
+  function syncScrollFades() {
+    FADERS.forEach(function (f) {
+      var room = f.sc.scrollWidth - f.sc.clientWidth;
+      var atEnd = f.sc.scrollLeft + f.sc.clientWidth >= f.sc.scrollWidth - 8;
+      f.host.classList.toggle('can-scroll', room > 8 && !atEnd);
+    });
+  }
+  function syncShotScroll() { syncScrollFades(); }
+
+  if (FADERS.length) {
+    syncScrollFades();
+    addEventListener('resize', syncScrollFades, { passive: true });
+    FADERS.forEach(function (f) {
+      f.sc.addEventListener('scroll', syncScrollFades, { passive: true });
+    });
+    $$('.shot-stage img').forEach(function (im) {
+      if (im.complete) return;
+      im.addEventListener('load', syncScrollFades, { once: true });
+    });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncScrollFades);
+  }
 
   /* ── copy buttons ─────────────────────────────────────────────────── */
   $$('.copybtn').forEach(function (btn) {

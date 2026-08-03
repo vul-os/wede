@@ -1,0 +1,13 @@
+{
+  "name": "wede-site-checks",
+  "private": true,
+  "type": "module",
+  "description": "Playwright render gate for site/index.html and site/docs.html",
+  "dependencies": {
+    "playwright": "^1.44.0"
+  },
+  "scripts": {
+    "check": "node check-render.mjs",
+    "check:selftest": "node check-render.mjs --selftest"
+  }
+}

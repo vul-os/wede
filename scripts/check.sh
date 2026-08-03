@@ -28,6 +28,21 @@ npm run build || fail=1
 # assert that the refusals still fire — a checksum gate that has quietly
 # stopped failing looks exactly like one that works until someone is shipped a
 # substituted binary.
+# The landing page and docs are rendered in a real browser at eight viewports
+# in both colour schemes. Nothing here is visible in a diff: a stretched
+# screenshot, a light-mode capture shown in dark mode, copy under 12px, an
+# element pushing the page sideways. --selftest breaks each invariant on
+# purpose first, so a gate that has stopped discriminating fails loudly rather
+# than reporting clean.
+step "site: render checks"
+if [ -d scripts/node_modules/playwright ] || npm --prefix scripts ls playwright >/dev/null 2>&1; then
+  node scripts/check-render.mjs --selftest || fail=1
+  node scripts/check-render.mjs || fail=1
+else
+  printf 'playwright is not installed under scripts/ — run: npm --prefix scripts i playwright && npx playwright install chromium\n'
+  fail=1
+fi
+
 step "release: verify.sh failure matrix"
 bash scripts/verify.sh --selftest || fail=1
 

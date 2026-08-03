@@ -36,6 +36,7 @@
   })();
 </script>
 <script src="./assets/vendor/marked.umd.js"></script>
+<script src="./assets/vendor/highlight.min.js"></script>
 <script src="./assets/vendor/mermaid.min.js"></script>
 </head>
 <body>
@@ -61,13 +62,13 @@
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.28 9.28 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.03 10.03 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
     </a>
     <a class="btn btn-primary btn-sm" href="./index.html#install">Get wede</a>
+    <a class="vulos-home" href="https://vulos.org" target="_blank" rel="noopener" title="Vulos — open, self-hostable software" aria-label="Vulos — open, self-hostable software"><img src="./assets/vulos-logo.png" alt="" width="22" height="22"></a>
   </div>
-  <a class="vulos-home" href="https://vulos.org" target="_blank" rel="noopener" title="Vulos — open, self-hostable software" aria-label="Vulos — open, self-hostable software"><img src="./assets/vulos-logo.png" alt="" width="22" height="22"></a>
 </header>
 
-<div class="wrap docs-shell">
+<div class="docs-shell">
 
-  <div>
+  <div class="docs-side">
     <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="docsNav">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       Documentation
@@ -82,6 +83,13 @@
       </div>
       <div id="navList"></div>
       <div class="no-hits" id="noHits" hidden>No page matches that.</div>
+      <!-- The docs footer is gone suite-wide; this attribution link lived only
+           there, and dropping a third-party-notices link silently is not an
+           option. It belongs with the nav anyway. -->
+      <div class="nav-edge">
+        <a href="./licenses.txt">Third-party notices</a>
+        <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">Source &amp; issues &rarr;</a>
+      </div>
     </aside>
   </div>
 
@@ -109,17 +117,6 @@
   </aside>
 </div>
 
-<footer class="site-footer">
-  <div class="wrap">
-    <div class="foot-bar">
-      <a class="vulos-foot" href="https://vulos.org" target="_blank" rel="noopener"><img src="./assets/vulos-logo.png" alt="" width="18" height="18"><span>Part of <strong>Vulos</strong> — open, self-hostable software</span></a>
-      <span style="flex:1"></span>
-      <a href="https://github.com/vul-os/wede" target="_blank" rel="noopener">GitHub</a>
-      
-      <a href="./licenses.txt">Third-party notices</a>
-    </div>
-  </div>
-</footer>
 
 <script>
 (function () {
@@ -341,10 +338,29 @@
       t.parentNode.insertBefore(w, t); w.appendChild(t);
     });
 
-    /* copy buttons on code blocks */
+    /* language chip, highlighting, and a copy button on every code block */
     content.querySelectorAll('pre > code').forEach(function (code) {
       if (code.classList.contains('language-mermaid')) return;
       var pre = code.parentElement;
+
+      var cls = [].slice.call(code.classList).find(function (c) { return c.indexOf('language-') === 0; }) || '';
+      var raw = cls.replace('language-', '').toLowerCase();
+      // Fence names that are really another grammar in the vendored bundle.
+      var ALIAS = { jsonc: 'json', sh: 'bash', shell: 'bash', zsh: 'bash',
+                    yml: 'yaml', toml: 'ini', nginx: 'ini', html: 'xml', js: 'javascript' };
+      var lang = (window.hljs && hljs.getLanguage(raw)) ? raw
+               : (window.hljs && hljs.getLanguage(ALIAS[raw])) ? ALIAS[raw] : '';
+      if (lang) {
+        try { code.className = 'language-' + lang; hljs.highlightElement(code); }
+        catch (e) { /* an unhighlightable block must not break the page */ }
+      }
+      if (raw) {
+        var head = document.createElement('div');
+        head.className = 'code-head';
+        head.innerHTML = '<span class="lang">' + raw.replace(/[<&]/g, '') + '</span>';
+        pre.parentNode.insertBefore(head, pre);
+        pre.classList.add('has-head');
+      }
       var btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'copybtn';
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>copy</span>';

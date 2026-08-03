@@ -3,26 +3,61 @@
    Three-column IDE layout: file tree · document · outline.
    ========================================================================= */
 
+/* Docs is a reading application, not a marketing page, so it does NOT inherit
+   the landing's centred --max column. That left the nav floating ~180px in
+   from the window edge with dead space beside it while the prose column stayed
+   cramped. The shell spans the window (to a sane ceiling), which puts the file
+   tree near the left edge where a sidebar belongs and gives the document more
+   room at the same time. */
 .docs-shell {
   display: grid;
-  grid-template-columns: 254px minmax(0, 1fr) 208px;
-  gap: clamp(24px, 3vw, 44px);
+  /* Explicit middle track + start-packed, rather than 1fr: with a flexible
+     middle the prose kept its measured 78ch but the TRACK grew to fill, so the
+     outline rail was flung to the far right with ~280px of void between it and
+     the text it indexes. Packing left keeps nav, prose and outline as one
+     group against the left edge and puts the slack in the right margin. */
+  grid-template-columns: 262px minmax(0, 830px) 210px;
+  justify-content: start;
+  gap: clamp(22px, 2.6vw, 40px);
   align-items: start;
   padding: 28px 0 80px;
+  padding-inline: clamp(16px, 2.4vw, 34px);
 }
+/* Very wide screens: stop hugging the edge and let the group breathe. */
+@media (min-width: 1900px) { .docs-shell { justify-content: center; } }
 @media (max-width: 1180px) { .docs-shell { grid-template-columns: 240px minmax(0, 1fr); } .outline { display: none; } }
 @media (max-width: 880px)  { .docs-shell { grid-template-columns: minmax(0, 1fr); padding-top: 16px; } }
+/* The document itself still gets a measured line length — a 1400px-wide
+   paragraph is unreadable however much room the shell has. */
+.markdown { max-width: 100%; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────── */
+/* The sticky element must be the COLUMN, not the nav inside it. .docs-nav used
+   to carry `position: sticky` while its parent <div> was auto-height and
+   therefore exactly as tall as the nav — a sticky box with no room to slide
+   inside its containing block just scrolls away with it, which is what
+   happened: by 2000px down the page the sidebar was 1477px above the viewport.
+   Pinning the column and giving it a real height (not max-height) makes it
+   hold still while only the document column moves. */
+.docs-side {
+  position: sticky; top: 76px;
+  height: calc(100vh - 92px);
+  display: flex; flex-direction: column; min-height: 0;
+}
 .docs-nav {
-  position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow-y: auto;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
   border: 1px solid var(--border); border-radius: var(--radius-xl);
   background: var(--bg-primary); padding: 10px;
   scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 .docs-nav::-webkit-scrollbar { width: 8px; }
 .docs-nav::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-@media (max-width: 880px) { .docs-nav { position: static; max-height: none; } }
+@media (max-width: 880px) {
+  /* One column: the nav becomes a normal collapsible block above the doc. */
+  .docs-side { position: static; height: auto; display: block; }
+  .docs-nav { max-height: min(62vh, 520px); }
+}
 
 .docs-search { position: relative; margin-bottom: 8px; }
 .docs-search svg {
@@ -133,7 +168,12 @@
 }
 .markdown h2:hover .anchor, .markdown h3:hover .anchor, .markdown h4:hover .anchor { opacity: 1; }
 .markdown .anchor:hover { color: var(--accent); }
-@media (max-width: 700px) { .markdown .anchor { display: none; } }
+/* The anchor hangs 22px into the left margin, which only exists while the
+   sidebar does. Below 880px .docs-shell collapses to one column and the prose
+   sits flush against the gutter, so from there the anchor is off-screen — it
+   was hidden at 700px, leaving 700–880px with a link 22px past the left edge.
+   Tied to the shell's own breakpoint so the two cannot drift again. */
+@media (max-width: 880px) { .markdown .anchor { display: none; } }
 
 .markdown p, .markdown li { color: var(--text-2); }
 .markdown strong { color: var(--text); font-weight: 650; }
@@ -228,4 +268,73 @@
   .nav-toggle { display: flex; }
   .docs-nav.collapsed { display: none; }
   .docs-nav { margin-bottom: 20px; }
+}
+
+
+/* Sidebar edge block — attribution + source, relocated out of the removed
+   docs footer. */
+.nav-edge {
+  margin-top: 22px; padding-top: 16px;
+  border-top: 1px dashed var(--border-strong, var(--border));
+  display: grid; gap: 8px;
+}
+.nav-edge a {
+  font-family: var(--mono); font-size: 12.5px; color: var(--text-muted);
+  text-decoration: underline; text-decoration-color: var(--border);
+  text-underline-offset: 3px; transition: color .15s;
+}
+.nav-edge a:hover { color: var(--accent); }
+
+/* ── Code blocks ─────────────────────────────────────────────────────────
+   Docs code had NO highlighter at all: every fence rendered as one flat run
+   of --text-2, including the 19 JSON payloads that are most of this
+   reference. highlight.js is now vendored alongside marked.
+
+   These tokens are deliberately NOT the landing's --sx-* set. Those are tuned
+   for the landing's own code ground and, measured against the docs ground,
+   five of the seven miss 4.5:1 in light mode (str 2.91, num 3.15, type 3.25,
+   cmt 2.76, fn 4.30). Every value below clears 4.5:1 on BOTH docs grounds
+   (#0e1018 dark, #edf0f7 light). */
+:root {
+  --code-kw:#6d28d9; --code-fn:#3540c9; --code-str:#0f7a37; --code-num:#a8430b;
+  --code-type:#0b6a80; --code-cmt:#5c6478; --code-punc:#404a63;
+  --code-attr:#4d6b12; --code-meta:#3f5a6b;
+}
+:root[data-theme="dark"] {
+  --code-kw:#c9a2fc; --code-fn:#93a0ff; --code-str:#5fe08c; --code-num:#ffab6b;
+  --code-type:#4fdcf0; --code-cmt:#7d8499; --code-punc:#a6adc4;
+  --code-attr:#cbe36f; --code-meta:#9fb6c4;
+}
+
+.hljs-comment,.hljs-quote{color:var(--code-cmt);font-style:italic}
+.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-section,.hljs-doctag,.hljs-name,.hljs-tag{color:var(--code-kw)}
+.hljs-string,.hljs-regexp,.hljs-symbol{color:var(--code-str)}
+.hljs-number,.hljs-bullet,.hljs-char.escape_,.hljs-selector-pseudo{color:var(--code-num)}
+.hljs-type,.hljs-class .hljs-title,.hljs-title.class_{color:var(--code-type)}
+.hljs-attr,.hljs-attribute,.hljs-property,.hljs-variable,.hljs-template-variable,.hljs-selector-attr,.hljs-selector-id,.hljs-selector-class{color:var(--code-attr)}
+.hljs-title,.hljs-title.function_,.hljs-function,.hljs-built_in{color:var(--code-fn)}
+.hljs-meta,.hljs-meta .hljs-keyword,.hljs-meta .hljs-string{color:var(--code-meta)}
+.hljs-punctuation,.hljs-operator,.hljs-params,.hljs-subst{color:var(--code-punc)}
+.hljs-link{color:var(--code-str);text-decoration:underline;text-underline-offset:2px}
+.hljs-addition{color:var(--code-str);background:color-mix(in srgb,var(--code-str) 14%,transparent);display:inline-block;width:100%}
+.hljs-deletion{color:var(--code-num);background:color-mix(in srgb,var(--code-num) 14%,transparent);display:inline-block;width:100%}
+.hljs-emphasis{font-style:italic}
+.hljs-strong{font-weight:600}
+
+/* Language chip, so a reader can tell a shell transcript from a JSON body at
+   a glance instead of parsing the first line. */
+.markdown .code-head {
+  display: flex; align-items: center; gap: 10px;
+  margin: 1.3em 0 -1.3em; position: relative; z-index: 1;
+}
+.markdown pre.has-head { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.markdown .code-head .lang {
+  font-family: var(--mono); font-size: 12px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--text-muted);
+  background: var(--bg-tertiary); border: 1px solid var(--border); border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0; padding: 5px 11px;
+}
+/* A hover-revealed control does not exist on a touch screen. */
+@media (hover: none) {
+  .markdown pre .copybtn { opacity: 1; }
 }

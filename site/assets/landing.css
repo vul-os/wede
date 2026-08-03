@@ -13,8 +13,15 @@ body { padding-bottom: 28px; }            /* room for the fixed status bar */
   align-items: start;
   min-height: calc(100vh - 56px);
 }
-@media (max-width: 1080px) { .ide { grid-template-columns: 50px minmax(0, 1fr); } .explorer { display: none; } }
-@media (max-width: 720px)  { .ide { grid-template-columns: minmax(0, 1fr); } .activity { display: none; } body { padding-bottom: 0; } }
+@media (max-width: 1080px) { .ide { grid-template-columns: 50px minmax(0, 1fr); } }
+@media (max-width: 720px)  { .ide { grid-template-columns: minmax(0, 1fr); } body { padding-bottom: 0; } }
+/* The `display: none` halves of those two rules used to live here, and never
+   applied: `.explorer` and `.activity` are both defined BELOW this point with
+   their own `display`, at the same specificity, and a media query adds none.
+   The later rule simply won. The visible result was the 50px activity rail
+   stretching to the full 390px width on a phone and painting a screen-tall
+   column of disembodied icons. The overrides now sit directly after each
+   component, where they can win. */
 
 /* ── Activity bar ────────────────────────────────────────────────────────── */
 .activity {
@@ -55,6 +62,9 @@ body { padding-bottom: 28px; }            /* room for the fixed status bar */
   box-shadow: 0 8px 20px -10px var(--shadow-lg); z-index: 5;
 }
 .activity a:hover span.tip { opacity: 1; transform: translateY(-50%); }
+
+/* Hidden on phones — see the note in The shell. Must stay after .activity. */
+@media (max-width: 720px) { .activity { display: none; } }
 
 /* ── Explorer ────────────────────────────────────────────────────────────── */
 .explorer {
@@ -100,6 +110,9 @@ body { padding-bottom: 28px; }            /* room for the fixed status bar */
   border: 1px solid var(--border-active); border-bottom-width: 2px;
   border-radius: 4px; padding: 1px 5px; background: var(--bg-secondary);
 }
+
+/* Hidden below 1080 — see the note in The shell. Must stay after .explorer. */
+@media (max-width: 1080px) { .explorer { display: none; } }
 
 /* ── Editor area ─────────────────────────────────────────────────────────── */
 .editor { min-width: 0; }
@@ -275,6 +288,16 @@ h2.title {
 @keyframes avJoin { from { opacity: 0; transform: translateX(-8px) scale(.6); } to { opacity: 1; transform: none; } }
 
 .editor-body { display: flex; position: relative; background: var(--bg-primary); overflow: hidden; }
+/* The code inside scrolls horizontally on narrow screens (see .editor-code).
+   Without an edge fade that just looks like the panel was cut off mid-word,
+   which is exactly how it read on a phone. Shown only while there is more to
+   the right — see syncScrollFades() in index.html. */
+.editor-body::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 56px;
+  pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 2;
+  background: linear-gradient(270deg, var(--bg-primary), transparent);
+}
+.editor-body.can-scroll::after { opacity: .95; }
 .gutter { flex: none; padding: 14px 10px 14px 14px; text-align: right; font-family: var(--mono); font-size: 13px; line-height: 1.75; white-space: pre; color: var(--text-muted); user-select: none; opacity: .55; border-right: 1px solid var(--border-subtle); }
 .editor-code {
   position: relative; flex: 1; min-width: 0; padding: 14px 14px 14px 16px;
@@ -464,9 +487,30 @@ h2.title {
    width and let the stage scroll horizontally — same treatment as the
    code blocks below. At ≥~1000px content width this is a no-op: the
    image still renders at 100% of its (already wider) container. */
-.shot-stage { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.shot-stage img { width: 100%; min-width: 860px; height: auto; display: block; }
+/* The screenshots are a wide IDE, so below ~860px the stage scrolls rather
+   than shrinking them into illegibility. That was already true — but with no
+   affordance it just looked like the image had been cut off, which is what a
+   phone visitor actually saw: 45% of an 860px shot and no hint of the rest.
+   The fade and the swipe hint below make the scroll legible as a scroll. */
+.shot-stage { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+.shot-stage img { width: 100%; min-width: 860px; height: auto; display: block; scroll-snap-align: start; }
 .shot-stage img[hidden] { display: none; }
+/* Sits on the stage's containing block, not inside the scroller, so it stays
+   pinned to the right edge instead of scrolling away with the image. */
+.shot-scroll { position: relative; }
+.shot-scroll::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 64px;
+  pointer-events: none; opacity: 0; transition: opacity .2s;
+  background: linear-gradient(270deg, var(--bg-primary), transparent);
+}
+.shot-scroll.can-scroll::after { opacity: .96; }
+.shot-hint {
+  display: none; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--text-muted);
+}
+.shot-scroll.can-scroll ~ .shot-cap .shot-hint { display: inline-flex; }
+.shot-scroll.can-scroll ~ .shot-cap .k { display: none; }
 .shot-cap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 13px 16px; border-top: 1px solid var(--border); background: var(--bg-tertiary); font-size: 13.5px; color: var(--text-2); }
 .shot-cap b { color: var(--text); font-weight: 600; }
 .shot-cap .k { font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
