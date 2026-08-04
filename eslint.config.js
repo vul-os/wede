@@ -51,15 +51,37 @@ export default defineConfig([
     },
   },
   {
-    // Node-context files: the Playwright config and the E2E suite run in Node
-    // (the test runner), but they also reference browser globals inside
-    // page.evaluate / addInitScript callbacks, which are authored inline here
-    // and executed in the page. Both global sets are legitimate.
-    files: ['playwright.config.js', 'e2e/**/*.{js,jsx}'],
+    // playwright.config.js runs in Node (the test runner reads env vars and
+    // spawns `vite preview`). Plain JS — not part of the TS-migrated surface.
+    files: ['playwright.config.js'],
     languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
+    // The E2E suite (e2e/**), migrated to TypeScript. Mirrors the src block's
+    // TS-aware extends/parser rather than being syntax-only. It runs in Node
+    // (the Playwright test runner) but also authors inline page.evaluate /
+    // addInitScript callbacks, which are written here and executed in the
+    // page — both global sets are legitimate.
+    files: ['e2e/**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
       globals: { ...globals.node, ...globals.browser },
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
     },
     rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
       // Playwright's fixture API is `async ({ page }, use) => { await use(x) }`.
       // React 19 also has a `use` hook, so rules-of-hooks sees the call and
       // demands the enclosing function be a component/hook. It is neither —
