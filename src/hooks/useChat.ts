@@ -1,0 +1,94 @@
+// useChat — connects to a workspace's chat WebSocket for live + persisted chat.
+//
+// Opens /api/workspaces/{id}/chat?token=&username=&color= (mirroring useCollab.js's
+// URL / dev-port logic), parses incoming frames:
+//   {type:"history", messages:[...]}  — full history on join
+//   {type:"msg",     message:{...}}   — live message
+//
+// Exposes { messages, sendMessage(text) }.
+//
+// Defensive by design: any failure leaves chat inactive (empty messages), never
+// throwing into the IDE.
+
+import { useEffect, useRef, useState, useCallback } from 'react'
+import type { ChatMessage } from '../types'
+
+function buildWsUrl(
+  workspaceId: string,
+  token: string | null | undefined,
+  username: string | null | undefined,
+  color: string | null | undefined,
+  channel: string | null | undefined,
+): string {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  // In dev (Vite on 5173/5174) the WS must hit the backend on :9090 directly.
+  const port = window.location.port
+  const host = (port === '5173' || port === '5174')
+    ? window.location.hostname + ':9090'
+    : window.location.host
+  return `${proto}//${host}/api/workspaces/${encodeURIComponent(workspaceId)}/chat`
+    + `?token=${encodeURIComponent(token || '')}`
+    + `&username=${encodeURIComponent(username || '')}`
+    + `&color=${encodeURIComponent(color || '#888888')}`
+    + `&channel=${encodeURIComponent(channel || 'public')}`
+}
+
+interface ChatFrame {
+  type?: string
+  messages?: ChatMessage[]
+  message?: ChatMessage
+}
+
+export function useChat(
+  workspaceId: string | null | undefined,
+  token: string | null | undefined,
+  username: string | null | undefined,
+  color: string | null | undefined,
+  channel = 'public',
+) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const wsRef = useRef<WebSocket | null>(null)
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!workspaceId || !token) return undefined
+    setMessages([]) // reset when switching channel
+    let ws: WebSocket | undefined
+    try {
+      ws = new WebSocket(buildWsUrl(workspaceId, token, username, color, channel))
+      wsRef.current = ws
+      ws.onmessage = (ev: MessageEvent) => {
+        try {
+          const msg: ChatFrame = JSON.parse(ev.data)
+          if (!msg) return
+          if (msg.type === 'history' && Array.isArray(msg.messages)) {
+            setMessages(msg.messages)
+          } else if (msg.type === 'msg' && msg.message) {
+            const message = msg.message
+            setMessages((prev) => [...prev, message])
+          }
+        } catch { /* ignore malformed frames */ }
+      }
+      ws.onclose = () => {
+        if (wsRef.current === ws) wsRef.current = null
+      }
+      ws.onerror = () => { /* non-fatal; onclose handles cleanup */ }
+    } catch { /* construction failed → chat inactive */ }
+
+    return () => {
+      try { if (ws) ws.close() } catch { /* ignore */ }
+      if (wsRef.current === ws) wsRef.current = null
+    }
+  }, [workspaceId, token, username, color, channel])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const sendMessage = useCallback((text: string | null | undefined) => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN || !text?.trim()) return
+    try {
+      ws.send(JSON.stringify({ type: 'msg', text: text.trim() }))
+    } catch { /* ignore */ }
+  }, [])
+
+  return { messages, sendMessage }
+}
