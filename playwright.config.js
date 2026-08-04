@@ -32,7 +32,7 @@ const BASE_URL = `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: '**/*.e2e.js',
+  testMatch: '**/*.e2e.ts',
   // The IDE mounts a lot of third-party code (CodeMirror + xterm + Yjs); a cold
   // first navigation on a loaded machine is not instant.
   timeout: 45_000,

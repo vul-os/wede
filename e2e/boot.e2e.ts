@@ -56,7 +56,7 @@ bare('entry chunk is served as JavaScript, not an HTML fallback', async ({ page 
   await installBackend(page)
   await seed(page, 'fresh')
 
-  const chunks = []
+  const chunks: { url: string; type: string; status: number }[] = []
   page.on('response', (res) => {
     if (/\/assets\/.*\.js$/.test(new URL(res.url()).pathname)) {
       chunks.push({ url: res.url(), type: res.headers()['content-type'] || '', status: res.status() })

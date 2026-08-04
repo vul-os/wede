@@ -23,7 +23,7 @@
  *    runs is how we do that without re-testing login in every spec.
  */
 
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page, type Route } from '@playwright/test'
 
 export const WORKSPACE_ID = 'ws_default'
 export const ROOT = '/home/dev/demo'
@@ -38,25 +38,49 @@ export const FILE_TREE = [
 
 export const SRC_CHILDREN = [{ name: 'app.js', path: 'src/app.js', isDir: false }]
 
-export const FILE_CONTENT = {
+export const FILE_CONTENT: Record<string, string> = {
   'README.md': '# demo\n\nHello from the wede E2E backend.\n',
   'main.go': 'package main\n\nfunc main() {\n\tprintln("hi")\n}\n',
   'src/app.js': 'export const answer = 42\n',
+}
+
+/** A login POST body as the frontend sends it. */
+export interface LoginAttempt {
+  username?: string
+  password?: string
+}
+
+/** A files/write POST body as the frontend sends it. */
+export interface WriteBody {
+  path: string
+  content: string
+}
+
+export interface InstallBackendOptions {
+  badPassword?: boolean
+}
+
+export interface InstallBackendHandles {
+  wrote: WriteBody[]
+  loginAttempts: LoginAttempt[]
 }
 
 /**
  * Attach the mocked wede backend. Call BEFORE page.goto().
  * Returns handles so a spec can assert what actually reached the wire.
  */
-export async function installBackend(page, { badPassword = false } = {}) {
-  const wrote = []
-  const loginAttempts = []
+export async function installBackend(
+  page: Page,
+  { badPassword = false }: InstallBackendOptions = {},
+): Promise<InstallBackendHandles> {
+  const wrote: WriteBody[] = []
+  const loginAttempts: LoginAttempt[] = []
   let attemptsLeft = 3
 
-  const json = (route, body, status = 200) =>
+  const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 
-  await page.route('**/api/**', async (route) => {
+  await page.route('**/api/**', async (route: Route) => {
     const req = route.request()
     const url = new URL(req.url())
     const path = url.pathname
@@ -151,10 +175,15 @@ export async function installBackend(page, { badPassword = false } = {}) {
   return { wrote, loginAttempts }
 }
 
+export interface CrashHandles {
+  pageErrors: string[]
+  failedRequests: string[]
+}
+
 /** Record uncaught exceptions + dead same-origin HTTP requests. Assert EMPTY. */
-export function watchForCrashes(page) {
-  const pageErrors = []
-  const failedRequests = []
+export function watchForCrashes(page: Page): CrashHandles {
+  const pageErrors: string[] = []
+  const failedRequests: string[] = []
   page.on('pageerror', (err) => pageErrors.push(`${err.name}: ${err.message}`))
   page.on('requestfailed', (req) => {
     // http(s) only — a WebSocket that never opens is not a boot failure.
@@ -166,15 +195,17 @@ export function watchForCrashes(page) {
 }
 
 /**
- * Seed localStorage BEFORE the app's first script runs, so a spec can start at
- * the surface it actually wants to test.
+ * The three top-level surfaces wede's localStorage gates boot into.
  *
  *   'fresh'  — nothing set: the app must show the ThemePicker (first visit).
  *   'themed' — theme chosen, no token: the app must show Login.
  *   'authed' — theme + session token: the app must boot the full IDE.
  */
-export async function seed(page, state) {
-  await page.addInitScript((s) => {
+export type BootState = 'fresh' | 'themed' | 'authed'
+
+/** Seed localStorage BEFORE the app's first script runs, so a spec can start at the surface it actually wants to test. */
+export async function seed(page: Page, state: BootState): Promise<void> {
+  await page.addInitScript((s: BootState) => {
     if (s === 'fresh') return
     localStorage.setItem('wede_theme', 'dark')
     if (s === 'authed') {
@@ -185,8 +216,13 @@ export async function seed(page, state) {
   }, state)
 }
 
+/** The fixture exposed to specs as `wede`: a page with the backend mocked and crashes recorded. */
+export interface WedeFixture extends CrashHandles, InstallBackendHandles {
+  page: Page
+}
+
 /** A page with the wede backend mocked and crashes recorded. */
-export const test = base.extend({
+export const test = base.extend<{ wede: WedeFixture }>({
   wede: async ({ page }, use) => {
     const backend = await installBackend(page)
     const crashes = watchForCrashes(page)
