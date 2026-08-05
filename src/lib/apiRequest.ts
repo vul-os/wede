@@ -60,8 +60,14 @@ export interface ApiEnvironment {
 // string (older/hand-written files).
 export function parseReq(raw: unknown): Partial<ApiRequest> {
   if (!raw) return {}
-  if (typeof raw === 'object') return raw as Partial<ApiRequest>
-  try { return JSON.parse(raw as string) } catch { return {} }
+  // No assertion needed: every member of ApiRequest is optional, so a bare
+  // `object` (raw, narrowed by the typeof check and the falsy-null return
+  // above) is already structurally assignable to Partial<ApiRequest>.
+  if (typeof raw === 'object') return raw
+  // JSON.parse returns `any` by design (the shape isn't known until runtime);
+  // this function's own signature is the honest boundary — its callers get
+  // Partial<ApiRequest>, same as the object branch above.
+  try { return JSON.parse(raw as string) as Partial<ApiRequest> } catch { return {} }
 }
 
 // subst replaces {{name}} tokens from the active environment's variables; unknown
