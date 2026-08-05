@@ -326,9 +326,9 @@ function CommitMenu({ x, y, commit, onClose, onAction, readOnly }: CommitMenuPro
 
   // Read-only actions always available
   const readOnlyItems = [
-    { label: 'Copy full hash',  icon: Hash,  action: () => { navigator.clipboard.writeText(commit.hash);    onClose() } },
-    { label: 'Copy short hash', icon: Copy,  action: () => { navigator.clipboard.writeText(commit.short);   onClose() } },
-    { label: 'Copy message',    icon: Copy,  action: () => { navigator.clipboard.writeText(commit.message); onClose() } },
+    { label: 'Copy full hash',  icon: Hash,  action: () => { navigator.clipboard.writeText(commit.hash).catch(() => {});    onClose() } },
+    { label: 'Copy short hash', icon: Copy,  action: () => { navigator.clipboard.writeText(commit.short).catch(() => {});   onClose() } },
+    { label: 'Copy message',    icon: Copy,  action: () => { navigator.clipboard.writeText(commit.message).catch(() => {}); onClose() } },
   ]
 
   // Mutating actions hidden in readOnly mode
@@ -611,7 +611,7 @@ function CommitDetail({ commit, authFetch, onClose }: CommitDetailProps) {
 
   const files = splitDiffByFile(data?.diff || '')
   const parents = (commit.parents || []).map((p) => p.slice(0, 7)).join(', ')
-  const copyHash = () => { navigator.clipboard?.writeText(commit.hash || commit.short); setCopied(true); setTimeout(() => setCopied(false), 1500) }
+  const copyHash = () => { navigator.clipboard?.writeText(commit.hash || commit.short).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   return (
     <div className="border-t border-border bg-bg-primary flex flex-col" style={{ maxHeight: '62%' }}>
@@ -1003,7 +1003,7 @@ function FileDiffPanel({ file, staged, authFetch, onRefresh, readOnly }: FileDif
                     <span>{line.text || ' '}</span>
                     {isHunkLine && !readOnly && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleStageHunk(hunks[hunkIdx], hunkIdx) }}
+                        onClick={(e) => { e.stopPropagation(); void handleStageHunk(hunks[hunkIdx], hunkIdx) }}
                         disabled={stagingHunk !== null}
                         className="opacity-0 group-hover:opacity-100 ml-2 px-1.5 py-0.5 text-[9px] font-semibold rounded bg-accent/20 text-accent hover:bg-accent/35 transition-all disabled:opacity-30 shrink-0"
                         title={staged ? 'Unstage hunk' : 'Stage hunk'}
@@ -1144,7 +1144,7 @@ function ConflictResolver({ file, authFetch, onRefresh }: ConflictResolverProps)
 
           {allResolved && (
             <button
-              onClick={handleResolve}
+              onClick={() => { void handleResolve() }}
               disabled={resolving}
               className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold bg-green text-white rounded-lg hover:bg-green/80 disabled:opacity-40 transition-colors shadow-sm"
             >
@@ -1363,7 +1363,7 @@ function StashSection({ stashes, authFetch, onRefresh, onToast, readOnly }: Stas
         </button>
         {!readOnly && (
           <button
-            onClick={handleStash}
+            onClick={() => { void handleStash() }}
             disabled={stashing}
             className="text-[10px] text-text-muted hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-bg-hover transition-colors font-medium shrink-0 disabled:opacity-40"
             title="Stash changes"
@@ -1390,7 +1390,7 @@ function StashSection({ stashes, authFetch, onRefresh, onToast, readOnly }: Stas
                 </div>
                 {!readOnly && (
                   <button
-                    onClick={() => handlePop(s.index)}
+                    onClick={() => { void handlePop(s.index) }}
                     disabled={popping !== null}
                     className="opacity-0 group-hover:opacity-100 text-[10px] text-accent hover:text-accent bg-accent/10 hover:bg-accent/20 px-2 py-0.5 rounded transition-all font-medium shrink-0 disabled:opacity-40"
                   >
@@ -1436,7 +1436,7 @@ function TagsSection({ authFetch, onToast, readOnly }: TagsSectionProps) {
   }, [authFetch])
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { if (open) loadTags() }, [open, loadTags])
+  useEffect(() => { if (open) void loadTags() }, [open, loadTags])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleCreate = async (e: FormEvent) => {
@@ -1455,7 +1455,7 @@ function TagsSection({ authFetch, onToast, readOnly }: TagsSectionProps) {
       } else {
         setNewTagName('')
         setShowCreate(false)
-        loadTags()
+        void loadTags()
       }
     } catch (err) { onToast(errMessage(err, 'Failed'), 'error') }
     setCreating(false)
@@ -1473,7 +1473,7 @@ function TagsSection({ authFetch, onToast, readOnly }: TagsSectionProps) {
       if (data.error) {
         onToast(data.error, 'error')
       } else {
-        loadTags()
+        void loadTags()
       }
     } catch (err) { onToast(errMessage(err, 'Failed'), 'error') }
   }
@@ -1498,7 +1498,7 @@ function TagsSection({ authFetch, onToast, readOnly }: TagsSectionProps) {
       {open && (
         <div className="border-t border-border/30 py-0.5">
           {!readOnly && showCreate && (
-            <form onSubmit={handleCreate} className="mx-3 mb-2 mt-1 flex gap-1">
+            <form onSubmit={(e) => { void handleCreate(e) }} className="mx-3 mb-2 mt-1 flex gap-1">
               <input
                 autoFocus
                 type="text"
@@ -1526,7 +1526,7 @@ function TagsSection({ authFetch, onToast, readOnly }: TagsSectionProps) {
                 <span className="text-[11px] font-mono text-text-secondary truncate flex-1">{tag.name}</span>
                 <span className="text-[10px] text-text-muted shrink-0 hidden group-hover:inline">{tag.date}</span>
                 {!readOnly && (
-                  <button onClick={() => handleDelete(tag.name)}
+                  <button onClick={() => { void handleDelete(tag.name) }}
                     className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red hover:bg-red/10 transition-all shrink-0">
                     <Trash2 className="w-3 h-3" />
                   </button>
