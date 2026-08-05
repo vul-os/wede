@@ -10,14 +10,17 @@ export interface Tab {
   rel?: string
   workspaceId?: string | null
   name?: string
-  type?: 'browser' | 'gitgraph' | 'apiclient' | string
+  // (string & {}) rather than plain `string` on these two: keeps the known
+  // literals as autocomplete/documentation hints without TS collapsing the
+  // union to bare `string` (which no-redundant-type-constituents flags).
+  type?: 'browser' | 'gitgraph' | 'apiclient' | (string & {})
   url?: string
   content?: string
   originalContent?: string
   modified?: boolean
   manual?: boolean
   preview?: boolean
-  fileType?: 'image' | 'binary' | string
+  fileType?: 'image' | 'binary' | (string & {})
   dataUrl?: string
   size?: number
   targetLine?: number
@@ -79,7 +82,8 @@ export interface MousePosition {
 // ({type:'history', messages:[...]} on join, {type:'msg', message:{...}} live).
 export interface ChatMessage {
   id?: string | number
-  kind: 'user' | 'git' | string
+  // (string & {}): see the Tab.type comment above — same autocomplete-without-collapse idiom.
+  kind: 'user' | 'git' | (string & {})
   user?: string
   color?: string
   text?: string
