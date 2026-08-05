@@ -98,4 +98,45 @@ export default defineConfig([
       'react-hooks/rules-of-hooks': 'off',
     },
   },
+  {
+    // Type-aware no-unsafe-assignment/argument/member-access measured at 63
+    // findings (46/12/4/1), clustering entirely at three DOM/third-party
+    // boundaries that are typed `any` by design, not developer error:
+    //   - Response.json(): Promise<any> (lib.dom.d.ts) — the majority
+    //   - JSON.parse(): any (WebSocket/EventSource onmessage, localStorage)
+    //   - MessageEvent.data: any (WebSocket/EventSource)
+    //   - Playwright's route.request().postDataJSON(): any (e2e/fixtures.ts only)
+    // Every site already declares the intended shape on the receiving end
+    // (`const data: SomeType = await res.json()`) — downgraded to warn
+    // rather than disabled so the list stays visible; the rule itself stays
+    // at error for the rest of the TS-migrated surface. Placed last so it
+    // wins over the recommendedTypeChecked defaults in the src/e2e blocks
+    // above (flat config applies later array entries' rules on top).
+    files: [
+      'e2e/fixtures.ts',
+      'src/App.tsx',
+      'src/components/ApiClient.tsx',
+      'src/components/FileExplorer.tsx',
+      'src/components/FolderPicker.tsx',
+      'src/components/GitGraphView.tsx',
+      'src/components/GitPanel.tsx',
+      'src/components/IDE.tsx',
+      'src/components/SearchPanel.tsx',
+      'src/components/ShareModal.tsx',
+      'src/components/Terminal.tsx',
+      'src/components/TunnelSettings.tsx',
+      'src/components/WedeLocation.tsx',
+      'src/hooks/useApiClient.ts',
+      'src/hooks/useAuth.ts',
+      'src/hooks/useChat.ts',
+      'src/hooks/useCollab.ts',
+      'src/hooks/useDap.ts',
+      'src/hooks/useWorkspaces.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-argument': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+    },
+  },
 ])
