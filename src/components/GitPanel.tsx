@@ -725,7 +725,7 @@ export function GitGraph({ entries, authFetch, onCommitAction, readOnly, totalCo
     setSelected((prev) => prev?.hash === row.hash ? null : row)
   }
 
-  const handleAction = async (action: CommitActionName, hash: string) => {
+  const handleAction = (action: CommitActionName, hash: string) => {
     setMenu(null)
     if (action === 'branchHere') {
       setBranchHereHash(hash)
@@ -1003,7 +1003,7 @@ function FileDiffPanel({ file, staged, authFetch, onRefresh, readOnly }: FileDif
                     <span>{line.text || ' '}</span>
                     {isHunkLine && !readOnly && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleStageHunk(hunks[hunkIdx!], hunkIdx!) }}
+                        onClick={(e) => { e.stopPropagation(); handleStageHunk(hunks[hunkIdx], hunkIdx) }}
                         disabled={stagingHunk !== null}
                         className="opacity-0 group-hover:opacity-100 ml-2 px-1.5 py-0.5 text-[9px] font-semibold rounded bg-accent/20 text-accent hover:bg-accent/35 transition-all disabled:opacity-30 shrink-0"
                         title={staged ? 'Unstage hunk' : 'Stage hunk'}

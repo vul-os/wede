@@ -593,7 +593,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (!workspacesApi?.createWorkspace) return
     const norm = path.replace(/\/+$/, '')
     // Already open as a root? Just focus it instead of adding a duplicate.
-    const existing = (workspacesApi.workspaces || []).find((w) => ((w.root as string | undefined) || '').replace(/\/+$/, '') === norm)
+    const existing = (workspacesApi.workspaces || []).find((w) => (w.root || '').replace(/\/+$/, '') === norm)
     if (existing) { workspacesApi.setActiveWorkspaceId(existing.id); return }
     const name = norm.split('/').filter(Boolean).pop() || 'folder'
     try {
