@@ -68,7 +68,7 @@ export function useWorkspaces(token: string | null | undefined, authFetch: AuthF
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (token) refresh()
+    if (token) void refresh()
   }, [token, refresh])
   /* eslint-enable react-hooks/set-state-in-effect */
 
