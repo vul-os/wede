@@ -58,7 +58,7 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaces = []
     setQuery('')
     setSel(0)
     let cancelled = false
-    Promise.all(roots.map((ws) =>
+    void Promise.all(roots.map((ws) =>
       authFetch(workspaceUrl(ws.id, '/files/tree'))
         .then((r) => r.json())
         .then((data: { files?: string[] }) => (Array.isArray(data.files) ? data.files : []).map((path): QuickFileEntry => ({ path, workspaceId: ws.id, rootName: ws.name })))
@@ -82,7 +82,7 @@ export default function QuickOpen({ visible, onClose, authFetch, workspaces = []
 
   const choose = useCallback((entry: QuickFileEntry | undefined) => {
     if (!entry) return
-    onOpenFile({ workspaceId: entry.workspaceId, rel: entry.path, path: entry.path, name: entry.path.split('/').pop(), isDir: false })
+    void onOpenFile({ workspaceId: entry.workspaceId, rel: entry.path, path: entry.path, name: entry.path.split('/').pop(), isDir: false })
     onClose()
   }, [onOpenFile, onClose])
 
