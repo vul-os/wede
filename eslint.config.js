@@ -30,10 +30,14 @@ export default defineConfig([
   {
     // The TypeScript-migrated app source (src/**). Mirrors the JS block above
     // but swaps the parser/no-unused-vars rule for TS-aware equivalents.
+    // Type-aware rules are enabled (parserOptions.projectService) specifically
+    // so no-floating-promises and the no-unsafe-* family actually run — wede
+    // is a Yjs/CRDT editor with persistence and network sync, exactly where a
+    // dropped promise rejection can mean a write that silently never lands.
     files: ['src/**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
-      ...tseslint.configs.recommended,
+      ...tseslint.configs.recommendedTypeChecked,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
@@ -43,6 +47,8 @@ export default defineConfig([
       parserOptions: {
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -63,11 +69,12 @@ export default defineConfig([
     // TS-aware extends/parser rather than being syntax-only. It runs in Node
     // (the Playwright test runner) but also authors inline page.evaluate /
     // addInitScript callbacks, which are written here and executed in the
-    // page — both global sets are legitimate.
+    // page — both global sets are legitimate. Type-aware rules are enabled
+    // the same way as the src block (tsconfig.json's include covers e2e/ too).
     files: ['e2e/**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
-      ...tseslint.configs.recommended,
+      ...tseslint.configs.recommendedTypeChecked,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
@@ -77,6 +84,8 @@ export default defineConfig([
       parserOptions: {
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {

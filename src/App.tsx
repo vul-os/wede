@@ -34,7 +34,7 @@ function App() {
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (token) fetchWorkspace()
+    if (token) void fetchWorkspace()
     else setLoading(false)
   }, [token, fetchWorkspace])
   /* eslint-enable react-hooks/set-state-in-effect */
