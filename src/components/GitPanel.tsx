@@ -1975,7 +1975,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
             {!readOnly && (
               <div className="px-3 pb-2 border-b border-border/40">
                 {showNewBranch ? (
-                  <form onSubmit={handleCreateBranch} className="flex gap-1.5 mt-1.5">
+                  <form onSubmit={(e) => { void handleCreateBranch(e) }} className="flex gap-1.5 mt-1.5">
                     <input
                       autoFocus
                       type="text"
@@ -2014,8 +2014,8 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                   key={b.name}
                   role="button"
                   tabIndex={0}
-                  onClick={() => !b.current && !readOnly && handleCheckout(b.name)}
-                  onKeyDown={(e) => { if (!b.current && !readOnly && (e.key === 'Enter' || e.key === ' ')) handleCheckout(b.name) }}
+                  onClick={() => { if (!b.current && !readOnly) void handleCheckout(b.name) }}
+                  onKeyDown={(e) => { if (!b.current && !readOnly && (e.key === 'Enter' || e.key === ' ')) void handleCheckout(b.name) }}
                   className={`group w-full flex items-center gap-2.5 px-3 py-2 transition-colors text-left overflow-hidden ${
                     b.current
                       ? 'text-text-primary bg-accent/5 cursor-default'
@@ -2035,7 +2035,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                     <div className="ml-auto flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-all">
                       {/* Merge button */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleMergeBranch(b.name) }}
+                        onClick={(e) => { e.stopPropagation(); void handleMergeBranch(b.name) }}
                         disabled={mergingBranch === b.name}
                         title={`Merge ${b.name} into current branch`}
                         className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-all disabled:opacity-40"
@@ -2047,7 +2047,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                       </button>
                       {/* Delete button */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteBranch(b.name) }}
+                        onClick={(e) => { e.stopPropagation(); void handleDeleteBranch(b.name) }}
                         title={`Delete branch ${b.name}`}
                         className="p-1 rounded text-text-muted hover:text-red hover:bg-red/10 transition-all">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -2082,7 +2082,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
               </div>
 
               {!readOnly && showAddRemote && (
-                <form onSubmit={handleAddRemote} className="mb-2 p-2.5 bg-bg-primary border border-border rounded-lg space-y-1.5 animate-fade-in">
+                <form onSubmit={(e) => { void handleAddRemote(e) }} className="mb-2 p-2.5 bg-bg-primary border border-border rounded-lg space-y-1.5 animate-fade-in">
                   <input
                     autoFocus
                     type="text"
@@ -2129,7 +2129,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                     <span className="text-[10px] text-text-muted truncate flex-1">{r.url}</span>
                     {!readOnly && (
                       <button
-                        onClick={() => handleRemoveRemote(r.name)}
+                        onClick={() => { void handleRemoveRemote(r.name) }}
                         className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-red hover:bg-red/10 transition-all shrink-0"
                         title="Remove remote"
                       >
@@ -2152,7 +2152,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                   desc="Download objects & refs"
                   loading={remoteOp === 'fetch'}
                   disabled={!!remoteOp || remotes.length === 0}
-                  onClick={() => runRemoteOp('fetch')}
+                  onClick={() => { void runRemoteOp('fetch') }}
                 />
                 <RemoteOpBtn
                   icon={CloudDownload}
@@ -2160,7 +2160,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                   desc="Fetch + merge current branch"
                   loading={remoteOp === 'pull'}
                   disabled={!!remoteOp || remotes.length === 0}
-                  onClick={() => runRemoteOp('pull')}
+                  onClick={() => { void runRemoteOp('pull') }}
                 />
                 <RemoteOpBtn
                   icon={Upload}
@@ -2168,7 +2168,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                   desc="Upload commits to remote"
                   loading={remoteOp === 'push'}
                   disabled={!!remoteOp || remotes.length === 0}
-                  onClick={() => runRemoteOp('push')}
+                  onClick={() => { void runRemoteOp('push') }}
                 />
               </div>
             )}
