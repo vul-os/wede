@@ -46,10 +46,10 @@ export default function GitGraphView({ authFetch, readOnly = false }: { authFetc
     }
   }, [authFetch, count])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
   const onLoadMore = () => { setLoadingMore(true); setCount((c) => c + PAGE) }
-  const refresh = () => { setRefreshing(true); load() }
+  const refresh = () => { setRefreshing(true); void load() }
 
   const runOp = async (name: string, url: string) => {
     if (readOnly || op) return
@@ -58,7 +58,7 @@ export default function GitGraphView({ authFetch, readOnly = false }: { authFetc
       const res = await authFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       const data: OpResponse = await res.json().catch(() => ({}))
       if (data.error) setOpMsg({ text: `${name} failed: ${data.error}`, error: true })
-      else { setOpMsg({ text: `${name} complete`, error: false }); load() }
+      else { setOpMsg({ text: `${name} complete`, error: false }); void load() }
     } catch {
       setOpMsg({ text: `${name} failed`, error: true })
     } finally {
@@ -80,7 +80,7 @@ export default function GitGraphView({ authFetch, readOnly = false }: { authFetc
       resetSoft: () => post('/api/git/reset', { hash, mode: 'soft' }),
       resetHard: () => post('/api/git/reset', { hash, mode: 'hard' }),
     }
-    if (actions[action]) { await actions[action](); load() }
+    if (actions[action]) { await actions[action](); void load() }
   }
 
   return (
@@ -96,15 +96,15 @@ export default function GitGraphView({ authFetch, readOnly = false }: { authFetc
         {/* Fetch / Pull / Push — like VS Code's sync actions */}
         {!readOnly && (
           <div className="flex items-center gap-0.5">
-            <button onClick={() => runOp('Fetch', '/api/git/fetch')} disabled={!!op} title="Fetch"
+            <button onClick={() => { void runOp('Fetch', '/api/git/fetch') }} disabled={!!op} title="Fetch"
               className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-40">
               <CloudDownload className={`w-3.5 h-3.5 ${op === 'Fetch' ? 'animate-pulse' : ''}`} />
             </button>
-            <button onClick={() => runOp('Pull', '/api/git/pull')} disabled={!!op} title="Pull"
+            <button onClick={() => { void runOp('Pull', '/api/git/pull') }} disabled={!!op} title="Pull"
               className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-40">
               <Download className={`w-3.5 h-3.5 ${op === 'Pull' ? 'animate-pulse' : ''}`} />
             </button>
-            <button onClick={() => runOp('Push', '/api/git/push')} disabled={!!op} title="Push"
+            <button onClick={() => { void runOp('Push', '/api/git/push') }} disabled={!!op} title="Push"
               className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-40">
               <Upload className={`w-3.5 h-3.5 ${op === 'Push' ? 'animate-pulse' : ''}`} />
             </button>
@@ -120,7 +120,7 @@ export default function GitGraphView({ authFetch, readOnly = false }: { authFetc
         <GitGraph
           entries={log}
           authFetch={authFetch}
-          onCommitAction={onCommitAction}
+          onCommitAction={(action, hash, extra) => { void onCommitAction(action, hash, extra) }}
           readOnly={readOnly}
           totalCount={count}
           onLoadMore={onLoadMore}
