@@ -9,7 +9,9 @@ export interface ShareModalProps {
 
 interface InviteToken {
   id: string
-  role: 'viewer' | 'editor' | string
+  // (string & {}): keeps 'viewer'/'editor' as autocomplete hints without
+  // collapsing the union to bare `string` (no-redundant-type-constituents).
+  role: 'viewer' | 'editor' | (string & {})
   username?: string
   createdAt: string
   expiresAt?: string
@@ -55,7 +57,7 @@ export default function ShareModal({ authFetch, onClose }: ShareModalProps) {
 
    
   useEffect(() => {
-    fetchTokens()
+    void fetchTokens()
   }, [fetchTokens])
    
 
@@ -137,7 +139,7 @@ export default function ShareModal({ authFetch, onClose }: ShareModalProps) {
 
         <div className="px-5 py-4 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* ── Mint form ── */}
-          <form onSubmit={handleMint} className="space-y-3">
+          <form onSubmit={(e) => { void handleMint(e) }} className="space-y-3">
             {/* Role picker */}
             <div className="flex gap-2">
               {['viewer', 'editor'].map((r) => (
@@ -261,7 +263,7 @@ export default function ShareModal({ authFetch, onClose }: ShareModalProps) {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleRevoke(t.id)}
+                      onClick={() => { void handleRevoke(t.id) }}
                       disabled={revoking === t.id}
                       className="ml-2 p-1 rounded text-text-muted hover:text-red hover:bg-red/10 disabled:opacity-40 transition-colors shrink-0"
                       title="Revoke invite"
