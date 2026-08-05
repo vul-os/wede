@@ -1621,25 +1621,37 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
   useEffect(() => { refresh(true) }, [refresh])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // handleStage/handleUnstage/handleStageAll/handleUnstageAll previously had
+  // no try/catch, unlike handleDiscard/handleMergeBranch right below them — a
+  // 401 or network error while staging/unstaging rejected silently with zero
+  // feedback (called as fire-and-forget onAction callbacks from FileRow).
   const handleStage   = async (path: string) => {
     if (readOnly) return
-    await authFetch('/api/git/stage',   { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) })
-    refresh(true)
+    try {
+      await authFetch('/api/git/stage',   { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) })
+    } catch (e) { showToast(errMessage(e, 'Stage failed'), 'error'); return }
+    void refresh(true)
   }
   const handleUnstage = async (path: string) => {
     if (readOnly) return
-    await authFetch('/api/git/unstage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) })
-    refresh(true)
+    try {
+      await authFetch('/api/git/unstage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) })
+    } catch (e) { showToast(errMessage(e, 'Unstage failed'), 'error'); return }
+    void refresh(true)
   }
   const handleStageAll = async () => {
     if (readOnly) return
-    await authFetch('/api/git/stage',   { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '.' }) })
-    refresh(true)
+    try {
+      await authFetch('/api/git/stage',   { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '.' }) })
+    } catch (e) { showToast(errMessage(e, 'Stage all failed'), 'error'); return }
+    void refresh(true)
   }
   const handleUnstageAll = async () => {
     if (readOnly) return
-    await authFetch('/api/git/unstage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '.' }) })
-    refresh(true)
+    try {
+      await authFetch('/api/git/unstage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '.' }) })
+    } catch (e) { showToast(errMessage(e, 'Unstage all failed'), 'error'); return }
+    void refresh(true)
   }
   const handleDiscard = async (path: string) => {
     if (readOnly) return
@@ -1652,40 +1664,56 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
         const d: ErrorResponse = await res.json().catch(() => ({}))
         showToast(d.error || 'Discard failed', 'error')
       } else {
-        refresh(true)
+        void refresh(true)
       }
     } catch (e) {
       showToast(errMessage(e, 'Discard failed'), 'error')
     }
   }
+  // handleCommit previously had no try/catch AND called setLoading(false)
+  // only after the await — a failed commit (401/network) threw past both
+  // setLoading(false) and setCommitMsg(''), leaving `loading` stuck true
+  // forever: the Commit button stays disabled/spinning for the rest of the
+  // session (only a full reload recovers it), while the typed message is
+  // preserved but silently never sent. try/finally fixes the stuck spinner;
+  // the catch surfaces the failure via the existing toast.
   const handleCommit = async (e: FormEvent) => {
     e.preventDefault()
     if (readOnly || !commitMsg.trim() || staged.length === 0) return
     setLoading(true)
-    await authFetch('/api/git/commit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: commitMsg }),
-    })
-    setCommitMsg('')
-    setLoading(false)
-    refresh(true)
+    try {
+      await authFetch('/api/git/commit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: commitMsg }),
+      })
+      setCommitMsg('')
+      void refresh(true)
+    } catch (e) {
+      showToast(errMessage(e, 'Commit failed'), 'error')
+    } finally {
+      setLoading(false)
+    }
   }
   const handleCheckout = async (branch: string) => {
     if (readOnly) return
-    await authFetch('/api/git/checkout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch }),
-    })
-    refresh(true)
+    try {
+      await authFetch('/api/git/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch }),
+      })
+    } catch (e) { showToast(errMessage(e, 'Checkout failed'), 'error'); return }
+    void refresh(true)
   }
   const handleDeleteBranch = async (branch: string) => {
     if (readOnly) return
     if (!window.confirm(`Delete branch "${branch}"? (unmerged branches are kept)`)) return
-    await authFetch('/api/git/branch/delete', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: branch, force: false }),
-    })
-    refresh(true)
+    try {
+      await authFetch('/api/git/branch/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: branch, force: false }),
+      })
+    } catch (e) { showToast(errMessage(e, 'Delete branch failed'), 'error'); return }
+    void refresh(true)
   }
   const handleMergeBranch = async (branch: string) => {
     if (readOnly) return
