@@ -31,6 +31,14 @@ jobs:
         run: npm run lint
         working-directory: web
 
+      # A green lint above proves nothing about whether type-aware rules are
+      # actually wired up (see the script's own header for the two real
+      # failures this caught fleet-wide) — this runs the real tools and
+      # checks what they did, not what the config file merely says.
+      - name: Lint config actually does what it claims
+        run: npm run check:lint-config
+        working-directory: web
+
       # CI never ran the JS unit tests at all.
       - name: JS unit tests
         run: npm test
