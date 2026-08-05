@@ -11,26 +11,26 @@ build-backend:
 test:
 	cd backend && go test ./...
 
-# Frontend
+# Frontend (web/ owns the whole Vite/React project — see web/package.json)
 lint:
-	npm run lint
+	cd web && npm run lint
 
 build-frontend:
-	npm run build
+	cd web && npm run build
 
 # Regenerate THIRD-PARTY-NOTICES.txt (root) + site/licenses.txt from the real
 # dependency graph (Go modules + npm + vendored site assets). Served at
-# /licenses.txt. Re-run after changing go.mod, package.json, or site vendor files.
+# /licenses.txt. Re-run after changing go.mod, web/package.json, or site vendor files.
 notices:
 	./scripts/gen-notices.sh
 
 # Full single-binary build (frontend embedded)
 build:
-	npm run build:all
+	cd web && npm run build:all
 
 # Dev loop
 dev:
-	npm run dev
+	cd web && npm run dev
 
 run:
 	cd backend && go run ./cmd/wede

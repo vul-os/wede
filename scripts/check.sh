@@ -16,13 +16,13 @@ step "backend: go test"
 ( cd backend && go test ./... ) || fail=1
 
 step "frontend: lint"
-npm run lint || fail=1
+( cd web && npm run lint ) || fail=1
 
 step "frontend: test"
-npm test || fail=1
+( cd web && npm test ) || fail=1
 
 step "frontend: build"
-npm run build || fail=1
+( cd web && npm run build ) || fail=1
 
 # The release guards are part of the gate, not a release-day afterthought. Both
 # assert that the refusals still fire — a checksum gate that has quietly

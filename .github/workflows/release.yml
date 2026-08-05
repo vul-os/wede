@@ -37,33 +37,38 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      # ── Verify tag matches package.json version ────────────────────────────────
+      # ── Verify tag matches web/package.json version ─────────────────────────────
       # Run this once (only on the first matrix shard is fine — all shards share
       # the same tag, so any failure would repeat identically; still, matrix jobs
       # run in parallel so we let every shard check and fail fast.)
-      - name: Verify tag matches package.json version
+      - name: Verify tag matches web/package.json version
         run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
+          PKG_VERSION=$(node -p "require('./web/package.json').version")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "ERROR: package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
-            echo "Bump version in package.json to ${TAG_VERSION} before tagging."
+            echo "ERROR: web/package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            echo "Bump version in web/package.json to ${TAG_VERSION} before tagging."
             exit 1
           fi
           echo "Version check passed: $PKG_VERSION == $TAG_VERSION"
 
+      # The frontend project (package.json, node_modules) lives in web/.
       - run: npm ci
+        working-directory: web
 
       - name: JS lint
         run: npm run lint
+        working-directory: web
 
       - run: npm run build
+        working-directory: web
 
       # ── Go: test + vet ────────────────────────────────────────────────────────
       - name: Go test
@@ -80,7 +85,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           mkdir -p backend/cmd/wede/dist
-          cp -r dist/* backend/cmd/wede/dist/
+          cp -r web/dist/* backend/cmd/wede/dist/
           mkdir -p backend/cmd/wede/site
           cp -r site/* backend/cmd/wede/site/
 

@@ -10,9 +10,9 @@ import (
 )
 
 // siteFS holds the standalone marketing site (landing + docs viewer) served for
-// wede.vulos.org. `npm run build:all` copies the repo-root site/ into this
-// directory before the embedded build, mirroring how the frontend dist is
-// embedded. Plain `go build ./...` uses site_dev.go (no embed) instead.
+// wede.vulos.org. `cd web && npm run build:all` copies the repo-root site/
+// into this directory before the embedded build, mirroring how the frontend
+// dist is embedded. Plain `go build ./...` uses site_dev.go (no embed) instead.
 //
 //go:embed site
 var siteFS embed.FS
