@@ -174,7 +174,12 @@ export function useDap({ workspaceId, token }: UseDapParams) {
         const fn = msg.request_seq !== undefined ? pendingRef.current[msg.request_seq] : undefined
         if (fn && msg.request_seq !== undefined) { delete pendingRef.current[msg.request_seq]; fn(msg) }
       } else if (msg.type === 'event') {
-        handleEvent(msg)
+        // handleEvent has no realistic rejection path today (every field read
+        // below it is optional-chained or `|| []`-guarded), but this is a raw
+        // WS message handler receiving server-controlled DAP frames cast with
+        // `as` rather than validated — if a future shape assumption ever does
+        // throw, surface it instead of letting it vanish as a silent rejection.
+        handleEvent(msg).catch((err: unknown) => { console.error('[dap] event handler failed', err) })
       }
     }
     ws.onclose = () => { if (wsRef.current === ws) { wsRef.current = null; setStatus((s) => (s === 'idle' ? 'idle' : 'terminated')) } }
@@ -199,7 +204,9 @@ export function useDap({ workspaceId, token }: UseDapParams) {
   // Push a breakpoint update mid-session (also updates the config for next launch).
   const syncBreakpoints = useCallback((path: string, lines: number[]) => {
     cfgRef.current.breakpoints = { ...cfgRef.current.breakpoints, [path]: lines }
-    send('setBreakpoints', { source: { path }, breakpoints: (lines || []).map((l) => ({ line: l })) })
+    // Fire-and-forget: callers don't wait on the ack, and send()'s Promise
+    // executor (line 94) only ever resolves, never rejects.
+    void send('setBreakpoints', { source: { path }, breakpoints: (lines || []).map((l) => ({ line: l })) })
   }, [send])
 
   return { status, frames, scopes, output, stopLine, start, stop, cont, stepOver, stepIn, stepOut, syncBreakpoints }

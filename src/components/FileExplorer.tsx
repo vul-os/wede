@@ -206,14 +206,14 @@ function TreeNode({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (isOpen && children === null) loadChildren()
+    if (isOpen && children === null) void loadChildren()
   }, [isOpen, children, loadChildren])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleClick = () => {
     if (entry.isDir) {
       onToggle(entry.path)
-      if (!isOpen) loadChildren()
+      if (!isOpen) void loadChildren()
       onFocusDir(entry.path)
     } else {
       onSelect(entry) // single click → preview tab
@@ -422,8 +422,8 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
   useEffect(() => {
     setFiles([])
     setExpanded(new Set())
-    loadRoot()
-    loadGitStatus()
+    void loadRoot()
+    void loadGitStatus()
     const interval = setInterval(loadGitStatus, 8000)
     return () => clearInterval(interval)
   }, [loadRoot, loadGitStatus])
@@ -432,7 +432,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
   // triggers (command palette / SSE watcher) to the focused root.
   useEffect(() => {
     register(ws.id, {
-      refresh: () => { loadRoot(); loadGitStatus() },
+      refresh: () => { void loadRoot(); void loadGitStatus() },
       newFile: () => { onFocus(); setShowNew('file') },
       newFolder: () => { onFocus(); setShowNew('folder') },
     })
@@ -447,15 +447,27 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
     })
   }
 
+  // handleCreate/confirmAndDelete/submitRename previously had no try/catch,
+  // unlike every read (loadRoot/loadGitStatus) and handlePaste in this file —
+  // a 401 or network error while creating, deleting, or renaming a file would
+  // reject silently: called as onSubmit={handleCreate} / onConfirm=
+  // {confirmAndDelete} / onSubmit={submitRename} with nothing above them to
+  // catch it, the inline input or confirm dialog would just close with no
+  // indication the mutation never landed.
   const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!newName.trim()) return
     const base = focusedDir ? `${focusedDir}/` : ''
-    await wsFetch('/api/files/create', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: base + newName, isDir: showNew === 'folder' }),
-    })
-    setShowNew(null); setNewName(''); loadRoot()
+    try {
+      await wsFetch('/api/files/create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: base + newName, isDir: showNew === 'folder' }),
+      })
+    } catch {
+      alert(`Failed to create ${showNew === 'folder' ? 'folder' : 'file'} — check your connection and try again.`)
+      return
+    }
+    setShowNew(null); setNewName(''); void loadRoot()
   }
 
   const handlePaste = async (targetDir: string) => {
@@ -467,7 +479,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ src: clipboard.path, dst: dest }),
       })
-      loadRoot()
+      void loadRoot()
     } catch { /* ignore */ }
   }
 
@@ -477,8 +489,13 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
     if (!confirmDelete) return
     const path = confirmDelete
     setConfirmDelete(null)
-    await wsFetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
-    loadRoot()
+    try {
+      await wsFetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    } catch {
+      alert('Failed to delete — check your connection and try again.')
+      return
+    }
+    void loadRoot()
   }
 
   const handleRename = (path: string) => {
@@ -491,16 +508,21 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
     if (!renameName.trim() || !renaming) return
     const dir = renaming.includes('/') ? renaming.slice(0, renaming.lastIndexOf('/')) : ''
     const newPath = dir ? `${dir}/${renameName}` : renameName
-    await wsFetch('/api/files/rename', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oldPath: renaming, newPath }),
-    })
-    setRenaming(null); setRenameName(''); loadRoot()
+    try {
+      await wsFetch('/api/files/rename', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath: renaming, newPath }),
+      })
+    } catch {
+      alert('Failed to rename — check your connection and try again.')
+      return
+    }
+    setRenaming(null); setRenameName(''); void loadRoot()
   }
 
   useEffect(() => {
     const handler = (e: globalThis.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) handlePaste(focusedDir)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && clipboard) void handlePaste(focusedDir)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -525,7 +547,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <IconBtn icon={FilePlus} title="New File" onClick={(e) => { e.stopPropagation(); onFocus(); setShowNew('file') }} />
             <IconBtn icon={FolderPlus} title="New Folder" onClick={(e) => { e.stopPropagation(); onFocus(); setShowNew('folder') }} />
-            <IconBtn icon={RefreshCw} title="Refresh" onClick={(e) => { e.stopPropagation(); loadRoot(); loadGitStatus() }} />
+            <IconBtn icon={RefreshCw} title="Refresh" onClick={(e) => { e.stopPropagation(); void loadRoot(); void loadGitStatus() }} />
             {canClose && <IconBtn icon={XIcon} title="Remove folder from workspace" onClick={(e) => { e.stopPropagation(); onClose() }} />}
           </div>
         </div>
@@ -538,7 +560,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
               placeholder={showNew === 'file' ? 'filename.ext' : 'folder-name'}
               value={newName}
               onChange={setNewName}
-              onSubmit={handleCreate}
+              onSubmit={(e) => { void handleCreate(e) }}
               onBlur={() => { setShowNew(null); setNewName('') }}
             />
           )}
@@ -547,7 +569,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
               placeholder="new name"
               value={renameName}
               onChange={setRenameName}
-              onSubmit={submitRename}
+              onSubmit={(e) => { void submitRename(e) }}
               onBlur={() => setRenaming(null)}
             />
           )}
@@ -556,9 +578,9 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
               <TreeNode
                 key={entry.path} entry={entry} depth={0} rootId={ws.id}
                 onSelect={selectFromRoot} onToggle={toggleExpand} expanded={expanded}
-                authFetch={wsFetch} onRefresh={loadRoot} selectedPath={selectedPath}
+                authFetch={wsFetch} onRefresh={() => { void loadRoot() }} selectedPath={selectedPath}
                 gitMap={gitMap} presenceMap={presenceMap} clipboard={clipboard} setClipboard={setClipboard}
-                onPaste={handlePaste} onDelete={handleDelete} onRename={handleRename}
+                onPaste={(dir) => { void handlePaste(dir) }} onDelete={handleDelete} onRename={handleRename}
                 onFocusDir={setFocusedDir}
               />
             ))}
@@ -572,7 +594,7 @@ function RootSection({ ws, authFetch, onFileSelect, selectedPath, roster, regist
       {confirmDelete && (
         <ConfirmDialog
           message={`Delete "${confirmDelete.split('/').pop()}"? This cannot be undone.`}
-          onConfirm={confirmAndDelete}
+          onConfirm={() => { void confirmAndDelete() }}
           onCancel={() => setConfirmDelete(null)}
         />
       )}

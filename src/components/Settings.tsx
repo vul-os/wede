@@ -336,7 +336,7 @@ export default function Settings({ visible, onClose, onOpenFolder, workspace, ed
                     : 'No project tooling (.wede/lsp.json, formatters.json, tasks.json) committed yet.'}
                 </span>
               </div>
-              <Toggle checked={trust.trusted} onChange={toggleTrust} />
+              <Toggle checked={trust.trusted} onChange={(v) => { void toggleTrust(v) }} />
             </label>
           </div>
         )}

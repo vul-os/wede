@@ -157,7 +157,7 @@ export default function ApiClient({ api, authFetch, readOnly = false }: ApiClien
     catch { return { pretty: resp.body, isJson: false } }
   })()
 
-  const copyBody = () => { navigator.clipboard?.writeText(pretty); setCopied(true); setTimeout(() => setCopied(false), 1500) }
+  const copyBody = () => { navigator.clipboard?.writeText(pretty).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden text-text-primary min-w-0">
@@ -177,16 +177,16 @@ export default function ApiClient({ api, authFetch, readOnly = false }: ApiClien
             {METHODS.map((m) => <option key={m} value={m} className="text-text-primary bg-bg-primary">{m}</option>)}
           </select>
           <input value={req.url} disabled={readOnly} onChange={(e) => patch({ url: e.target.value })}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
+            onKeyDown={(e) => { if (e.key === 'Enter') void send() }}
             placeholder="https://api.example.com/path   ·   {{base}}/tasks"
             className="flex-1 bg-transparent px-3 py-2 text-[12px] font-mono text-text-primary placeholder:text-text-muted focus:outline-none min-w-0" />
         </div>
-        <button onClick={send} disabled={sending || !req.url.trim()}
+        <button onClick={() => { void send() }} disabled={sending || !req.url.trim()}
           className="flex items-center gap-1.5 px-5 py-2 bg-accent text-white rounded-lg text-[12px] font-semibold hover:bg-accent-hover disabled:opacity-40 shrink-0 shadow-sm shadow-accent/20 transition-colors">
           {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send
         </button>
         {!readOnly && (
-          <button onClick={doSave} title="Save to .wede/requests/"
+          <button onClick={() => { void doSave() }} title="Save to .wede/requests/"
             className="flex items-center gap-1.5 px-2.5 py-2 text-[12px] text-text-muted hover:text-text-primary border border-border rounded-lg hover:bg-bg-hover shrink-0 transition-colors">
             {saved ? <Check className="w-4 h-4 text-green" /> : <Save className="w-4 h-4" />}
             <span className="hidden sm:inline">{saved ? 'Saved' : 'Save'}</span>

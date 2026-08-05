@@ -10,7 +10,11 @@ interface AuthCheckResponse {
 }
 
 interface LoginResponse {
-  error?: 'locked' | 'wrong_password' | string
+  // (string & {}) rather than plain `string`: keeps 'locked' / 'wrong_password'
+  // as autocomplete/documentation hints for the known server values without
+  // TS collapsing the union to bare `string` (which no-redundant-type-constituents
+  // flags, since a plain `string` member does make the literals redundant).
+  error?: 'locked' | 'wrong_password' | (string & {})
   message?: string
   remaining?: number
   token?: string
@@ -139,7 +143,7 @@ export function useAuth() {
     }
   }, [])
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
     const t = localStorage.getItem('wede_token')
     localStorage.removeItem('wede_token')
     localStorage.removeItem('wede_username')

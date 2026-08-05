@@ -57,10 +57,10 @@ export default function DebugPanel({ dap, canDebug, targetName, targetLang, onSt
         ) : (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-0.5">
-              <button onClick={cont} disabled={!paused} title="Continue (F5)" className={STEP_BTN}><Play className="w-3.5 h-3.5" /></button>
-              <button onClick={stepOver} disabled={!paused} title="Step Over (F10)" className={STEP_BTN}><CornerDownRight className="w-3.5 h-3.5" /></button>
-              <button onClick={stepIn} disabled={!paused} title="Step Into (F11)" className={STEP_BTN}><ArrowDownToLine className="w-3.5 h-3.5" /></button>
-              <button onClick={stepOut} disabled={!paused} title="Step Out (Shift+F11)" className={STEP_BTN}><ArrowUpFromLine className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { void cont() }} disabled={!paused} title="Continue (F5)" className={STEP_BTN}><Play className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { void stepOver() }} disabled={!paused} title="Step Over (F10)" className={STEP_BTN}><CornerDownRight className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { void stepIn() }} disabled={!paused} title="Step Into (F11)" className={STEP_BTN}><ArrowDownToLine className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { void stepOut() }} disabled={!paused} title="Step Out (Shift+F11)" className={STEP_BTN}><ArrowUpFromLine className="w-3.5 h-3.5" /></button>
             </div>
             <button onClick={stop} title="Stop"
               className="p-1.5 rounded-md text-red hover:bg-red/10 transition-colors">

@@ -244,7 +244,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false, w
     if (e.key === 'Enter') {
       e.preventDefault()
       clearTimeout(debounceRef.current)
-      doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
+      void doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const first = resultButtonsRef.current[0]
@@ -390,7 +390,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false, w
       if (replacements === 0 && per.every((r) => r.error)) setReplaceError(per[0].error || '')
       else {
         setReplaceResult({ filesChanged, replacements })
-        doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
+        void doSearch(query, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob, searchMode)
       }
     } catch (e) {
       setReplaceError((e as Error).message || 'Replace failed')
@@ -573,7 +573,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false, w
             />
             <div className="flex gap-1.5">
               <button
-                onClick={handleReplacePreview}
+                onClick={() => { void handleReplacePreview() }}
                 disabled={!query.trim() || replacePreviewing}
                 className="flex-1 flex items-center justify-center gap-1 py-1 text-[11px] border border-border rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
               >
@@ -584,7 +584,7 @@ export default function SearchPanel({ authFetch, onOpenFile, readOnly = false, w
                 Preview
               </button>
               <button
-                onClick={handleReplaceAll}
+                onClick={() => { void handleReplaceAll() }}
                 disabled={!query.trim() || replacing}
                 className="flex-1 flex items-center justify-center gap-1 py-1 text-[11px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium shadow-sm shadow-accent/20"
               >

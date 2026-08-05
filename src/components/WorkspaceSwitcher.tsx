@@ -91,19 +91,19 @@ export default function WorkspaceSwitcher({ workspacesApi }: WorkspaceSwitcherPr
                   autoFocus
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setAdding(false) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void create(); if (e.key === 'Escape') setAdding(false) }}
                   placeholder="/path/to/workspace"
                   className="w-full px-2 py-1 rounded-md bg-bg-secondary border border-border text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setAdding(false) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void create(); if (e.key === 'Escape') setAdding(false) }}
                   placeholder="Name (optional)"
                   className="w-full px-2 py-1 rounded-md bg-bg-secondary border border-border text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40" />
                 {error && <div className="text-[11px] text-red px-0.5">{error}</div>}
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={create}
+                    onClick={() => { void create() }}
                     disabled={busy}
                     className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[12px] bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-50">
                     {busy ? 'Opening…' : 'Open'}

@@ -18,8 +18,11 @@ function loadTerminals(): TerminalSession[] | null {
   try {
     const saved = localStorage.getItem('wede_terminals')
     if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      // JSON.parse returns `any` by design; keep it at `unknown` until the
+      // Array.isArray check, then assert — this function's own return type is
+      // the declared boundary for the (trusted, our-own-write) localStorage blob.
+      const parsed = JSON.parse(saved) as unknown
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as TerminalSession[]
     }
   } catch { /* ignore */ }
   return null

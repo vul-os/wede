@@ -63,12 +63,12 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
   }, [authFetch])
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { browse('') }, [browse])
+  useEffect(() => { void browse('') }, [browse])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleOpen = async (path: string) => {
     // Add mode: don't repoint the default workspace — just surface the path.
-    if (addMode) { onOpen(path); return }
+    if (addMode) { void onOpen(path); return }
     try {
       const res = await authFetch('/api/folder/open', {
         method: 'POST',
@@ -77,14 +77,14 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
       })
       const data: OpenResponse = await res.json()
       if (data.status === 'ok' && data.current) {
-        onOpen(data.current)
+        void onOpen(data.current)
       }
     } catch { /* ignore */ }
   }
 
   const handleManualOpen = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (manualPath.trim()) handleOpen(manualPath.trim())
+    if (manualPath.trim()) void handleOpen(manualPath.trim())
   }
 
   const rootIcons: Record<string, LucideIcon> = {
@@ -122,7 +122,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
               return (
                 <button
                   key={root.path}
-                  onClick={() => browse(root.path)}
+                  onClick={() => { void browse(root.path) }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border rounded-lg text-xs text-text-secondary hover:text-accent hover:border-accent/50 transition-colors"
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -144,7 +144,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
             {recents.map((path) => (
               <button
                 key={path}
-                onClick={() => handleOpen(path)}
+                onClick={() => { void handleOpen(path) }}
                 className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-secondary hover:text-accent hover:border-accent/50 transition-colors text-left"
               >
                 <FolderOpen className="w-4 h-4 text-yellow shrink-0" />
@@ -161,7 +161,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
           <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">Browse</h3>
           {parent && (
             <button
-              onClick={() => browse(parent)}
+              onClick={() => { void browse(parent) }}
               className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
             >
               <ChevronUp className="w-3 h-3" /> Up
@@ -181,14 +181,14 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
                 className="flex items-center border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors"
               >
                 <button
-                  onClick={() => browse(dir.path)}
+                  onClick={() => { void browse(dir.path) }}
                   className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary text-left"
                 >
                   <Folder className="w-4 h-4 text-yellow shrink-0" />
                   <span className="truncate">{dir.name}</span>
                 </button>
                 <button
-                  onClick={() => handleOpen(dir.path)}
+                  onClick={() => { void handleOpen(dir.path) }}
                   className="px-3 py-2 text-xs text-accent hover:text-accent-hover font-medium transition-colors"
                 >
                   Open
@@ -199,7 +199,7 @@ export default function FolderPicker({ authFetch, onOpen, recents, inline, addMo
         </div>
         {/* Open current browsed directory */}
         <button
-          onClick={() => handleOpen(currentPath)}
+          onClick={() => { void handleOpen(currentPath) }}
           className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-accent/10 border border-accent/30 text-accent text-sm font-medium rounded-lg hover:bg-accent/20 transition-colors"
         >
           <FolderOpen className="w-4 h-4" />

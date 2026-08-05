@@ -31,7 +31,7 @@ export default function WedeLocation({ workspaceId, authFetch }: WedeLocationPro
     } catch { /* leave hidden */ }
   }, [base, authFetch])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
   const setHost = async (host: string) => {
     if (!base) return
@@ -60,7 +60,7 @@ export default function WedeLocation({ workspaceId, authFetch }: WedeLocationPro
       <div className="flex items-center gap-2">
         <select
           value={state.host || ''}
-          onChange={(e) => setHost(e.target.value)}
+          onChange={(e) => { void setHost(e.target.value) }}
           disabled={busy}
           className="flex-1 bg-bg-input border border-border rounded-md px-2.5 py-1.5 text-[12px] text-text-primary focus:outline-none focus:border-accent/60 disabled:opacity-50"
         >
