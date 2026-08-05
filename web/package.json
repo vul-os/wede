@@ -11,6 +11,7 @@
     "docs:sync": "node ../scripts/sync-docs.mjs",
     "build:all": "npm run docs:sync && vite build && cp -r dist ../backend/cmd/wede/dist && cp -r ../site ../backend/cmd/wede/site && cd ../backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist cmd/wede/site",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "check:lint-config": "node scripts/check-lint-config.mjs",
     "test": "vitest run",
     "pretest:e2e": "vite build",
