@@ -243,6 +243,12 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
       : []
 
     const state = EditorState.create({
+      // yjs's shipped .d.ts (types/YText.d.ts) declares toJSON() but omits
+      // toString() from Y.Text's declarations, even though yjs/src/types/YText.js
+      // implements toString() (returns the plain-text content) and toJSON()
+      // calls it internally. no-base-to-string sees the undeclared method and
+      // assumes Object.prototype's default — this is the real, intended call.
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       doc: collabOn ? yt.toString() : (content || ''),
       extensions: [
         ...collabExt,
@@ -406,7 +412,7 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
   useEffect(() => {
     if (!viewRef.current || !file?.targetLine) return
     const view = viewRef.current
-    const line = Math.max(1, Math.min(file.targetLine as number, view.state.doc.lines))
+    const line = Math.max(1, Math.min(file.targetLine, view.state.doc.lines))
     const pos = view.state.doc.line(line).from
     view.dispatch({
       selection: { anchor: pos },
