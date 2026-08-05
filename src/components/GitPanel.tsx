@@ -1618,7 +1618,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
   }, [authFetch, visible])
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { refresh(true) }, [refresh])
+  useEffect(() => { void refresh(true) }, [refresh])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // handleStage/handleUnstage/handleStageAll/handleUnstageAll previously had
@@ -1728,7 +1728,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
         showToast('Merge failed: ' + data.error, 'error')
       } else {
         showToast(`Merged ${branch}`, 'success')
-        refresh(true)
+        void refresh(true)
       }
     } catch (err) {
       showToast(errMessage(err, 'Merge failed'), 'error')
@@ -1752,7 +1752,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
         setRemoteMsg('Error: ' + data.error)
       } else {
         setRemoteMsg(data.output || op + ' successful')
-        refresh(true)
+        void refresh(true)
       }
     } catch (e) {
       setRemoteMsg('Error: ' + (e instanceof Error ? e.message : undefined))
@@ -1773,9 +1773,13 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
       if (!data.error) {
         setNewBranch('')
         setShowNewBranch(false)
-        refresh(true)
+        void refresh(true)
+      } else {
+        showToast(data.error, 'error')
       }
-    } catch (err) { void err }
+    } catch (err) {
+      showToast(errMessage(err, 'Failed to create branch'), 'error')
+    }
     setLoading(false)
   }
 
@@ -1796,7 +1800,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
         setNewRemoteName('')
         setNewRemoteUrl('')
         setShowAddRemote(false)
-        refresh(true)
+        void refresh(true)
       }
     } catch (err) {
       showToast(errMessage(err, 'Failed to add remote'), 'error')
@@ -1816,7 +1820,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
         showToast(data.error, 'error')
       } else {
         showToast('Remote removed', 'success')
-        refresh(true)
+        void refresh(true)
       }
     } catch (err) {
       showToast(errMessage(err, 'Failed to remove remote'), 'error')
