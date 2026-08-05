@@ -6,17 +6,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "cd backend && go run ./cmd/wede",
+    "dev:backend": "cd ../backend && go run ./cmd/wede",
     "build": "vite build",
-    "docs:sync": "node scripts/sync-docs.mjs",
-    "build:all": "npm run docs:sync && vite build && cp -r dist backend/cmd/wede/dist && cp -r site backend/cmd/wede/site && cd backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist cmd/wede/site",
-    "lint": "eslint .",
+    "docs:sync": "node ../scripts/sync-docs.mjs",
+    "build:all": "npm run docs:sync && vite build && cp -r dist ../backend/cmd/wede/dist && cp -r ../site ../backend/cmd/wede/site && cd ../backend && go build -tags embed_frontend -o ../wede ./cmd/wede && rm -rf cmd/wede/dist cmd/wede/site",
+    "lint": "eslint . ../scripts",
     "test": "vitest run",
     "pretest:e2e": "vite build",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node ../scripts/screenshots.mjs"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",

@@ -58,11 +58,16 @@ go list -mod=mod -m -json all | "$DETECTOR" \
   -noticeOut "$TMP/go-notices.txt"
 
 # --- npm packages actually bundled into dist (production deps only).
+# The frontend project (package.json, node_modules) lives in web/ — scan it
+# there, not the repo root.
 echo "==> resolving npm dependency graph"
-[[ -d node_modules ]] || npm ci
-npx --yes license-checker-rseidelsohn \
-  --production --json --excludePrivatePackages --start . \
-  | node scripts/notices/npm-notices.mjs > "$TMP/npm-notices.txt"
+(
+  cd web
+  [[ -d node_modules ]] || npm ci
+  npx --yes license-checker-rseidelsohn \
+    --production --json --excludePrivatePackages --start . \
+    | node ../scripts/notices/npm-notices.mjs > "$TMP/npm-notices.txt"
+)
 
 echo "==> composing $OUT"
 {
