@@ -1836,7 +1836,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
   if (!status.isRepo && status.isRepo !== undefined) {
     return (
       <div className="h-full flex flex-col bg-bg-secondary">
-        <PanelHeader branch={null} onRefresh={refresh} refreshing={refreshing} />
+        <PanelHeader branch={null} onRefresh={(quiet) => { void refresh(quiet) }} refreshing={refreshing} />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-[180px]">
             <div className="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mx-auto mb-3">
@@ -1854,7 +1854,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary overflow-hidden">
-      <PanelHeader onRefresh={refresh} refreshing={refreshing} readOnly={readOnly}
+      <PanelHeader onRefresh={(quiet) => { void refresh(quiet) }} refreshing={refreshing} readOnly={readOnly}
         section={section} setSection={setSection} onOpenGraph={onOpenGraph} />
 
       {/* Sub-view title (when not on the main Changes view) */}
@@ -1880,7 +1880,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
           <div className="flex flex-col">
             {/* Commit box — hidden in readOnly */}
             {!readOnly && (
-              <form onSubmit={handleCommit} className="p-3 border-b border-border bg-bg-secondary">
+              <form onSubmit={(e) => { void handleCommit(e) }} className="p-3 border-b border-border bg-bg-secondary">
                 <textarea
                   value={commitMsg}
                   onChange={(e) => setCommitMsg(e.target.value)}
@@ -1890,7 +1890,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                 />
                 <div className="flex gap-2 mt-2">
                   {unstaged.length > 0 && staged.length === 0 && (
-                    <button type="button" onClick={handleStageAll}
+                    <button type="button" onClick={() => { void handleStageAll() }}
                       className="flex-1 text-[11px] py-1.5 rounded-md border border-border text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors font-medium">
                       Stage All
                     </button>
@@ -1914,7 +1914,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
                 readOnly={readOnly}
               >
                 {conflicted.map((f) => (
-                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} authFetch={authFetch} onRefresh={() => refresh(true)} readOnly={readOnly} />
+                  <FileRow key={f.path} file={f} action="stage" onAction={(p) => { void handleStage(p) }} authFetch={authFetch} onRefresh={() => { void refresh(true) }} readOnly={readOnly} />
                 ))}
               </SectionHeader>
             )}
@@ -1923,11 +1923,11 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
             {staged.length > 0 && (
               <SectionHeader
                 label="Staged" count={staged.length} colorClass="text-green"
-                onUnstageAll={handleUnstageAll}
+                onUnstageAll={() => { void handleUnstageAll() }}
                 readOnly={readOnly}
               >
                 {staged.map((f) => (
-                  <FileRow key={f.path} file={f} action="unstage" onAction={handleUnstage} authFetch={authFetch} onRefresh={() => refresh(true)} readOnly={readOnly} />
+                  <FileRow key={f.path} file={f} action="unstage" onAction={(p) => { void handleUnstage(p) }} authFetch={authFetch} onRefresh={() => { void refresh(true) }} readOnly={readOnly} />
                 ))}
               </SectionHeader>
             )}
@@ -1936,11 +1936,11 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
             {unstaged.length > 0 && (
               <SectionHeader
                 label="Changes" count={unstaged.length} colorClass="text-yellow"
-                onStageAll={handleStageAll}
+                onStageAll={() => { void handleStageAll() }}
                 readOnly={readOnly}
               >
                 {unstaged.map((f) => (
-                  <FileRow key={f.path} file={f} action="stage" onAction={handleStage} onDiscard={handleDiscard} authFetch={authFetch} onRefresh={() => refresh(true)} readOnly={readOnly} />
+                  <FileRow key={f.path} file={f} action="stage" onAction={(p) => { void handleStage(p) }} onDiscard={(p) => { void handleDiscard(p) }} authFetch={authFetch} onRefresh={() => { void refresh(true) }} readOnly={readOnly} />
                 ))}
               </SectionHeader>
             )}
@@ -1959,7 +1959,7 @@ export default function GitPanel({ authFetch, visible, readOnly = false, onOpenG
             <StashSection
               stashes={stashes}
               authFetch={authFetch}
-              onRefresh={() => refresh(true)}
+              onRefresh={() => { void refresh(true) }}
               onToast={showToast}
               readOnly={readOnly}
             />
