@@ -8,7 +8,9 @@ interface TunnelConfig {
 }
 
 interface TunnelState {
-  status: 'starting' | 'connected' | 'error' | 'stopped' | string
+  // (string & {}): keeps the known statuses as autocomplete hints without
+  // collapsing the union to bare `string` (no-redundant-type-constituents).
+  status: 'starting' | 'connected' | 'error' | 'stopped' | (string & {})
   config?: TunnelConfig
   publicUrl?: string
   log?: string[]
@@ -54,7 +56,7 @@ export default function TunnelSettings({ authFetch }: TunnelSettingsProps) {
   }, [authFetch])
 
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
   useEffect(() => {
     const s = state?.status
@@ -89,7 +91,7 @@ export default function TunnelSettings({ authFetch }: TunnelSettingsProps) {
 
   const copyUrl = () => {
     if (!state?.publicUrl) return
-    navigator.clipboard?.writeText(state.publicUrl)
+    navigator.clipboard?.writeText(state.publicUrl).catch(() => {})
     setCopied(true); setTimeout(() => setCopied(false), 1500)
   }
 
@@ -143,12 +145,12 @@ export default function TunnelSettings({ authFetch }: TunnelSettingsProps) {
 
         <div className="flex items-center gap-2">
           {running ? (
-            <button onClick={stop} disabled={busy}
+            <button onClick={() => { void stop() }} disabled={busy}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] bg-red/10 text-red hover:bg-red/20 transition-colors disabled:opacity-50">
               <Square className="w-3.5 h-3.5" /> Stop tunnel
             </button>
           ) : (
-            <button onClick={start} disabled={busy}
+            <button onClick={() => { void start() }} disabled={busy}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-50">
               <Play className="w-3.5 h-3.5" /> {busy ? 'Starting…' : 'Start tunnel'}
             </button>
