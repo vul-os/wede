@@ -12,11 +12,6 @@ have a working `wede.config.json`. For TLS / reverse proxies / tunnels, see
 [PUBLIC-ACCESS.md](PUBLIC-ACCESS.md); for the full config key reference, see
 [CONFIGURATION.md](CONFIGURATION.md).
 
-> wede's [README](../README.md) currently carries a **"deprioritized" /
-> community-maintained** status note. None of that changes what's below — the
-> binary, its config, and its on-disk state are what they are — but if you're
-> deciding whether to depend on it long-term, read that note first.
-
 ---
 
 ## 1. Choosing where it runs

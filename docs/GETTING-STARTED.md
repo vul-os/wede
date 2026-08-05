@@ -3,11 +3,6 @@
 wede is a single-binary, self-hosted web IDE. This guide walks you from zero
 to a running instance.
 
-> **Status: deprioritized.** wede is not under active development and is
-> effectively community-maintained — see the [README](../README.md) status
-> note. That's why **build from source** is the recommended install path
-> below, not a prebuilt release binary.
-
 ---
 
 ## Prerequisites
@@ -22,9 +17,8 @@ to a running instance.
 
 ### Build from source (recommended)
 
-Because wede is community-maintained rather than actively released, building
-from source gets you a binary you built and can audit yourself, with no
-reliance on a hosted release artifact:
+Building from source gets you a binary you built and can audit yourself, with
+no reliance on a hosted release artifact:
 
 ```bash
 git clone https://github.com/vul-os/wede.git

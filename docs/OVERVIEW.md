@@ -10,12 +10,6 @@ terminal, same chat thread.
 There is no cloud service behind it, no container to orchestrate, no database to run, and
 no account to create. One process, one file on disk, your hardware.
 
-> **Status: deprioritized.**
-> wede is **not under active development** and is effectively community-maintained. It has
-> not been deprecated or removed, and nothing has stopped working — but expect no roadmap
-> work, and use it at your own risk. If you depend on it, [build from
-> source](GETTING-STARTED.md), pin a commit, and be prepared to maintain your own fork.
-
 ---
 
 ## What you get

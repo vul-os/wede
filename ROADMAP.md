@@ -5,15 +5,6 @@ a single Go binary (embedded React frontend, no cgo, no Node sidecar, no externa
 database) that serves real-time multi-user editing, shared terminals, VS Code-grade
 git tooling, and per-workspace chat.
 
-## Status
-
-**wede is deprioritized and not under active development.** The Vulos suite's
-focus is now the OS and its owned apps (OS, Office, Files, Relay, llmux); wede
-is not a first-party product going forward. It remains available and
-self-hostable as-is, community-maintained, with no functionality removed and
-no further roadmap work planned by the maintainer. See the status note in
-[README.md](README.md).
-
 Contributions are welcome — this file exists to be honest about what already
 works (don't re-build it) and what's genuinely still open, for anyone picking
 the project up.
@@ -71,8 +62,7 @@ terminals, chat, roles) is implemented end-to-end. Current feature set (see
 
 ## Later / exploratory
 
-Genuinely unfinished or unstarted — low priority given the deprioritized
-status, open to community contribution:
+Genuinely unfinished or unstarted, open to community contribution:
 
 - **Problems/Diagnostics panel** and **symbol outline** (`Cmd+Shift+O`) —
   diagnostics/hover/completion already work inline in the editor via

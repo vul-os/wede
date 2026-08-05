@@ -24,15 +24,6 @@
 
 ---
 
-> **Status: deprioritized.**
-> wede is **not under active development** and is effectively
-> community-maintained. It has not been deprecated or removed — but expect no
-> roadmap work, and **use it at your own risk**. If you depend on it, build from
-> source (see [Quick start](#quick-start)), pin a commit, and be prepared to
-> maintain your own fork.
-
----
-
 ## Overview
 
 wede is a single ~19 MB Go binary that serves a full **collaborative** web IDE straight from your machine. No cloud dependency, no Docker, no subscriptions, no database. Deploy it on a server, a NAS, a Raspberry Pi, or just run it locally — then code from any device through your browser, alone or with your whole team.
@@ -142,8 +133,7 @@ wede turns one machine into a shared workspace for your whole team — no accoun
 
 ## Quick start
 
-Because wede is now community-maintained (see the status note above), the
-recommended install is **build from source** — you get a binary you built and can
+The recommended install is **build from source** — you get a binary you built and can
 audit yourself, with no reliance on a hosted release artifact:
 
 ```bash

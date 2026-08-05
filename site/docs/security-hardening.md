@@ -250,11 +250,8 @@ trust boundary to that location too.
 ### 13. Keep the binary current, and know where to report a problem
 
 wede is a single static binary — updating means replacing it and restarting.
-Watch the [releases page](https://github.com/vul-os/wede/releases) (note the
-project's current status banner in [README.md](#overview): it is
-community-maintained, not under active roadmap development, so security fixes
-may be slower than for an actively developed project — budget accordingly if
-you depend on it). To report a vulnerability, do **not** open a public issue
+Watch the [releases page](https://github.com/vul-os/wede/releases). To report
+a vulnerability, do **not** open a public issue
 — use [GitHub private vulnerability reporting](https://github.com/vul-os/wede/security/advisories/new)
 or email `vulosorg@gmail.com` with `[wede security]` in the subject, per
 [SECURITY.md](#security-hardening).
