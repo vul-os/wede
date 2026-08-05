@@ -17,21 +17,27 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
+      # The frontend project (package.json, node_modules) lives in web/.
       - run: npm ci
+        working-directory: web
 
       - name: JS lint
         run: npm run lint
+        working-directory: web
 
       # CI never ran the JS unit tests at all.
       - name: JS unit tests
         run: npm test
+        working-directory: web
 
       - run: npm run build
+        working-directory: web
 
       # `npm run build` exiting 0 proves nothing about whether the bundle RUNS.
       # Two apps in this suite shipped a blank screen behind a green build. wede's
@@ -41,22 +47,24 @@ jobs:
       # fail on any uncaught exception or empty root.
       - name: Install chromium
         run: npx playwright install --with-deps chromium
+        working-directory: web
 
       - name: Boot guard + IDE E2E
         run: npm run test:e2e
+        working-directory: web
 
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: wede-playwright-report
-          path: playwright-report/
+          path: web/playwright-report/
           retention-days: 7
 
       - name: Build Go binary
         run: |
           mkdir -p backend/cmd/wede/dist
-          cp -r dist/* backend/cmd/wede/dist/
+          cp -r web/dist/* backend/cmd/wede/dist/
           cp -r site backend/cmd/wede/site
           go build -tags embed_frontend -o wede ./backend/cmd/wede
           rm -rf backend/cmd/wede/dist backend/cmd/wede/site
