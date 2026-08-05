@@ -31,6 +31,14 @@ jobs:
         run: npm run lint
         working-directory: web
 
+      # Type-aware ESLint resolves type info per-rule (no-floating-promises,
+      # no-unsafe-*) but is not a substitute for a whole-program tsc pass —
+      # it can stay green next to type errors ESLint's rule set never checks
+      # for. Run the compiler itself, with no emit, as its own gate.
+      - name: TypeScript typecheck
+        run: npm run typecheck
+        working-directory: web
+
       # A green lint above proves nothing about whether type-aware rules are
       # actually wired up (see the script's own header for the two real
       # failures this caught fleet-wide) — this runs the real tools and
