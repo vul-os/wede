@@ -369,19 +369,6 @@ h2.title {
 }
 
 /* ── Stat strip ──────────────────────────────────────────────────────────── */
-.statusnote {
-  display: flex; gap: 12px; align-items: flex-start;
-  border: 1px solid var(--border); border-left: 2px solid var(--yellow);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--yellow) 6%, var(--bg-primary));
-  padding: 14px 17px; margin: clamp(28px, 4vw, 46px) 0 0;
-}
-.statusnote svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--yellow); }
-.statusnote p { margin: 0; font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
-.statusnote b { color: var(--text); font-weight: 650; }
-.statusnote a { color: var(--accent); white-space: nowrap; }
-.statusnote a:hover { text-decoration: underline; }
-
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-primary); margin-top: clamp(26px, 3.5vw, 44px); }
 @media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } }
 .stats .s { padding: 20px clamp(14px, 2vw, 24px); border-right: 1px solid var(--border); }
