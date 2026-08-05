@@ -270,7 +270,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     if (tabs.length === 0) return
     const needsContent = tabs.filter(t => t.type !== 'browser' && t.content === undefined)
     if (needsContent.length === 0) return
-    Promise.all(needsContent.map(async (t) => {
+    void Promise.all(needsContent.map(async (t) => {
       const wsId = t.workspaceId || workspaceId
       const rel = t.rel ?? parseFileKey(t.path).rel
       try {
@@ -302,7 +302,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         }
       } catch { /* ignore */ }
     }
-    fetchGit()
+    void fetchGit()
     // Fallback poll at 30 s — the SSE watcher below provides faster updates.
     const interval = setInterval(fetchGit, 30000)
     return () => { active = false; clearInterval(interval) }
@@ -458,18 +458,30 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   }, [tabs, authFetch])
 
   // ── Git stage/unstage all via command palette ──
+  // Both previously had no try/catch — invoked as onGitStageAll={gitStageAll}
+  // (a fire-and-forget command-palette action), a 401 or network error would
+  // reject silently with no feedback at all: nothing in the UI shows staging
+  // failed, unlike saveFile where a failed save leaves the modified dot lit.
   const gitStageAll = useCallback(async () => {
-    await authFetch('/api/git/stage', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: '.' }),
-    })
+    try {
+      await authFetch('/api/git/stage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '.' }),
+      })
+    } catch {
+      alert('Failed to stage all — check your connection and try again.')
+    }
   }, [authFetch])
 
   const gitUnstageAll = useCallback(async () => {
-    await authFetch('/api/git/unstage', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: '.' }),
-    })
+    try {
+      await authFetch('/api/git/unstage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '.' }),
+      })
+    } catch {
+      alert('Failed to unstage all — check your connection and try again.')
+    }
   }, [authFetch])
 
   // ── Open a browser tab ──
@@ -840,7 +852,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         file={currentTab}
         content={currentTab.content ?? null}
         onChange={(c) => activeTab && updateContent(activeTab, c)}
-        onSave={saveFile}
+        onSave={() => { void saveFile() }}
         onCursorChange={setCursor}
         settings={editorSettings}
         lspExtension={lspExtension}
@@ -939,7 +951,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           </div>
           <div className="flex items-center gap-1">
             {role !== 'viewer' && currentTab?.modified && currentTab.type !== 'browser' && (
-              <button onClick={saveFile} disabled={saving}
+              <button onClick={() => { void saveFile() }} disabled={saving}
                 className="flex items-center gap-1 px-2.5 py-1 text-xs bg-accent/15 text-accent rounded-lg font-medium hover:bg-accent/25 transition-colors">
                 <Save className="w-3 h-3" />{saving ? '...' : 'Save'}
               </button>
@@ -950,7 +962,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <div className="flex-1 min-h-0 relative">
           {mobilePanel === 'files' && (
             <div className="h-full animate-fade-in">
-              <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={openFile} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={handleCloseWorkspace} roster={collabRoster} />
+              <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={(entry, opts) => { void openFile(entry, opts) }} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={(id) => { void handleCloseWorkspace(id) }} roster={collabRoster} />
             </div>
           )}
           {mobilePanel === 'code' && (
@@ -997,8 +1009,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         <CommandPalette
           visible={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
-          onSaveFile={saveFile}
-          onSaveAll={saveAll}
+          onSaveFile={() => { void saveFile() }}
+          onSaveAll={() => { void saveAll() }}
           onNewFile={() => { setMobilePanel('files'); explorerActionsRef.current?.newFile() }}
           onNewFolder={() => { setMobilePanel('files'); explorerActionsRef.current?.newFolder() }}
           onOpenFolder={() => setShowFolderPicker(true)}
@@ -1009,12 +1021,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           onOpenBrowser={() => openBrowser()}
           onCloseTab={() => activeTab && closeTab(activeTab)}
           onRefreshExplorer={() => explorerActionsRef.current?.refresh()}
-          onGitStageAll={gitStageAll}
-          onGitUnstageAll={gitUnstageAll}
+          onGitStageAll={() => { void gitStageAll() }}
+          onGitUnstageAll={() => { void gitUnstageAll() }}
           onToggleTheme={toggleTheme}
           onLogout={onLogout}
           onGoToLine={() => editorActionsRef.current?.goToLine()}
-          onFormatFile={formatCurrentFile}
+          onFormatFile={() => { void formatCurrentFile() }}
           isDark={isDark}
           hasActiveTab={!!activeTab}
           hasModified={hasModified}
@@ -1077,7 +1089,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             </span>
           )}
           {role !== 'viewer' && currentTab?.modified && currentTab.type !== 'browser' && (
-            <button onClick={saveFile} disabled={saving}
+            <button onClick={() => { void saveFile() }} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-1 text-[12px] bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium shadow-sm shadow-accent/20">
               <Save className="w-3 h-3" />
               {saving ? 'Saving…' : 'Save'}
@@ -1192,13 +1204,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
             <div style={{ width: sidebarWidth }} className="shrink-0 flex flex-col border-r border-border overflow-hidden bg-bg-secondary">
               {/* File explorer stays mounted (hidden when inactive) so its tree + expansion persist across tab switches. */}
               <div className={`flex-1 min-h-0 ${sidebarTab === 'files' ? 'flex flex-col' : 'hidden'}`}>
-                <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={openFile} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={handleCloseWorkspace} roster={collabRoster} />
+                <FileExplorer authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} onFileSelect={(entry, opts) => { void openFile(entry, opts) }} selectedPath={activeTab} onRegisterActions={handleRegisterExplorerActions} onAddFolder={openAddFolder} onCloseWorkspace={(id) => { void handleCloseWorkspace(id) }} roster={collabRoster} />
               </div>
               {sidebarTab === 'search' && <SearchPanel authFetch={authFetch} workspaces={workspacesApi?.workspaces || []} workspaceId={workspaceId} readOnly={role === 'viewer'} onOpenFile={(entry, line) => {
                 // Search spans all roots; each result carries its own workspaceId,
                 // so the opened tab's key is the composite (that root, path).
                 const key = fileKey(entry.workspaceId || workspaceId, entry.rel ?? entry.path)
-                openFile(entry)
+                void openFile(entry)
                 // openFile is not synchronous, so set targetLine after a tick.
                 setTimeout(() => {
                   setTabs((prev) => prev.map((t) =>
@@ -1280,8 +1292,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
       <CommandPalette
         visible={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
-        onSaveFile={saveFile}
-        onSaveAll={saveAll}
+        onSaveFile={() => { void saveFile() }}
+        onSaveAll={() => { void saveAll() }}
         onNewFile={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFile() }}
         onNewFolder={() => { toggleSidebarTab('files'); explorerActionsRef.current?.newFolder() }}
         onOpenFolder={() => setShowFolderPicker(true)}
@@ -1292,12 +1304,12 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         onOpenBrowser={() => openBrowser()}
         onCloseTab={() => activeTab && closeTab(activeTab)}
         onRefreshExplorer={() => explorerActionsRef.current?.refresh()}
-        onGitStageAll={gitStageAll}
-        onGitUnstageAll={gitUnstageAll}
+        onGitStageAll={() => { void gitStageAll() }}
+        onGitUnstageAll={() => { void gitUnstageAll() }}
         onToggleTheme={toggleTheme}
         onLogout={onLogout}
         onGoToLine={() => editorActionsRef.current?.goToLine()}
-        onFormatFile={formatCurrentFile}
+        onFormatFile={() => { void formatCurrentFile() }}
         isDark={isDark}
         hasActiveTab={!!activeTab}
         hasModified={hasModified}
