@@ -67,7 +67,7 @@ export default function ApiCollections({ api, readOnly = false, onOpenRequest }:
         {!readOnly && (
           <div className="flex items-center gap-0.5">
             <button title="New request" onClick={newReq} className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><Plus className="w-3.5 h-3.5" /></button>
-            <button title="New folder" onClick={api.newFolder} className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><FolderPlus className="w-3.5 h-3.5" /></button>
+            <button title="New folder" onClick={() => { void api.newFolder() }} className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded"><FolderPlus className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </div>
@@ -76,7 +76,7 @@ export default function ApiCollections({ api, readOnly = false, onOpenRequest }:
         {api.tree.length === 0 ? (
           <p className="text-[11px] text-text-muted p-3 text-center leading-relaxed">No saved requests yet. Open the editor, build a request, and hit Save.</p>
         ) : api.tree.map((n) => (
-          <TreeNode key={n.path} node={n} depth={0} onOpen={open} onDelete={api.deleteItem} readOnly={readOnly} activePath={api.savePath ? api.savePath + '.json' : null} />
+          <TreeNode key={n.path} node={n} depth={0} onOpen={open} onDelete={(node) => { void api.deleteItem(node) }} readOnly={readOnly} activePath={api.savePath ? api.savePath + '.json' : null} />
         ))}
       </div>
 
