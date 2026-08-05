@@ -65,6 +65,20 @@ export default defineConfig([
     },
   },
   {
+    // check-lint-config.mjs is ".mjs", matched by no `files` glob above (all
+    // of which are .{js,jsx} or .{ts,tsx} or the single playwright.config.js
+    // name) — it was enumerated in `eslint .`'s file count but had zero
+    // rules applied to it (confirmed via --print-config showing 0 resolved
+    // rules, and an injected unused-var probe that went unflagged before
+    // this block existed). It runs under Node only.
+    files: ['scripts/check-lint-config.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'module',
+    },
+  },
+  {
     // The E2E suite (e2e/**), migrated to TypeScript. Mirrors the src block's
     // TS-aware extends/parser rather than being syntax-only. It runs in Node
     // (the Playwright test runner) but also authors inline page.evaluate /
