@@ -37,7 +37,7 @@ export default function Login({ onLogin, error, locked, remaining }: LoginProps)
         </div>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={(e) => { void handleSubmit(e) }}
           className="bg-bg-elevated border border-border rounded-xl p-6 shadow-xl shadow-shadow"
         >
           {locked ? (
