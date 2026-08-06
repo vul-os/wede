@@ -9,6 +9,52 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [0.6.0] - 2026-08-06
+
+### Added
+- **Frontend migrated from JavaScript to TypeScript**, with type-aware ESLint
+  (`recommendedTypeChecked` + `projectService`) enabled across the whole
+  `web/` tree, including the Playwright e2e suite. `typescript` pinned to
+  exact `6.0.3` (no caret) since a floating TS7 install would enforce
+  nothing. Turning type-awareness on surfaced a wave of real bugs that
+  untyped lint had never caught: dropped/unhandled promise rejections in
+  `useApiClient`, `IDE`, `FileExplorer`, and every major `GitPanel` action
+  path (stage/commit/checkout, branches, remotes, stash, tags, the commit
+  menu, the diff panel), plus floating- and misused-promise fixes across
+  ~20 more components and hooks (`Login`, `Settings`, `QuickOpen`,
+  `SearchPanel`, `GitGraphView`, `WorkspaceSwitcher`, `useDap`, `useTerminals`,
+  `useWorkspaces`, `DebugPanel`, `FolderPicker`, `TunnelSettings`,
+  `ShareModal`, `WedeLocation`, `ApiClient`, `ApiCollections`, `Editor`, and
+  more). A `check-lint-config` CI gate now runs the lint config's own rules
+  behaviourally, so a config regression fails CI instead of only failing to
+  fire silently.
+- **CI: `tsc --noEmit` gate**, distinct from `npm run lint` — a build step
+  (vite/esbuild) strips types without checking them, so lint alone proved
+  nothing about type correctness. `web/package.json` gained a `typecheck`
+  script to make this invocable outside CI too.
+- **Signed, fail-closed release verification** — `scripts/verify.sh` checks a
+  downloaded release asset's sha256 against the release's own
+  `checksums.txt`, with a distinct exit code and diagnostic per failure mode
+  (missing/malformed manifest, missing entry, truncated download, digest
+  mismatch) and deliberately no `--skip-verify`. `install.sh` performs the
+  same check itself before installing anything. The release pipeline mints a
+  short-lived sigstore attestation from the job's own OIDC identity (no
+  long-lived key to store or rotate) covering every published asset, fails
+  closed if the artifact set is empty, and asserts `checksums.txt`'s line
+  count matches the asset count so the manifest cannot silently cover fewer
+  files than it claims to.
+- **Square logo mark** (`brand/logo.svg`) as the single source of truth,
+  propagated to every shipped icon and the landing/docs mini-site.
+- **Two guards on the embedded agent** (`backend/internal/tunnel`) — one pins
+  the default `Provider` to the real Ephor agent (a stubbed or nil-agent
+  factory fails), the other drives the real agent and asserts it refuses six
+  off-loopback proxy targets (`0.0.0.0`, LAN, private range, cloud metadata IP,
+  a resolvable hostname, routable IPv6) while still accepting `127.0.0.1`.
+  Previously only the *unreachable-relay* path was covered, so a dependency
+  swap that dropped the SSRF guard would not have failed any test.
+
 ### Changed
 - **Embedded tunnel agent now consumed from the real Ephor module** — Ephor
   renamed its Go module from `github.com/vul-os/vulos-relay` to
@@ -42,15 +88,43 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   placeholder `v0.0.0-00010101000000-000000000000` to `v0.4.0`, and its
   Apache-2.0 text is now reproduced from the checksum-verified module cache
   rather than from a local path. The Go module count is unchanged at 31.
+- **Frontend project moved into `web/`** — was previously mixed into the repo
+  root; Makefile, CI, and the release workflow's paths (`working-directory`,
+  `web/package-lock.json` cache key, `web/dist` embed) updated to match.
+- **Deprioritized/community-maintained status removed** — README, ROADMAP,
+  the doc sources under `docs/`, and the landing page all carried a "wede is
+  not under active development, use at your own risk" notice that no longer
+  reflected intent (~102 commits in the last 30 days); dropped repo-wide and
+  `site/docs/` regenerated to match.
+- **Two stale-status underclaims fixed in the same install.sh note**: README
+  and `docs/GETTING-STARTED.md` both said a matching release asset "is not
+  guaranteed to exist" because wede was "no longer actively maintained" —
+  re-grounded in the real cause (the release workflow's fixed 5-platform
+  build matrix) now that the deprioritized status is gone. `GETTING-STARTED.md`
+  additionally still claimed `install.sh` "performs no checksum verification",
+  which has been false since the sha256-against-`checksums.txt` check
+  described above shipped; corrected to match README's already-accurate text.
+- **`.gitignore`'s `.env` pattern was exact-match** — missed `.env.bak`,
+  `.env.production`, and similar variants; broadened.
+- Dual-licensed under MIT OR Apache-2.0 with a standardized ownership
+  footer; added `SECURITY.md` (house convention, vulosorg@gmail.com);
+  served docs no longer tell operators to install decommissioned `frp`; a
+  stale "Board" product mention dropped from the marketing site; the landing
+  and docs pages share one Vulos footer/top-bar mark instead of a duplicate.
+- Landing page made usable on a phone (not just non-overflowing); docs rail
+  pinned and the active page highlighted; a canonical tag and a truncated
+  description meta fixed on the mini-site.
 
-### Added
-- **Two guards on the embedded agent** (`backend/internal/tunnel`) — one pins
-  the default `Provider` to the real Ephor agent (a stubbed or nil-agent
-  factory fails), the other drives the real agent and asserts it refuses six
-  off-loopback proxy targets (`0.0.0.0`, LAN, private range, cloud metadata IP,
-  a resolvable hostname, routable IPv6) while still accepting `127.0.0.1`.
-  Previously only the *unreachable-relay* path was covered, so a dependency
-  swap that dropped the SSRF guard would not have failed any test.
+### Fixed
+- **`scripts/sync-docs.mjs --check` silently ignored the flag** — it always
+  wrote every page and deleted orphans regardless, so a CI job expecting a
+  dry run would still mutate the tree and still exit 0 no matter how stale
+  `site/docs/` was. The flag now does what its name says (wired to nothing in
+  this repo's CI at the time it was fixed, which had made the bug invisible
+  rather than harmless).
+- An invisible in-app logo (wrong asset propagated with the brand mark
+  update) and a handful of unreferenced asset files found in an orphan sweep
+  removed.
 
 ---
 
@@ -370,9 +444,19 @@ Initial public release under the `vul-os/wede` namespace.
 
 ---
 
-[Unreleased]: https://github.com/vul-os/wede/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/vul-os/wede/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/vul-os/wede/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/vul-os/wede/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/vul-os/wede/compare/v0.1.2...v0.2.0
+[Unreleased]: https://github.com/vul-os/wede/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/vul-os/wede/compare/c9c221c...v0.6.0
+[0.5.0]: https://github.com/vul-os/wede/compare/7e9a7a2...c9c221c
+[0.4.0]: https://github.com/vul-os/wede/compare/4dbea03...7e9a7a2
+[0.3.0]: https://github.com/vul-os/wede/compare/dfe2c8c...4dbea03
+[0.2.0]: https://github.com/vul-os/wede/compare/v0.1.2...dfe2c8c
 [0.1.2]: https://github.com/vul-os/wede/releases/tag/v0.1.2
+
+<!--
+v0.2.0–v0.5.0 headers above were never published as GitHub releases/tags
+(only v0.1.0, v0.1.1, v0.1.2, and now v0.6.0 are real tags on origin), so
+their compare links use the commit each version's CHANGELOG entry was
+written against instead of a tag ref that would 404. v0.4.0 and v0.5.0 did
+briefly exist as local-only git tags (never pushed); those tags have been
+deleted and their target commits (7e9a7a2, c9c221c) used directly.
+-->
