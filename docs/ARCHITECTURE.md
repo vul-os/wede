@@ -33,6 +33,14 @@ flowchart TD
 
     Dist["dist/ (Vite build)"]
     HTTP -->|"go:embed"| Dist
+
+    classDef entryTier fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef subjectNode fill:#0f766e,stroke:#5eead4,color:#f0fdfa;
+    classDef backendTier fill:#334155,stroke:#94a3b8,color:#e2e8f0;
+    class Browser entryTier;
+    class WSPKGS subjectNode;
+    class HTTP,WS,SSE,FS,Children,Home,Dist backendTier;
+    linkStyle default stroke:#0d9488,stroke-width:1.5px;
 ```
 
 wede has no database and no separate backend process. One Go binary embeds the built frontend (`go:embed`) and serves everything — REST API, WebSockets, and (optionally) a marketing landing page — from a single `net/http.ListenAndServe`. All durable state is either files in the open workspace (source code, `.wede/` metadata) or small JSON files under `~/.wede/` on the host running wede.
@@ -264,6 +272,14 @@ flowchart TD
     C["go build -tags embed_frontend → ./wede binary"]
     D["rm -rf backend/cmd/wede/{dist,site}"]
     Start --> A --> B --> C --> D
+
+    classDef entryTier fill:#1e293b,stroke:#64748b,color:#e2e8f0;
+    classDef subjectNode fill:#0f766e,stroke:#5eead4,color:#f0fdfa;
+    classDef backendTier fill:#334155,stroke:#94a3b8,color:#e2e8f0;
+    class Start entryTier;
+    class C subjectNode;
+    class A,B,D backendTier;
+    linkStyle default stroke:#0d9488,stroke-width:1.5px;
 ```
 
 - The `embed_frontend` build tag switches between `frontend_embed.go` (serves the SPA from an embedded `dist/` via `go:embed`) and `frontend_dev.go` (serves `./dist/` from disk, for hot-reload dev mode with `npm run dev` + `npm run dev:backend` side by side).
