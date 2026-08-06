@@ -42,12 +42,14 @@ On first run set a strong password in `wede.config.json` (start from
 ### Convenience installer (prebuilt binary)
 
 The repo also ships an `install.sh` that pulls a prebuilt binary from
-[GitHub Releases](https://github.com/vul-os/wede/releases). Since wede is no
-longer actively maintained, a matching release asset for your OS/arch is
-**not guaranteed to exist**, and the script performs **no checksum
-verification** — so we no longer recommend piping it straight into a shell.
-If you use it, download and read it first, and verify the downloaded binary
-against the checksums on the release page:
+[GitHub Releases](https://github.com/vul-os/wede/releases). It verifies the
+download against the release's own `checksums.txt` before installing it, and
+refuses — installing nothing — on a missing, malformed, or mismatched
+checksum. The release workflow only cross-compiles linux/amd64, linux/arm64,
+darwin/amd64, darwin/arm64, and windows/amd64, so a matching release asset
+for your OS/arch is **not guaranteed to exist** — the installer will tell you
+so instead of installing something else. Reading a script before piping it
+into a shell is still the right habit:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/install.sh
