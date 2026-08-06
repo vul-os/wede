@@ -163,10 +163,11 @@ On first run set a strong password in `wede.config.json` (start from
 > and refuses if that fails; without `gh` it prints that provenance was **not**
 > checked rather than letting a pass imply more than it checked.
 >
-> Since wede is no longer actively maintained, a matching release asset for your
-> OS/arch is **not guaranteed to exist** — the installer will tell you so
-> instead of installing something else. Reading a script before piping it into a
-> shell is still the right habit:
+> The release workflow only cross-compiles linux/amd64, linux/arm64,
+> darwin/amd64, darwin/arm64, and windows/amd64, so a matching release asset
+> for your OS/arch is **not guaranteed to exist** — the installer will tell
+> you so instead of installing something else. Reading a script before piping
+> it into a shell is still the right habit:
 >
 > ```bash
 > curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/install.sh
