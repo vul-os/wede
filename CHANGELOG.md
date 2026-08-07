@@ -11,7 +11,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.6.0] - 2026-08-06
+## [0.1.3] - 2026-08-07
+
+This is the first published release since v0.1.2. The sections below numbered
+0.2.0 through 0.5.0 were internal development milestones written between those
+two releases; none of them was ever tagged or published, so everything they
+describe ships to users for the first time here. They are kept as-is, in
+descending date order, rather than folded together — the record of what landed
+when is worth more than a tidy version sequence. See the note at the bottom of
+this file for how their compare links are constructed.
 
 ### Added
 - **Frontend migrated from JavaScript to TypeScript**, with type-aware ESLint
@@ -444,8 +452,8 @@ Initial public release under the `vul-os/wede` namespace.
 
 ---
 
-[Unreleased]: https://github.com/vul-os/wede/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/vul-os/wede/compare/c9c221c...v0.6.0
+[Unreleased]: https://github.com/vul-os/wede/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/vul-os/wede/compare/v0.1.2...v0.1.3
 [0.5.0]: https://github.com/vul-os/wede/compare/7e9a7a2...c9c221c
 [0.4.0]: https://github.com/vul-os/wede/compare/4dbea03...7e9a7a2
 [0.3.0]: https://github.com/vul-os/wede/compare/dfe2c8c...4dbea03
@@ -454,9 +462,17 @@ Initial public release under the `vul-os/wede` namespace.
 
 <!--
 v0.2.0–v0.5.0 headers above were never published as GitHub releases/tags
-(only v0.1.0, v0.1.1, v0.1.2, and now v0.6.0 are real tags on origin), so
+(only v0.1.0, v0.1.1, v0.1.2, and now v0.1.3 are real tags on origin), so
 their compare links use the commit each version's CHANGELOG entry was
 written against instead of a tag ref that would 404. v0.4.0 and v0.5.0 did
 briefly exist as local-only git tags (never pushed); those tags have been
 deleted and their target commits (7e9a7a2, c9c221c) used directly.
+
+The release that follows v0.1.2 is therefore v0.1.3, not v0.6.0. A v0.6.0
+tag was briefly pushed to origin and has been deleted: it numbered the
+release off the unpublished 0.5.0 milestone rather than off the last real
+release, which left the landing page and docs advertising a version no
+download ever matched. v0.1.3's compare link spans v0.1.2...v0.1.3 because
+that is the actual published-to-published range, and it covers every
+milestone listed between them.
 -->

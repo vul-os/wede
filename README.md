@@ -183,7 +183,7 @@ exit codes. It needs only `curl` and `sha256sum`/`shasum`:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/vul-os/wede/main/scripts/verify.sh
-bash verify.sh --tag v0.6.0 --attest wede-linux-amd64     # fetch + verify
+bash verify.sh --tag v0.1.3 --attest wede-linux-amd64     # fetch + verify
 bash verify.sh --dir ~/Downloads wede-linux-amd64         # already downloaded
 ```
 

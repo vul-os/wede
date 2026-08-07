@@ -139,6 +139,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # Cheap and dependency-free, so it runs before the browser install: the
+      # tag, the binary and web/package.json were already gated against each
+      # other by release.yml, but nothing gated the *pages*, and they drifted
+      # to a version that had been deleted from origin.
+      - name: Published versions match web/package.json
+        run: node scripts/check-site-version.mjs
+
       - name: Install Playwright
         run: |
           cd scripts
