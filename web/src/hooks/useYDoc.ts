@@ -48,12 +48,13 @@ function docBaseUrl(workspaceId: string): string {
 }
 
 export function useYDoc({ workspaceId, path, token, username, color }: UseYDocParams): UseYDocState {
-  const [state, setState] = useState<UseYDocState>(INACTIVE)
+  const identity = JSON.stringify([workspaceId, path, token, username, color])
+  const [state, setState] = useState<{ identity: string; value: UseYDocState } | null>(null)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!workspaceId || !path || !token) {
-      setState(INACTIVE)
+      setState(null)
       return undefined
     }
 
@@ -73,12 +74,12 @@ export function useYDoc({ workspaceId, path, token, username, color }: UseYDocPa
         color: color || '#888',
       })
       const ytext = ydoc.getText('content')
-      setState({ ytext, provider, awareness: provider.awareness })
+      setState({ identity, value: { ytext, provider, awareness: provider.awareness } })
     } catch {
       // Construction failed → collab inactive; editor stays single-user.
       try { if (provider) provider.destroy() } catch { /* ignore */ }
       try { if (ydoc) ydoc.destroy() } catch { /* ignore */ }
-      setState(INACTIVE)
+      setState(null)
       return undefined
     }
 
@@ -86,8 +87,10 @@ export function useYDoc({ workspaceId, path, token, username, color }: UseYDocPa
       try { provider?.destroy() } catch { /* ignore */ }
       try { ydoc?.destroy() } catch { /* ignore */ }
     }
-  }, [workspaceId, path, token, username, color])
+  }, [workspaceId, path, token, username, color, identity])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  return state
+  // Effects replace the provider after commit. Never let that intervening render
+  // bind the new file's editor to the previous file's (possibly destroyed) Y.Text.
+  return state?.identity === identity ? state.value : INACTIVE
 }

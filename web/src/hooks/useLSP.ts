@@ -1,21 +1,9 @@
-// useLSP — manages per-file LSP extensions for the CodeMirror editor.
-//
-// Responsibilities:
-//  1. On mount, fetch GET /api/lsp/available to learn which language servers
-//     are installed.
-//  2. When the active file changes, derive the language from its extension and
-//     (if a server is available) build a `languageServer` extension pointed at
-//     the wss/ws LSP WebSocket endpoint.
-//  3. Expose the extension (or null) plus the available-servers map so Settings
-//     can display a hint when no servers are installed.
-//
-// The hook intentionally does not throw if the server is unavailable — it
-// degrades gracefully to null (no LSP).
-
-import { useEffect, useMemo, useState } from 'react'
-import { languageServer } from 'codemirror-languageserver'
-import type { Extension, StateField } from '@codemirror/state'
-import type { AuthFetch, Tab } from '../types'
+// Derive a pure per-document extension. The mounted EditorView owns its socket;
+// rendering this hook (even a discarded render) does not connect to the server.
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { lspDocumentUris, lspExtension, type LspStatus } from '../lib/lsp'
+import type { DocumentSaves } from '../lib/documentSaves'
+import type { AuthFetch, Tab, WorkspaceSummary } from '../types'
 
 // Map file extensions → LSP language name (must match backend knownServers).
 const EXT_TO_LANG: Record<string, string> = {
@@ -29,24 +17,13 @@ const EXT_TO_LANG: Record<string, string> = {
 function extFromPath(path: string | null | undefined): string | null {
   if (!path) return null
   const dot = path.lastIndexOf('.')
-  if (dot === -1) return null
+  if (dot <= path.lastIndexOf('/')) return null
   return path.slice(dot + 1).toLowerCase()
 }
 
 function langFromFile(file: Pick<Tab, 'path'> | null | undefined): string | null {
-  if (!file?.path) return null
-  const ext = extFromPath(file.path)
+  const ext = extFromPath(file?.path)
   return (ext && EXT_TO_LANG[ext]) || null
-}
-
-function buildWsUrl(lang: string, token: string | null | undefined, workspaceId: string | null | undefined): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const path = workspaceId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/lsp` : '/api/lsp'
-  const base = `${proto}//${window.location.host}${path}?lang=${encodeURIComponent(lang)}`
-  // Token passed as ?token= because WebSocket subprotocol approach mirrors
-  // the terminal but codemirror-languageserver manages the WS internally.
-  // The auth middleware accepts ?token= on WS upgrade requests.
-  return `${base}&token=${encodeURIComponent(token || '')}`
 }
 
 interface LspAvailableResponse {
@@ -54,64 +31,81 @@ interface LspAvailableResponse {
   extensions?: Record<string, string>
 }
 
+function createStatusStore() {
+  let status: LspStatus | null = null
+  const listeners = new Set<() => void>()
+  return {
+    getSnapshot: () => status,
+    subscribe(this: void, listener: () => void) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    set(this: void, next: LspStatus | null) {
+      status = next
+      for (const listener of listeners) listener()
+    },
+  }
+}
+const inactiveStatus = createStatusStore()
+
 export interface UseLSPParams {
-  file: Pick<Tab, 'path'> | null | undefined
+  file: Tab | null | undefined
   token: string | null | undefined
   authFetch: AuthFetch | null | undefined
   lspEnabled: boolean
-  workspaceId: string | null | undefined
+  workspaces: readonly WorkspaceSummary[] | undefined
+  saves?: DocumentSaves
 }
 
-type LspExtension = (Extension | StateField<string>)[]
-
-export function useLSP({ file, token, authFetch, lspEnabled, workspaceId }: UseLSPParams) {
-  const [available, setAvailable] = useState<Record<string, boolean> | null>(null) // null = not yet fetched
-  // Effective extension→language map: built-ins plus any servers added via
-  // ~/.wede/lsp.json (reported by the backend), so config languages just work.
+export function useLSP({ file, token, authFetch, lspEnabled, workspaces, saves }: UseLSPParams) {
+  const [available, setAvailable] = useState<Record<string, boolean> | null>(null)
   const [extMap, setExtMap] = useState<Record<string, string>>(EXT_TO_LANG)
 
-  // Fetch available servers once on mount.
   useEffect(() => {
     if (!authFetch) return
-    authFetch('/api/lsp/available')
-      .then(r => r.json())
-      .then((data: LspAvailableResponse) => {
+    let cancelled = false
+    const controller = new AbortController()
+    void authFetch('/api/lsp/available', { signal: controller.signal })
+      .then(r => r.json() as Promise<LspAvailableResponse>)
+      .then(data => {
+        if (cancelled) return
         setAvailable(data.available || {})
-        if (data.extensions) setExtMap({ ...EXT_TO_LANG, ...data.extensions })
+        setExtMap({ ...EXT_TO_LANG, ...data.extensions })
       })
-      .catch(() => setAvailable({}))
+      .catch(() => { if (!cancelled) setAvailable({}) })
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [authFetch])
 
-  // Derive the LSP extension synchronously from the current state.
-  // useMemo avoids creating a new extension object on every render.
-  // We key on the file path string specifically so that a mere content change
-  // (same path, different text) does not tear down and rebuild the WS connection.
-  const filePath = file?.path ?? null
-  const extension = useMemo<LspExtension | null>(() => {
-    if (!lspEnabled || !filePath || available === null) return null
+  // Resolve all three from the tab, never from the asynchronously updated global
+  // active workspace. A closed/unknown workspace cannot create a connection.
+  const workspaceId = file?.workspaceId
+  const root = workspaces?.find(w => w.id === workspaceId)?.root
+  const relativePath = file && !file.type && !file.fileType ? file.rel : null
+  const ext = extFromPath(relativePath)
+  const languageId = (ext && extMap[ext]) || null
+  const serverAvailable = !!(languageId && available?.[languageId])
+  const session = useMemo(() => {
+    if (!lspEnabled || !token || !workspaceId || !root || !relativePath || !languageId || !serverAvailable) return null
+    const uris = lspDocumentUris(root, relativePath)
+    if (!uris) return null
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const serverUri = `${proto}//${window.location.host}/api/workspaces/${encodeURIComponent(workspaceId)}/lsp?lang=${encodeURIComponent(languageId)}&token=${encodeURIComponent(token)}`
+    const status = createStatusStore()
+    return { status, extension: lspExtension({
+      ...uris, languageId, serverUri,
+      persistence: saves ? { events: saves, workspaceId, path: relativePath } : undefined,
+      onStatus: status.set,
+    }) }
+  }, [relativePath, workspaceId, root, lspEnabled, token, languageId, serverAvailable, saves])
 
-    const ext = extFromPath(filePath)
-    const lang = (ext && extMap[ext]) || null
-    if (!lang || !available[lang]) return null
-
-    const wsUrl = buildWsUrl(lang, token, workspaceId)
-    const documentUri = `file://${filePath}`
-
-    try {
-      return languageServer({
-        serverUri: wsUrl as `ws://${string}` | `wss://${string}`,
-        rootUri: null,
-        documentUri,
-        languageId: lang,
-        workspaceFolders: null,
-      })
-    } catch (err) {
-      console.warn('[lsp] failed to create extension:', err)
-      return null
-    }
-  }, [filePath, lspEnabled, available, extMap, token, workspaceId])
-
-  return { extension, available }
+  // Each configuration owns its store; a late callback from a prior workspace
+  // cannot overwrite the active document's status or force a reconnect.
+  const store = session?.status ?? inactiveStatus
+  const status = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+  return { extension: session?.extension ?? null, available, status }
 }
 
 export { langFromFile, EXT_TO_LANG }

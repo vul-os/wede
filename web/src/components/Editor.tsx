@@ -4,7 +4,7 @@ import {
   highlightActiveLine, drawSelection, highlightSpecialChars,
   rectangularSelection, crosshairCursor,
 } from '@codemirror/view'
-import { EditorState, Compartment, type Extension, type StateField, type StateEffect } from '@codemirror/state'
+import { EditorState, Compartment, type Extension, type StateEffect } from '@codemirror/state'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
 import {
   syntaxHighlighting, defaultHighlightStyle, bracketMatching,
@@ -172,7 +172,7 @@ export interface EditorProps {
   onSave: () => void
   onCursorChange?: (pos: CursorPos) => void
   settings?: EditorSettings
-  lspExtension?: (Extension | StateField<string>)[] | null
+  lspExtension?: Extension[] | null
   onRegisterActions?: (actions: EditorActions) => void
   collab?: UseYDocState | null
   editable?: boolean
@@ -314,7 +314,10 @@ export default function Editor({ file, content, onChange, onSave, onCursorChange
       setBreakpointsEffect.of(breakpointsRef.current || []),
       setStopLineEffect.of(stopLineRef.current ?? null),
     ] })
-    return () => view.destroy()
+    return () => {
+      viewRef.current = null
+      view.destroy()
+    }
   }, [file?.path, collab?.ytext]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live breakpoint updates (without recreating the editor).

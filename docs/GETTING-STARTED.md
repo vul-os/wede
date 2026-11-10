@@ -140,6 +140,17 @@ use **any LSP server**, not just the built-in ones, with no recompiling.
 Install the binary and wede picks it up — check **Settings → Language server**
 for what it found.
 
+The status bar shows **LSP connecting**, **LSP ready**, or **LSP unavailable**.
+Hover over the status for details. If a connection fails, editing remains
+available and wede does not retry automatically; switch files or toggle LSP in
+Settings to try again. Connections belong to the active editor and close when
+that editor is replaced or closed.
+
+Manual saves and non-collaborative autosaves notify the language server only
+after a successful disk write. Collaborative CRDT persistence does not yet expose
+a save acknowledgement, so Cargo checks triggered by `didSave` are not guaranteed
+in collaborative mode. Native language-server diagnostics remain available.
+
 **Add your own** — create `~/.wede/lsp.json`:
 
 ```json
