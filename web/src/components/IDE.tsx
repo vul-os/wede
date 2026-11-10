@@ -26,6 +26,8 @@ import Breadcrumbs from './Breadcrumbs'
 import MarkdownPreview from './MarkdownPreview'
 import { ImagePreview, BinaryNotice } from './ImagePreview'
 import { useLSP } from '../hooks/useLSP'
+import { createDocumentSaves, writeDocument } from '../lib/documentSaves'
+import LspStatusIndicator from './LspStatusIndicator'
 import { useCollab } from '../hooks/useCollab'
 import { useYDoc } from '../hooks/useYDoc'
 import ShareModal from './ShareModal'
@@ -353,6 +355,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // ── Auto-save ──
   // After a configurable debounce (1.5 s by default) auto-save dirty tabs.
+  const [documentSaves] = useState(createDocumentSaves)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const triggerAutoSave = useCallback((tab: Tab, content: string) => {
     if (!editorSettings.autoSave) return
@@ -360,10 +363,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     autoSaveTimerRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving')
       try {
-        await authFetch(workspaceUrl(tab.workspaceId as string, '/files/write'), {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: tab.rel, content }),
-        })
+        await writeDocument(authFetch, documentSaves, tab.workspaceId, tab.rel, content)
         setTabs((prev) => prev.map((t) =>
           t.path === tab.path ? { ...t, originalContent: content, modified: t.content !== content } : t
         ))
@@ -373,7 +373,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
         setAutoSaveStatus('')
       }
     }, 1500)
-  }, [authFetch, editorSettings.autoSave])
+  }, [authFetch, editorSettings.autoSave, documentSaves])
+  useEffect(() => () => clearTimeout(autoSaveTimerRef.current), [])
 
   // ── Close tab ── (defined here so it is reachable by the keyboard-shortcut
   // useEffect below — Vite/Rolldown's const hoisting can trigger a TDZ when
@@ -446,16 +447,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     const modifiedTabs = tabs.filter((t) => t.modified && t.type !== 'browser')
     await Promise.all(modifiedTabs.map(async (tab) => {
       try {
-        await authFetch(workspaceUrl(tab.workspaceId as string, '/files/write'), {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: tab.rel, content: tab.content }),
-        })
+        await writeDocument(authFetch, documentSaves, tab.workspaceId, tab.rel, tab.content ?? '')
         setTabs((prev) => prev.map((t) =>
-          t.path === tab.path ? { ...t, originalContent: t.content, modified: false } : t
+          t.path === tab.path ? { ...t, originalContent: tab.content, modified: t.content !== tab.content } : t
         ))
       } catch { /* ignore */ }
     }))
-  }, [tabs, authFetch])
+  }, [tabs, authFetch, documentSaves])
 
   // ── Git stage/unstage all via command palette ──
   // Both previously had no try/catch — invoked as onGitStageAll={gitStageAll}
@@ -723,7 +721,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           })
           if (res.ok) {
             const data: FormatResponse = await res.json()
-            if (data.formatted && data.content !== tab.content) {
+            if (data.formatted && typeof data.content === 'string' && data.content !== tab.content) {
               setTabs((prev) => prev.map((t) =>
                 t.path === tab.path ? { ...t, content: data.content, modified: data.content !== t.originalContent } : t
               ))
@@ -731,12 +729,9 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
               // We use a local variable so we don't need to wait for state flush.
               setSaving(true)
               try {
-                await authFetch(workspaceUrl(tab.workspaceId as string, '/files/write'), {
-                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ path: tab.rel, content: data.content }),
-                })
+                await writeDocument(authFetch, documentSaves, tab.workspaceId, tab.rel, data.content)
                 setTabs((prev) => prev.map((t) =>
-                  t.path === tab.path ? { ...t, originalContent: data.content, modified: false } : t
+                  t.path === tab.path ? { ...t, originalContent: data.content, modified: t.content !== data.content } : t
                 ))
               } catch { /* ignore */ }
               setSaving(false)
@@ -748,16 +743,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
     }
     setSaving(true)
     try {
-      await authFetch(workspaceUrl(tab.workspaceId as string, '/files/write'), {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: tab.rel, content: tab.content }),
-      })
+      await writeDocument(authFetch, documentSaves, tab.workspaceId, tab.rel, tab.content ?? '')
       setTabs((prev) => prev.map((t) =>
-        t.path === activeTab ? { ...t, originalContent: t.content, modified: false } : t
+        t.path === tab.path ? { ...t, originalContent: tab.content, modified: t.content !== tab.content } : t
       ))
     } catch { /* ignore */ }
     setSaving(false)
-  }, [tabs, activeTab, authFetch, editorSettings.formatOnSave]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tabs, activeTab, authFetch, editorSettings.formatOnSave, documentSaves]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentTab = tabs.find((t) => t.path === activeTab)
   const hasModified = tabs.some((t) => t.modified)
@@ -785,14 +777,13 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
 
   // LSP — provides diagnostics + hover for supported languages.
   // Degrades gracefully when language server binaries are not installed.
-  const { extension: lspExtension, available: lspAvailable } = useLSP({
-    // LSP identifies the document by relative path within the active workspace,
-    // so hand it the rel path (not the composite tab key).
-    file: currentTab ? { ...currentTab, path: currentTab.rel ?? '' } : null,
+  const { extension: lspExtension, available: lspAvailable, status: lspStatus } = useLSP({
+    file: currentTab,
     token,
     authFetch,
     lspEnabled: editorSettings.lsp ?? true,
-    workspaceId,
+    workspaces: knownWorkspaces,
+    saves: documentSaves,
   })
 
   // Collaborative editing for the active text file (CRDT via the doc WS).
@@ -806,7 +797,8 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
   const collabPath = (collabEnabled && currentTab && !currentTab.type && currentTab.fileType == null)
     ? currentTab.rel
     : null
-  const collab = useYDoc({ workspaceId, path: collabPath, token, username, color: colorFromName(username) })
+  const documentWorkspaceId = knownWorkspaces?.find(w => w.id === currentTab?.workspaceId)?.id
+  const collab = useYDoc({ workspaceId: documentWorkspaceId, path: collabPath, token, username, color: colorFromName(username) })
 
   // Live multiplayer mouse cursors — broadcast my pointer (as viewport fractions)
   // and render collaborators' pointers, when the setting is enabled.
@@ -1352,6 +1344,7 @@ export default function IDE({ token, authFetch, onLogout, workspace, recents, on
           {currentTab?.type === 'browser' && (
             <span className="px-2 opacity-70">Browser Preview</span>
           )}
+          <LspStatusIndicator status={lspStatus} />
           <span className="px-2 opacity-50">UTF-8</span>
         </div>
       </div>

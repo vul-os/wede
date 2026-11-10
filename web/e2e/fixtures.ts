@@ -129,7 +129,7 @@ export async function installBackend(
     }
     if (p === '/api/files/write') {
       wrote.push(req.postDataJSON())
-      return json(route, { ok: true })
+      return json(route, { status: 'ok' })
     }
     if (p === '/api/files/tree') return json(route, FILE_TREE)
 
