@@ -160,7 +160,7 @@ func TestAvailableServers_returnsMap(t *testing.T) {
 	}
 }
 
-// ── proxyWSToServer message framing ──────────────────────────────────────────
+// ── writeLSPMessage framing ─────────────────────────────────────────────────
 
 // writerRecorder captures writes to verify the Content-Length framing.
 type writerRecorder struct {
@@ -173,14 +173,9 @@ func (w *writerRecorder) Close() error                { return nil }
 func TestContentLengthFraming(t *testing.T) {
 	body := []byte(`{"jsonrpc":"2.0","method":"initialized"}`)
 	rec := &writerRecorder{}
-	proc := &serverProc{stdin: rec}
-
-	// Simulate what proxyWSToServer does for one message.
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	proc.mu.Lock()
-	proc.stdin.Write([]byte(header)) //nolint:errcheck
-	proc.stdin.Write(body)           //nolint:errcheck
-	proc.mu.Unlock()
+	if err := writeLSPMessage(rec, body); err != nil {
+		t.Fatal(err)
+	}
 
 	written := rec.buf.String()
 	if !strings.HasPrefix(written, "Content-Length: ") {

@@ -69,7 +69,7 @@ wede has no database and no separate backend process. One Go binary embeds the b
   | `formatters.json` | `files` | User-added formatter registry entries |
 
   None of this is a database — every file is loaded on demand and rewritten wholesale (or via atomic temp+rename for larger content) on change.
-- **Child processes** are spawned per feature, always with the working directory pinned to a validated workspace root and binaries resolved via `exec.LookPath` (never a client-supplied path): `git` (one-shot per operation), one language-server process per (workspace, language) pair (`gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer`, ...), one debug-adapter process per debug session (killed when the session ends), one login shell per terminal tab (PTY), and `ripgrep` for search when present on `$PATH`.
+- **Child processes** are spawned per feature, always with the working directory pinned to a validated workspace root and binaries resolved via `exec.LookPath` (never a client-supplied path): `git` (one-shot per operation), one language-server process per WebSocket connection (`gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer`, ...), one debug-adapter process per debug session (killed when the session ends), one login shell per terminal tab (PTY), and `ripgrep` for search when present on `$PATH`.
 
 ---
 
@@ -88,7 +88,7 @@ wede has no database and no separate backend process. One Go binary embeds the b
 | `search` | Workspace text search (ripgrep with pure-Go `filepath.Walk` fallback) and filename search; literal/case-insensitive/regex modes; replace-across-files (previewed then applied), capped at 500 matches / 200 files / 10k replacements |
 | `git` | Git operations by shelling out to `git`: status/log/diff/stage/commit/branches/checkout/fetch/pull/push/remotes/stash/blame/tags/cherry-pick/revert/reset/merge/tag/conflict-resolve/stage-hunk. Argument validation (no leading `-` in branch names, hex-only hashes, `--` separators) guards against injection |
 | `terminal` | Shared PTY sessions per workspace (`github.com/creack/pty` + `os/exec`), bridged to a WebSocket; auth token passed as a `auth.<token>` WS subprotocol, never in the URL |
-| `lsp` | WebSocket↔stdio proxy for Language Server Protocol; one process per (workspace, language); built-in registry extendable via `~/.wede/lsp.json`; degrades gracefully (a JSON notice, not an error) when a server binary isn't installed |
+| `lsp` | WebSocket↔stdio proxy for Language Server Protocol; one process per connection, terminated and reaped on disconnect; global admission and bounded I/O; built-in registry extendable via `~/.wede/lsp.json`; degrades gracefully (a JSON notice, not an error) when a server binary isn't installed |
 | `dap` | Same proxy pattern as `lsp` but for the Debug Adapter Protocol; a fresh adapter process per debug session, killed on socket close; adapter registry extendable via `~/.wede/debug.json` or a trusted workspace's `.wede/debug.json` |
 | `tasks` | Serves named run/build/test commands from `~/.wede/tasks.json` (global) and a trusted workspace's `.wede/tasks.json`; parses and lists only — the command text runs client-side in a terminal, which is itself editor-gated |
 | `trust` | Owner-controlled allowlist (`~/.wede/trusted.json`) of workspace roots permitted to have their committed `.wede/` tooling config (tasks, debug adapters, formatters) honoured — stops a collaborator from running arbitrary host commands via a committed config file |

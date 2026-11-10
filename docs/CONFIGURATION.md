@@ -37,6 +37,28 @@ Only `port` (CLI flag) and `workspace_root` (environment variable) have an
 override mechanism beyond the config file itself; the other four keys are
 config-file-only.
 
+## Language-server session limit
+
+Set `WEDE_LSP_MAX_SESSIONS` before starting wede to limit concurrent language-server
+processes across all workspaces. It must be a positive integer; unset, invalid, or
+nonpositive values use the default of **4**. This is an environment-only setting,
+not a `wede.config.json` key. Changing it requires a restart.
+
+Each connection owns an independent language server. Admission waits up to 750 ms
+for a disconnecting session to finish cleanup, then rejects excess connections
+with an LSP notification. Processes still shutting down count toward the limit.
+Choose the limit for the memory available to your language servers; four sessions
+may be too many on a small host.
+
+Disconnecting, closing a workspace, or the language server exiting tears down the session.
+On Linux and macOS, its process group is terminated too; other platforms terminate
+the direct child. Descendants that deliberately leave that group are not contained.
+
+LSP messages are limited to 8 MiB, headers to 8 KiB, and queued stdin traffic to
+16 MiB including in-flight writes and metadata. Saturation gets a 2-second grace
+period before the connection closes. WebSocket writes have a 5-second deadline;
+ping/pong checks reclaim unresponsive connections after 60 seconds.
+
 ---
 
 ## `password`
