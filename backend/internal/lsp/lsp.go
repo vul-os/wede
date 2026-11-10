@@ -1,5 +1,5 @@
 // Package lsp provides a WebSocket-to-stdio proxy for Language Server Protocol
-// servers. It spawns one language server process per (workspace, language) pair
+// servers. It spawns one language server process per WebSocket connection
 // and bridges JSON-RPC messages between the browser WebSocket client and the
 // child process's stdin/stdout.
 //
@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -118,34 +119,41 @@ func LanguageExtensions() map[string]string {
 	return out
 }
 
-// serverKey identifies a unique language server instance.
-type serverKey struct {
-	workspace string
-	lang      string
-}
-
-// serverProc is a running language server process with its I/O pipes.
+// serverProc belongs exclusively to one WebSocket. done closes only after the
+// child has been reaped and all proxy goroutines have returned.
 type serverProc struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout *bufio.Reader
-	mu     sync.Mutex // guards concurrent writes to stdin
-	done   chan struct{}
+	cmd        *exec.Cmd
+	conn       *websocket.Conn
+	stdin      io.WriteCloser
+	stdout     *bufio.Reader
+	stdoutPipe io.Closer
+	stopOnce   sync.Once
+	done       chan struct{}
+	stopped    chan struct{}
+	release    func()
 }
 
-// kill tears down the process and signals the done channel.
-func (p *serverProc) kill() {
-	if p.cmd.Process != nil {
-		p.cmd.Process.Kill() //nolint:errcheck
-	}
+// stop interrupts both network and pipe I/O, including blocked writes. It must
+// not wait: it is also called by the goroutines that teardown needs to join.
+func (p *serverProc) stop() {
+	p.stopOnce.Do(func() {
+		close(p.stopped)
+		p.conn.Close()
+		killProcessTree(p.cmd)
+		p.stdin.Close()
+		p.stdoutPipe.Close()
+	})
 }
 
 // Handler manages LSP server processes and WebSocket proxy connections.
 type Handler struct {
-	ws       WorkspaceProvider
-	mu       sync.Mutex
-	servers  map[serverKey]*serverProc
-	upgrader websocket.Upgrader
+	ws         WorkspaceProvider
+	mu         sync.Mutex
+	servers    map[*serverProc]struct{}
+	closed     bool
+	generation uint64
+	changed    chan struct{}
+	upgrader   websocket.Upgrader
 }
 
 // New creates an LSP handler. allowedOrigins mirrors the terminal handler's
@@ -154,7 +162,8 @@ func New(ws WorkspaceProvider, allowedOrigins string) *Handler {
 	allowed := parseOrigins(allowedOrigins)
 	h := &Handler{
 		ws:      ws,
-		servers: make(map[serverKey]*serverProc),
+		servers: make(map[*serverProc]struct{}),
+		changed: make(chan struct{}),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return checkOrigin(r, allowed)
@@ -163,14 +172,7 @@ func New(ws WorkspaceProvider, allowedOrigins string) *Handler {
 	}
 	// When the workspace changes, kill all language server processes; the new
 	// workspace needs fresh servers initialised with the correct root URI.
-	ws.OnChange(func(string) {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		for k, p := range h.servers {
-			p.kill()
-			delete(h.servers, k)
-		}
-	})
+	ws.OnChange(func(string) { h.stopServers(false) })
 	return h
 }
 
@@ -186,14 +188,26 @@ func AvailableServers() map[string]string {
 	return out
 }
 
-// Close kills every language server process owned by this handler. Called when
-// the owning room is closed.
-func (h *Handler) Close() {
+// Close permanently closes the handler and waits for its children and proxy
+// goroutines to finish. It is safe to call concurrently or more than once.
+func (h *Handler) Close() { h.stopServers(true) }
+
+func (h *Handler) stopServers(permanent bool) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	for k, p := range h.servers {
-		p.kill()
-		delete(h.servers, k)
+	h.closed = h.closed || permanent
+	h.generation++
+	close(h.changed)
+	h.changed = make(chan struct{})
+	procs := make([]*serverProc, 0, len(h.servers))
+	for p := range h.servers {
+		procs = append(procs, p)
+	}
+	h.mu.Unlock()
+	for _, p := range procs {
+		p.stop()
+	}
+	for _, p := range procs {
+		<-p.done
 	}
 }
 
@@ -223,6 +237,16 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture the generation before upgrading so an in-flight handshake cannot
+	// start a stale session after a workspace change or Close.
+	h.mu.Lock()
+	generation, closed := h.generation, h.closed
+	h.mu.Unlock()
+	if closed {
+		http.Error(w, "LSP handler closed", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Echo auth subprotocol (same pattern as terminal handler).
 	var chosenProto string
 	for _, p := range websocket.Subprotocols(r) {
@@ -242,6 +266,7 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	configureWebSocket(conn, pongWait)
 
 	// Validate language is in the known set.
 	ls, ok := knownServers[lang]
@@ -264,144 +289,161 @@ func (h *Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspaceDir := h.ws.Current()
-	key := serverKey{workspace: workspaceDir, lang: lang}
-
-	proc, err := h.getOrStartServer(key, binPath, ls.args, workspaceDir)
+	proc, err := h.startServer(conn, generation, binPath, ls.args)
 	if err != nil {
 		log.Printf("[lsp] failed to start %s: %v", ls.bin, err)
 		sendNotification(conn, "window/showMessage", map[string]any{
-			"type":    1, // Error
-			"message": fmt.Sprintf("wede: failed to start language server: %v", err),
+			"type": 1, "message": fmt.Sprintf("wede: failed to start language server: %v", err),
 		})
 		return
 	}
 
-	log.Printf("[lsp] ws connected: lang=%s workspace=%s", lang, workspaceDir)
-
-	// Forward server stdout → WebSocket in a goroutine.
-	connClosed := make(chan struct{})
+	heartbeatDone := make(chan struct{})
 	go func() {
-		defer close(connClosed)
+		defer close(heartbeatDone)
+		defer proc.stop()
+		heartbeat(conn, proc.stopped, pingInterval)
+	}()
+	exited := make(chan struct{})
+	go func() {
+		proc.cmd.Wait() // Exactly one waiter, independent of stdout EOF.
+		proc.stop()
+		close(exited)
+	}()
+	outputDone := make(chan struct{})
+	go func() {
+		defer close(outputDone)
+		defer proc.stop()
 		if err := proxyServerToWS(proc, conn); err != nil {
 			log.Printf("[lsp] server→ws error: %v", err)
 		}
 	}()
-
-	// Forward WebSocket messages → server stdin (this goroutine).
-	proxyWSToServer(conn, proc, connClosed)
-	log.Printf("[lsp] ws disconnected: lang=%s", lang)
-}
-
-// getOrStartServer returns an existing running server or starts a new one.
-func (h *Handler) getOrStartServer(key serverKey, binPath string, args []string, workspaceDir string) (*serverProc, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if p, ok := h.servers[key]; ok {
-		// Verify the process is still alive by checking if done is closed.
-		select {
-		case <-p.done:
-			// Process exited; fall through to restart.
-			delete(h.servers, key)
-		default:
-			return p, nil
-		}
-	}
-
-	cmdArgs := append([]string{}, args...)
-	cmd := exec.Command(binPath, cmdArgs...)
-	if workspaceDir != "" {
-		cmd.Dir = workspaceDir
-	}
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("stdin pipe: %w", err)
-	}
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("stdout pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start: %w", err)
-	}
-
-	p := &serverProc{
-		cmd:    cmd,
-		stdin:  stdin,
-		stdout: bufio.NewReader(stdoutPipe),
-		done:   make(chan struct{}),
-	}
-	h.servers[key] = p
-
-	// Reap the process when it exits.
+	// A byte budget tolerates bursts of small messages. A saturated queue
+	// waits briefly for backpressure to clear, but Close/server exit can cancel
+	// it immediately. Disconnect detection behind backpressure is delayed by at
+	// most queueGrace; the best-effort overload close frame has controlWait.
+	messages := newMessageQueue()
+	inputDone := make(chan struct{})
 	go func() {
-		cmd.Wait() //nolint:errcheck
-		close(p.done)
-		h.mu.Lock()
-		if h.servers[key] == p {
-			delete(h.servers, key)
+		defer close(inputDone)
+		defer proc.stop()
+		for {
+			msg, ok := messages.pop(proc.stopped)
+			if !ok {
+				return
+			}
+			if err := writeLSPMessage(proc.stdin, msg); err != nil {
+				return
+			}
+			messages.written(msg)
 		}
-		h.mu.Unlock()
-		log.Printf("[lsp] server exited: lang=%s", key.lang)
 	}()
-
-	log.Printf("[lsp] started: %s %v (workspace=%s)", binPath, args, workspaceDir)
-	return p, nil
-}
-
-// proxyWSToServer reads JSON-RPC messages from the WebSocket and writes them
-// to the language server's stdin using the LSP wire format:
-//
-//	Content-Length: <n>\r\n\r\n<json>
-func proxyWSToServer(conn *websocket.Conn, proc *serverProc, done <-chan struct{}) {
+	defer func() {
+		proc.stop()
+		<-inputDone
+		<-outputDone
+		<-exited
+		<-heartbeatDone
+		proc.release()
+		h.mu.Lock()
+		delete(h.servers, proc)
+		close(proc.done)
+		h.mu.Unlock()
+	}()
 	for {
-		select {
-		case <-done:
-			return
-		default:
-		}
-
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
-
-		// Write Content-Length framed message to language server stdin.
-		header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(msg))
-		proc.mu.Lock()
-		_, err = proc.stdin.Write([]byte(header))
-		if err == nil {
-			_, err = proc.stdin.Write(msg)
-		}
-		proc.mu.Unlock()
-		if err != nil {
-			log.Printf("[lsp] stdin write error: %v", err)
+		if err := messages.push(msg, proc.stopped, queueGrace); err != nil {
+			log.Printf("[lsp] stdin queue: %v", err)
+			// WriteControl is safe alongside the sole stdout/data writer.
+			conn.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseTryAgainLater, err.Error()),
+				time.Now().Add(controlWait))
 			return
 		}
 	}
 }
 
-// proxyServerToWS reads LSP Content-Length framed messages from the language
-// server's stdout and forwards them as WebSocket text frames.
+// startServer serializes admission with workspace changes and Close. No process
+// can be started without being registered before either takes its snapshot.
+func (h *Handler) startServer(conn *websocket.Conn, generation uint64, binPath string, args []string) (*serverProc, error) {
+	h.mu.Lock()
+	if h.closed || generation != h.generation {
+		h.mu.Unlock()
+		return nil, fmt.Errorf("LSP session closed or workspace changed")
+	}
+	cancel := h.changed
+	h.mu.Unlock()
+	release, err := globalSessions.acquire(cancel, maxSessions(), admissionWait)
+	if err != nil {
+		return nil, err
+	}
+	admitted := false
+	defer func() {
+		if !admitted {
+			release()
+		}
+	}()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || generation != h.generation {
+		return nil, fmt.Errorf("LSP session closed or workspace changed")
+	}
+	workspaceDir := h.ws.Current()
+	cmd := exec.Command(binPath, args...)
+	cmd.Dir = workspaceDir
+	configureProcess(cmd)
+	childStdin, stdin, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("stdin pipe: %w", err)
+	}
+	cmd.Stdin = childStdin
+	// Own the stdout pipe ourselves: Cmd.Wait must not close a StdoutPipe
+	// concurrently with its reader. Explicit closure also unblocks reads if a
+	// descendant inherits stdout after the server exits.
+	stdout, childStdout, err := os.Pipe()
+	if err != nil {
+		childStdin.Close()
+		stdin.Close()
+		return nil, fmt.Errorf("stdout pipe: %w", err)
+	}
+	cmd.Stdout = childStdout
+	if err := cmd.Start(); err != nil {
+		childStdin.Close()
+		stdin.Close()
+		stdout.Close()
+		childStdout.Close()
+		return nil, fmt.Errorf("start: %w", err)
+	}
+	childStdin.Close()
+	childStdout.Close()
+	p := &serverProc{cmd: cmd, conn: conn, stdin: stdin,
+		stdout: bufio.NewReader(stdout), stdoutPipe: stdout, done: make(chan struct{}),
+		stopped: make(chan struct{}), release: release}
+	h.servers[p] = struct{}{}
+	admitted = true
+	log.Printf("[lsp] started: %s %v (workspace=%s)", binPath, args, workspaceDir)
+	return p, nil
+}
+
+func writeLSPMessage(w io.Writer, msg []byte) error {
+	if _, err := fmt.Fprintf(w, "Content-Length: %d\r\n\r\n", len(msg)); err != nil {
+		return err
+	}
+	_, err := w.Write(msg)
+	return err
+}
+
+// proxyServerToWS is the sole stdout reader and WebSocket data writer.
 func proxyServerToWS(proc *serverProc, conn *websocket.Conn) error {
 	for {
-		select {
-		case <-proc.done:
-			return nil
-		default:
-		}
-
 		msg, err := readLSPMessage(proc.stdout)
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
-
+		conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 			return err
 		}
@@ -412,25 +454,40 @@ func proxyServerToWS(proc *serverProc, conn *websocket.Conn) error {
 func readLSPMessage(r *bufio.Reader) ([]byte, error) {
 	contentLength := -1
 
-	// Read headers until blank line.
+	// Count the entire header section, including ignored headers and line
+	// endings. ReadByte avoids ReadString allocating an unbounded header line.
+	total := 0
 	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break // end of headers
-		}
-		if strings.HasPrefix(line, "Content-Length:") {
-			v := strings.TrimSpace(strings.TrimPrefix(line, "Content-Length:"))
-			n, err := strconv.Atoi(v)
+		line := make([]byte, 0, 128)
+		for {
+			if total >= maxHeaderBytes {
+				return nil, fmt.Errorf("LSP headers exceed %d bytes", maxHeaderBytes)
+			}
+			ch, err := r.ReadByte()
 			if err != nil {
-				return nil, fmt.Errorf("invalid Content-Length: %w", err)
+				return nil, err
+			}
+			total++
+			if ch == '\n' {
+				break
+			}
+			line = append(line, ch)
+		}
+		header := strings.TrimRight(string(line), "\r")
+		if header == "" {
+			break
+		}
+		name, value, ok := strings.Cut(header, ":")
+		if ok && strings.EqualFold(name, "Content-Length") {
+			if contentLength != -1 {
+				return nil, fmt.Errorf("duplicate Content-Length")
+			}
+			n, err := strconv.Atoi(strings.TrimSpace(value))
+			if err != nil || n < 0 || n > maxMessageBytes {
+				return nil, fmt.Errorf("invalid Content-Length: must be 0..%d", maxMessageBytes)
 			}
 			contentLength = n
 		}
-		// Other headers (e.g. Content-Type) are ignored.
 	}
 
 	if contentLength < 0 {
@@ -453,6 +510,7 @@ func sendNotification(conn *websocket.Conn, method string, params any) {
 		"params":  params,
 	}
 	data, _ := json.Marshal(msg)
+	conn.SetWriteDeadline(time.Now().Add(writeWait))
 	conn.WriteMessage(websocket.TextMessage, data) //nolint:errcheck
 }
 
